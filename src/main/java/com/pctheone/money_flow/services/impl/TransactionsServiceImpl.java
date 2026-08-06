@@ -1,8 +1,8 @@
 package com.pctheone.money_flow.services.impl;
 
+import com.pctheone.money_flow.dto.AmountAndCategoryDTO;
 import com.pctheone.money_flow.entities.CategoryEntity;
 import com.pctheone.money_flow.exceptions.CategoryNotFoundException;
-import com.pctheone.money_flow.exceptions.InvalidDateRangeException;
 import com.pctheone.money_flow.repositories.CategoryRepository;
 import com.pctheone.money_flow.repositories.TransactionsRepository;
 import com.pctheone.money_flow.services.TransactionsService;
@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -23,8 +24,6 @@ public class TransactionsServiceImpl implements TransactionsService {
     @Autowired
     TransactionsRepository transactionsRepository;
 
-
-
     @Override
     public BigDecimal totalSpentByCategoryAndTime(LocalDate startTime, LocalDate endTime, Integer categoryId){
 
@@ -35,6 +34,34 @@ public class TransactionsServiceImpl implements TransactionsService {
             throw new CategoryNotFoundException("Category doesn't exist");
 
         return transactionsRepository.totalSpentByCategoryByTime(startTime, endTime, categoryId);
+
+    }
+
+    @Override
+    public BigDecimal totalRecurringByTime(LocalDate startTime, LocalDate endTime){
+        DateUtils.validateTimeRange(startTime, endTime);
+        return transactionsRepository.totalRecurringByTime(startTime, endTime);
+    }
+
+    @Override
+    public BigDecimal totalIncomeByTime(LocalDate startTime, LocalDate endTime) {
+        DateUtils.validateTimeRange(startTime, endTime);
+
+        return transactionsRepository.totalIncomeByTime(startTime, endTime);
+    }
+
+    @Override
+    public BigDecimal totalSpentByTime(LocalDate startTime, LocalDate endTime) {
+        DateUtils.validateTimeRange(startTime, endTime);
+
+        return transactionsRepository.totalSpentByTime(startTime,endTime);
+    }
+
+    @Override
+    public List<AmountAndCategoryDTO> totalSpentInMonthByCategoryDesc(LocalDate startTime, LocalDate endTime) {
+
+        DateUtils.validateTimeRange(startTime, endTime);
+        return transactionsRepository.totalSpentInMonthByCategoryDesc(startTime, endTime);
 
     }
 }
