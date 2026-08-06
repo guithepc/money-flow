@@ -27,7 +27,7 @@ public class TransactionRepositoryTest {
         LocalDate startDate = LocalDate.of(2026, 8, 1);
         LocalDate endDate = LocalDate.of(2026, 8, 31);
 
-        BigDecimal result = transactionsRepository.totalSpentByCategoryByTime(startDate, endDate, categoryEntity);
+        BigDecimal result = transactionsRepository.totalSpentByCategoryByTime(startDate, endDate, categoryEntity.getCategoryId());
 
         Assertions.assertTrue(result.compareTo(BigDecimal.ZERO) == 0) ;
     }
@@ -41,7 +41,7 @@ public class TransactionRepositoryTest {
         LocalDate startDate = LocalDate.of(2026, 8, 1);
         LocalDate endDate = LocalDate.of(2026, 8, 31);
 
-        BigDecimal result = transactionsRepository.totalSpentByCategoryByTime(startDate, endDate, categoryEntity);
+        BigDecimal result = transactionsRepository.totalSpentByCategoryByTime(startDate, endDate, categoryEntity.getCategoryId());
 
         Assertions.assertTrue(result.compareTo(BigDecimal.ZERO) > 0) ;
     }

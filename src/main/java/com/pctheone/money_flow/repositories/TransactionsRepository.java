@@ -21,8 +21,8 @@ public interface TransactionsRepository extends JpaRepository<TransactionsEntity
 
 
     @Query("SELECT COALESCE(sum(t.amount), 0) from TransactionsEntity as t " +
-            "WHERE t.timestamp BETWEEN :startDate AND :endDate AND t.category = :category AND t.operationType = 'EXPENSE'")
-    BigDecimal totalSpentByCategoryByTime(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("category") CategoryEntity category);
+            "WHERE t.timestamp BETWEEN :startDate AND :endDate AND t.category.categoryId = :categoryId AND t.operationType = 'EXPENSE'")
+    BigDecimal totalSpentByCategoryByTime(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("categoryId") Integer categoryId);
 
 
     @Query("SELECT COALESCE(sum(t.amount), 0) from TransactionsEntity as t " +
