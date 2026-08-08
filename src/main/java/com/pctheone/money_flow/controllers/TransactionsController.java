@@ -1,5 +1,6 @@
 package com.pctheone.money_flow.controllers;
 
+import com.pctheone.money_flow.dto.AmountAndCategoryDTO;
 import com.pctheone.money_flow.dto.TotalAmountDTO;
 import com.pctheone.money_flow.services.TransactionsService;
 import org.slf4j.Logger;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/transactions")
@@ -55,4 +57,27 @@ public class TransactionsController {
 
         return ResponseEntity.ok(totalDto);
     }
+
+    @GetMapping("/total-spent-by-time")
+    public ResponseEntity<TotalAmountDTO> totalSpentByTime(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate){
+
+        log.info("Total Spent by time requested: startDate={}, endDate={}", startDate, endDate);
+        BigDecimal result = transactionsService.totalSpentByTime(startDate, endDate);
+        log.info("Total Spent processed - Amount: {}", result);
+        TotalAmountDTO totalDto = new TotalAmountDTO(result);
+
+        return ResponseEntity.ok(totalDto);
+    }
+
+    @GetMapping("/total-spent-ranked-by-category")
+    public ResponseEntity<List<AmountAndCategoryDTO>> totalSpentByCategoryRanked(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate){
+
+        log.info("Total spent ranked by category requested: startDate={}, endDate={}", startDate, endDate);
+        List<AmountAndCategoryDTO> result = transactionsService.totalSpentInMonthByCategoryDesc(startDate, endDate);
+        log.info("Total spent ranked by category - Total spent ranked by category {}", result);
+
+        return ResponseEntity.ok(result);
+    }
+
+
 }
