@@ -3,6 +3,7 @@ package com.pctheone.money_flow.repositories;
 import com.pctheone.money_flow.dto.AmountAndCategoryDTO;
 import com.pctheone.money_flow.entities.TransactionsEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -39,4 +40,9 @@ public interface TransactionsRepository extends JpaRepository<TransactionsEntity
     BigDecimal totalSpentByTime(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
 
+    @Modifying
+    @Query("INSERT into TransactionsEntity (owner, account, category, description, timestamp, operationType, amount) " +
+            "VALUES (:ownerId, :accountId, :categoryId, :description, :timestamp, 'EXPENSE', :amount)")
+    void insertSingleExpense(@Param("ownerId") Integer ownerId, @Param("accountId") Integer accountId, @Param("categoryId") Integer categoryId, @Param("description") String description,
+                             @Param("timestamp") LocalDate timestamp, @Param ("amount") BigDecimal amount);
 }

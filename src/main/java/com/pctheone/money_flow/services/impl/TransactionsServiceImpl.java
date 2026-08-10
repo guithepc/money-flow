@@ -7,6 +7,7 @@ import com.pctheone.money_flow.repositories.CategoryRepository;
 import com.pctheone.money_flow.repositories.TransactionsRepository;
 import com.pctheone.money_flow.services.TransactionsService;
 import com.pctheone.money_flow.utils.DateUtils;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -63,5 +64,21 @@ public class TransactionsServiceImpl implements TransactionsService {
         DateUtils.validateTimeRange(startTime, endTime);
         return transactionsRepository.totalSpentInMonthByCategoryDesc(startTime, endTime);
 
+    }
+
+    @Transactional
+    @Override
+    public BigDecimal registerExpense(Integer ownerId, String categoryDescription, Integer accountId, String amount, String description) {
+
+        Optional<CategoryEntity> category = Optional.ofNullable(categoryRepository.findByDescription(categoryDescription));
+
+        if (category.isEmpty())
+            throw new CategoryNotFoundException("No category found for this description");
+
+        BigDecimal amountValue = new BigDecimal(amount);
+
+        transactionsRepository.insertSingleExpense(ownerId, accountId, category.get().getCategoryId(), description, LocalDate.now(), amountValue);
+
+        return amountValue;
     }
 }
