@@ -1,8 +1,11 @@
 package com.pctheone.money_flow.services.impl;
 
 import com.pctheone.money_flow.dto.AmountAndCategoryDTO;
+import com.pctheone.money_flow.dto.ExpenseRegistrationResultDTO;
+import com.pctheone.money_flow.entities.AccountEntity;
 import com.pctheone.money_flow.entities.CategoryEntity;
 import com.pctheone.money_flow.exceptions.CategoryNotFoundException;
+import com.pctheone.money_flow.repositories.AccountRepository;
 import com.pctheone.money_flow.repositories.CategoryRepository;
 import com.pctheone.money_flow.repositories.TransactionsRepository;
 import com.pctheone.money_flow.services.TransactionsService;
@@ -24,6 +27,9 @@ public class TransactionsServiceImpl implements TransactionsService {
 
     @Autowired
     TransactionsRepository transactionsRepository;
+
+    @Autowired
+    AccountRepository accountRepository;
 
     @Override
     public BigDecimal totalSpentByCategoryAndTime(LocalDate startTime, LocalDate endTime, Integer categoryId){
@@ -68,7 +74,7 @@ public class TransactionsServiceImpl implements TransactionsService {
 
     @Transactional
     @Override
-    public BigDecimal registerExpense(Integer ownerId, String categoryDescription, Integer accountId, String amount, String description) {
+    public ExpenseRegistrationResultDTO registerExpense(Integer ownerId, String categoryDescription, Integer accountId, String amount, String description) {
 
         Optional<CategoryEntity> category = Optional.ofNullable(categoryRepository.findByDescription(categoryDescription));
 
@@ -78,7 +84,9 @@ public class TransactionsServiceImpl implements TransactionsService {
         BigDecimal amountValue = new BigDecimal(amount);
 
         transactionsRepository.insertSingleExpense(ownerId, accountId, category.get().getCategoryId(), description, LocalDate.now(), amountValue);
+        accountRepository.decrementBalance(accountId, amountValue);
+        Optional<AccountEntity> account = accountRepository.findById(accountId);
 
-        return amountValue;
+        return new ExpenseRegistrationResultDTO(amountValue, account.get().getBalance());
     }
 }
