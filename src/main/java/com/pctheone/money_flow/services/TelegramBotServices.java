@@ -1,5 +1,6 @@
 package com.pctheone.money_flow.services;
 
+import com.pctheone.money_flow.dto.CategoryDTO;
 import com.pctheone.money_flow.dto.TransactionRegistrationResultDTO;
 import com.pctheone.money_flow.exceptions.InvalidMoneyFormatException;
 import jakarta.annotation.PostConstruct;
@@ -49,6 +50,10 @@ public class TelegramBotServices {
     @Autowired
     TransactionsService transactionsService;
 
+
+    @Autowired
+    CategoryService categoryService;
+
     public void telegramRouter(Update update){
         //---- /gasto mercado carne 25 1
         if (!update.hasMessage()) {
@@ -64,11 +69,10 @@ public class TelegramBotServices {
             return;
         }
 
-        if (command.get(3).contains(","))
-            throw new InvalidMoneyFormatException("Wrong money format");
 
         switch (command.getFirst()){
             case "/gasto":{
+                checkMessage(command);
                 log.info("Expense being registered.");
                 TransactionRegistrationResultDTO expense = transactionsService.registerExpense(1, command.get(1), Integer.valueOf(command.getLast()), command.get(3), command.get(2));
                 log.info("Expense registered successfully, amount:  {} -  Actual balance: {}", expense.getAmount(), expense.getNewBalance());
@@ -77,11 +81,28 @@ public class TelegramBotServices {
                 break;
             }
             case "/entrada":{
+                checkMessage(command);
                 log.info("Income being registered.");
                 TransactionRegistrationResultDTO income = transactionsService.registerIncome(1, command.get(1), Integer.valueOf(command.getLast()), command.get(3), command.get(2));
                 log.info("Income registered successfully, amount:  {} -  Actual balance: {}", income.getAmount(), income.getNewBalance());
                 String telegramMessage = "📈 Income registered successfully. \n💰 Actual balance: €" + income.getNewBalance().toString();
                 sendReply(update.getMessage().getChatId(), telegramMessage);
+                break;
+            }
+            case "/categorias":{
+                log.info("Categories requested.");
+                List<CategoryDTO> categoryDTOList = categoryService.listAllCategories();
+                log.info("Categories in database:  {}", categoryDTOList.size());
+                StringBuilder telegramMessage = new StringBuilder("📈 Your categories:\n");
+                for (CategoryDTO categoryDTO : categoryDTOList){
+                    telegramMessage
+                            .append("ID: ")
+                            .append(categoryDTO.getCategoryId())
+                            .append(" - ")
+                            .append(categoryDTO.getCategoryDescription())
+                            .append("\n");
+                }
+                sendReply(update.getMessage().getChatId(), telegramMessage.toString());
                 break;
             }
             default:
@@ -117,6 +138,11 @@ public class TelegramBotServices {
             log.error("Failed to call Telegram API {}", e.getMessage(), e);
         }
 
+    }
 
+    private void checkMessage(List<String> command){
+        if (command.get(3).contains(","))
+            throw new InvalidMoneyFormatException("Wrong money format");
+        log.info("Message checked successfully");
     }
 }
