@@ -1,7 +1,7 @@
 package com.pctheone.money_flow.services.impl;
 
 import com.pctheone.money_flow.dto.AmountAndCategoryDTO;
-import com.pctheone.money_flow.dto.ExpenseRegistrationResultDTO;
+import com.pctheone.money_flow.dto.TransactionRegistrationResultDTO;
 import com.pctheone.money_flow.entities.AccountEntity;
 import com.pctheone.money_flow.entities.CategoryEntity;
 import com.pctheone.money_flow.exceptions.CategoryNotFoundException;
@@ -74,7 +74,7 @@ public class TransactionsServiceImpl implements TransactionsService {
 
     @Transactional
     @Override
-    public ExpenseRegistrationResultDTO registerExpense(Integer ownerId, String categoryDescription, Integer accountId, String amount, String description) {
+    public TransactionRegistrationResultDTO registerExpense(Integer ownerId, String categoryDescription, Integer accountId, String amount, String description) {
         char firstChar = categoryDescription.charAt(0);
         String categoryDescriptionFormatted = String.valueOf(firstChar).toUpperCase() + categoryDescription.substring(1);
 
@@ -89,6 +89,26 @@ public class TransactionsServiceImpl implements TransactionsService {
         accountRepository.decrementBalance(accountId, amountValue);
         Optional<AccountEntity> account = accountRepository.findById(accountId);
 
-        return new ExpenseRegistrationResultDTO(amountValue, account.get().getBalance());
+        return new TransactionRegistrationResultDTO(amountValue, account.get().getBalance());
+    }
+
+    @Transactional
+    @Override
+    public TransactionRegistrationResultDTO registerIncome(Integer ownerId, String categoryDescription, Integer accountId, String amount, String description) {
+        char firstChar = categoryDescription.charAt(0);
+        String categoryDescriptionFormatted = String.valueOf(firstChar).toUpperCase() + categoryDescription.substring(1);
+
+        Optional<CategoryEntity> category = Optional.ofNullable(categoryRepository.findByDescription(categoryDescriptionFormatted));
+
+        if (category.isEmpty())
+            throw new CategoryNotFoundException("No category found for this description");
+
+        BigDecimal amountValue = new BigDecimal(amount);
+
+        transactionsRepository.insertSingleIncome(ownerId, accountId, category.get().getCategoryId(), description, LocalDate.now(), amountValue);
+        accountRepository.incrementBalance(accountId, amountValue);
+        Optional<AccountEntity> account = accountRepository.findById(accountId);
+
+        return new TransactionRegistrationResultDTO(amountValue, account.get().getBalance());
     }
 }

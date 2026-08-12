@@ -1,6 +1,6 @@
 package com.pctheone.money_flow.services;
 
-import com.pctheone.money_flow.dto.ExpenseRegistrationResultDTO;
+import com.pctheone.money_flow.dto.TransactionRegistrationResultDTO;
 import com.pctheone.money_flow.exceptions.InvalidMoneyFormatException;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -68,15 +68,22 @@ public class TelegramBotServices {
             throw new InvalidMoneyFormatException("Wrong money format");
 
         switch (command.getFirst()){
-            case "/gasto":
+            case "/gasto":{
                 log.info("Expense being registered.");
-                ExpenseRegistrationResultDTO expense = transactionsService.registerExpense(1, command.get(1), Integer.valueOf(command.getLast()), command.get(3), command.get(2));
+                TransactionRegistrationResultDTO expense = transactionsService.registerExpense(1, command.get(1), Integer.valueOf(command.getLast()), command.get(3), command.get(2));
                 log.info("Expense registered successfully, amount:  {} -  Actual balance: {}", expense.getAmount(), expense.getNewBalance());
-                String telegramMessage = "✅ Expense registered successfully. \n💰 Actual balance: €" + expense.getNewBalance().toString();
+                String telegramMessage = "📉 Expense registered successfully. \n💰 Actual balance: €" + expense.getNewBalance().toString();
                 sendReply(update.getMessage().getChatId(), telegramMessage);
                 break;
-            case "/entrada":
+            }
+            case "/entrada":{
+                log.info("Income being registered.");
+                TransactionRegistrationResultDTO income = transactionsService.registerIncome(1, command.get(1), Integer.valueOf(command.getLast()), command.get(3), command.get(2));
+                log.info("Income registered successfully, amount:  {} -  Actual balance: {}", income.getAmount(), income.getNewBalance());
+                String telegramMessage = "📈 Income registered successfully. \n💰 Actual balance: €" + income.getNewBalance().toString();
+                sendReply(update.getMessage().getChatId(), telegramMessage);
                 break;
+            }
             default:
                 break;
 

@@ -45,4 +45,10 @@ public interface TransactionsRepository extends JpaRepository<TransactionsEntity
             "VALUES (:ownerId, :accountId, :categoryId, :description, :timestamp, 'EXPENSE', :amount)")
     void insertSingleExpense(@Param("ownerId") Integer ownerId, @Param("accountId") Integer accountId, @Param("categoryId") Integer categoryId, @Param("description") String description,
                              @Param("timestamp") LocalDate timestamp, @Param ("amount") BigDecimal amount);
+
+    @Modifying
+    @Query("INSERT into TransactionsEntity (owner, account, category, description, timestamp, operationType, amount) " +
+            "VALUES (:ownerId, :accountId, :categoryId, :description, :timestamp, 'INCOME', :amount)")
+    void insertSingleIncome(@Param("ownerId") Integer ownerId, @Param("accountId") Integer accountId, @Param("categoryId") Integer categoryId, @Param("description") String description,
+                            @Param("timestamp") LocalDate timestamp, @Param ("amount") BigDecimal amount);
 }

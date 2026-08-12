@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 
 @Getter
 @AllArgsConstructor
-public class ExpenseRegistrationResultDTO {
+public class TransactionRegistrationResultDTO {
     private BigDecimal amount;
     private BigDecimal newBalance;
 }
