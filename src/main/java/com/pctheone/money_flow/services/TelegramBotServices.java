@@ -51,9 +51,19 @@ public class TelegramBotServices {
 
     public void telegramRouter(Update update){
         //---- /gasto mercado carne 25 1
+        if (!update.hasMessage()) {
+            log.info("No message in update.");
+            return;
+        }
+
         String message = update.getMessage().getText();
 
         List<String> command = Arrays.asList(message.split(" "));
+        if ("/start".equals(command.getFirst())){
+            log.info("Telegram bot starting.");
+            return;
+        }
+
         if (command.get(3).contains(","))
             throw new InvalidMoneyFormatException("Wrong money format");
 
@@ -61,8 +71,8 @@ public class TelegramBotServices {
             case "/gasto":
                 log.info("Expense being registered.");
                 ExpenseRegistrationResultDTO expense = transactionsService.registerExpense(1, command.get(1), Integer.valueOf(command.getLast()), command.get(3), command.get(2));
-                log.info("Expense registered successfully, amount:  {} - Actual balance: {}", expense.getAmount(), expense.getNewBalance());
-                String telegramMessage = "Expense registered successfully. Actual balance: " + expense.getNewBalance().toString();
+                log.info("Expense registered successfully, amount:  {} -  Actual balance: {}", expense.getAmount(), expense.getNewBalance());
+                String telegramMessage = "✅ Expense registered successfully. \n💰 Actual balance: €" + expense.getNewBalance().toString();
                 sendReply(update.getMessage().getChatId(), telegramMessage);
                 break;
             case "/entrada":

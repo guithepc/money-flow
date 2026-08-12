@@ -75,8 +75,10 @@ public class TransactionsServiceImpl implements TransactionsService {
     @Transactional
     @Override
     public ExpenseRegistrationResultDTO registerExpense(Integer ownerId, String categoryDescription, Integer accountId, String amount, String description) {
+        char firstChar = categoryDescription.charAt(0);
+        String categoryDescriptionFormatted = String.valueOf(firstChar).toUpperCase() + categoryDescription.substring(1);
 
-        Optional<CategoryEntity> category = Optional.ofNullable(categoryRepository.findByDescription(categoryDescription));
+        Optional<CategoryEntity> category = Optional.ofNullable(categoryRepository.findByDescription(categoryDescriptionFormatted));
 
         if (category.isEmpty())
             throw new CategoryNotFoundException("No category found for this description");
