@@ -105,6 +105,12 @@ public class TelegramBotServices {
                 sendReply(update.getMessage().getChatId(), telegramMessage.toString());
                 break;
             }
+            case "/add-categoria":{
+                log.info("Add category requested.");
+                String telegramMessage = categoryService.addCategory(command.get(1));
+                sendReply(update.getMessage().getChatId(), telegramMessage);
+                break;
+            }
             default:
                 break;
 
