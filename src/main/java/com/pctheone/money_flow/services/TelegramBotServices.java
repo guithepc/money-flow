@@ -1,5 +1,6 @@
 package com.pctheone.money_flow.services;
 
+import com.pctheone.money_flow.dto.AccountDTO;
 import com.pctheone.money_flow.dto.CategoryDTO;
 import com.pctheone.money_flow.dto.TransactionRegistrationResultDTO;
 import com.pctheone.money_flow.exceptions.InvalidMoneyFormatException;
@@ -14,6 +15,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -45,14 +47,14 @@ public class TelegramBotServices {
                 .build();
     }
 
-
-
     @Autowired
     TransactionsService transactionsService;
 
-
     @Autowired
     CategoryService categoryService;
+
+    @Autowired
+    AccountService accountService;
 
     public void telegramRouter(Update update){
         //---- /gasto mercado carne 25 1
@@ -109,6 +111,30 @@ public class TelegramBotServices {
                 log.info("Add category requested.");
                 String telegramMessage = categoryService.addCategory(command.get(1));
                 sendReply(update.getMessage().getChatId(), telegramMessage);
+                break;
+            }
+            case "/add-conta":{
+                log.info("Add account requested.");
+                String telegramMessage = accountService.addAccount(command.get(1), new BigDecimal(command.get(2)), 1);
+                sendReply(update.getMessage().getChatId(), telegramMessage);
+                break;
+            }
+            case "/contas":{
+                log.info("Accounts requested.");
+                List<AccountDTO> accountDTOList = accountService.listAllAccounts();
+                log.info("Accounts in database:  {}", accountDTOList.size());
+                StringBuilder telegramMessage = new StringBuilder("🏦 Your accounts:\n");
+                for (AccountDTO accountDTO : accountDTOList){
+                    telegramMessage
+                            .append("ID: ")
+                            .append(accountDTO.getAccountId())
+                            .append(" - ")
+                            .append(accountDTO.getDescription())
+                            .append(" | ")
+                            .append(accountDTO.getAmount())
+                            .append("\n");
+                }
+                sendReply(update.getMessage().getChatId(), telegramMessage.toString());
                 break;
             }
             default:
