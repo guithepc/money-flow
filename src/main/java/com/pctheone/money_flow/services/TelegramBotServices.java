@@ -74,6 +74,8 @@ public class TelegramBotServices {
 
         switch (command.getFirst()){
             case "/gasto":{
+                if (isCommandToShort(command, 5, update))
+                    break;
                 checkMessage(command);
                 log.info("Expense being registered.");
                 TransactionRegistrationResultDTO expense = transactionsService.registerExpense(1, command.get(1), Integer.valueOf(command.getLast()), command.get(3), command.get(2));
@@ -83,6 +85,8 @@ public class TelegramBotServices {
                 break;
             }
             case "/entrada":{
+                if (isCommandToShort(command, 5, update))
+                    break;
                 checkMessage(command);
                 log.info("Income being registered.");
                 TransactionRegistrationResultDTO income = transactionsService.registerIncome(1, command.get(1), Integer.valueOf(command.getLast()), command.get(3), command.get(2));
@@ -92,6 +96,8 @@ public class TelegramBotServices {
                 break;
             }
             case "/categorias":{
+                if (isCommandToShort(command, 1, update))
+                    break;
                 log.info("Categories requested.");
                 List<CategoryDTO> categoryDTOList = categoryService.listAllCategories();
                 log.info("Categories in database:  {}", categoryDTOList.size());
@@ -108,18 +114,24 @@ public class TelegramBotServices {
                 break;
             }
             case "/add-categoria":{
+                if (isCommandToShort(command, 2, update))
+                    break;
                 log.info("Add category requested.");
                 String telegramMessage = categoryService.addCategory(command.get(1));
                 sendReply(update.getMessage().getChatId(), telegramMessage);
                 break;
             }
             case "/add-conta":{
+                if (isCommandToShort(command, 3, update))
+                    break;
                 log.info("Add account requested.");
                 String telegramMessage = accountService.addAccount(command.get(1), new BigDecimal(command.get(2)), 1);
                 sendReply(update.getMessage().getChatId(), telegramMessage);
                 break;
             }
             case "/contas":{
+                if (isCommandToShort(command, 1, update))
+                    break;
                 log.info("Accounts requested.");
                 List<AccountDTO> accountDTOList = accountService.listAllAccounts();
                 log.info("Accounts in database:  {}", accountDTOList.size());
@@ -176,5 +188,14 @@ public class TelegramBotServices {
         if (command.get(3).contains(","))
             throw new InvalidMoneyFormatException("Wrong money format");
         log.info("Message checked successfully");
+    }
+
+    private boolean isCommandToShort(List<String> command, int expectedSize, Update update){
+        if (command.size() < expectedSize){
+            String errorMessage = "Message doesnt have right size. Expected size for command: " + expectedSize;
+            sendReply(update.getMessage().getChatId(), errorMessage);
+            return true;
+        }
+        return false;
     }
 }
