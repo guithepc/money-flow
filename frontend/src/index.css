@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme {
+  /* Surfaces */
+  --color-background: #0a0c0b;
+  --color-surface: #141816;
+  --color-surface-raised: #1b201d;
+  --color-edge: #242a26;
+
+  /* Brand accent (amber) — identidade / sparkle / eyebrows */
+  --color-brand: #eab308;
+  --color-brand-soft: #3a2f0a;
+
+  /* Data accent (green) — KPIs / barras / positivo */
+  --color-data: #3fcf5f;
+  --color-data-strong: #34b851;
+
+  /* Negative (red) — gastos / deltas pra baixo */
+  --color-negative: #f0616d;
+
+  /* Text */
+  --color-fg: #f5f7f6;
+  --color-fg-muted: #9ba5a0;
+
+  /* Typography — sistema estilo ngrok */
+  --font-serif: "Fraunces Variable", Georgia, serif;
+  --font-sans: "Inter Variable", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-background);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Eyebrow mono maiúsculo com tracking — assinatura ngrok */
+.eyebrow {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
