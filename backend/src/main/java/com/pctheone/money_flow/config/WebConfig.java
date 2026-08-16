@@ -5,10 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-/**
- * Libera CORS para o dashboard React (dev server do Vite) consumir os endpoints
- * de agregação. A origem permitida é configurável via app.cors.allowed-origins.
- */
+
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
@@ -18,6 +15,9 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/transactions/**")
+                .allowedOrigins(allowedOrigins)
+                .allowedMethods("GET");
+        registry.addMapping("/accounts/**")
                 .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET");
     }

@@ -1,8 +1,8 @@
-import type { AmountAndCategory, DateRange, TotalAmount } from './types'
+import type { Account, AmountAndCategory, DateRange, TotalAmount } from './types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
 
-async function get<T>(path: string, params: Record<string, string>): Promise<T> {
+async function get<T>(path: string, params: Record<string, string> = {}): Promise<T> {
   const url = new URL(`${BASE_URL}${path}`)
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value)
@@ -26,4 +26,8 @@ export const reportsApi = {
 
   spentRankedByCategory: (range: DateRange) =>
     get<AmountAndCategory[]>('/transactions/total-spent-ranked-by-category', range),
+}
+
+export const accountsApi = {
+  getAll: () => get<Account[]>('/accounts'),
 }

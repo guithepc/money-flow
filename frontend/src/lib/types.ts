@@ -12,6 +12,16 @@ export interface AmountAndCategory {
   categoryDescription: string
 }
 
+/** AccountDTO { accountId: Integer, description: String, amount: BigDecimal } */
+export interface Account {
+  accountId: number
+  description: string
+  amount: number
+}
+
+/** Seções navegáveis da sidebar. */
+export type View = 'dashboard' | 'accounts' | 'reports' | 'recurring'
+
 /** Intervalo de datas ISO (yyyy-mm-dd) usado nas queries de agregação. */
 export type DateRange = {
   startDate: string

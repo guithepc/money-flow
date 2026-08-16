@@ -7,15 +7,21 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { View } from '@/lib/types'
 
-const NAV = [
-  { icon: LayoutGrid, label: 'Dashboard', active: true },
-  { icon: Wallet, label: 'Contas', active: false },
-  { icon: BarChart3, label: 'Relatórios', active: false },
-  { icon: Repeat, label: 'Recorrentes', active: false },
+const NAV: { icon: typeof LayoutGrid; label: string; view: View }[] = [
+  { icon: LayoutGrid, label: 'Dashboard', view: 'dashboard' },
+  { icon: Wallet, label: 'Contas', view: 'accounts' },
+  { icon: BarChart3, label: 'Relatórios', view: 'reports' },
+  { icon: Repeat, label: 'Recorrentes', view: 'recurring' },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  active: View
+  onNavigate: (view: View) => void
+}
+
+export function Sidebar({ active, onNavigate }: SidebarProps) {
   return (
     <aside className="flex w-16 shrink-0 flex-col items-center gap-8 border-r border-edge bg-surface/40 py-6">
       {/* Logo — sparkle âmbar em badge, identidade da marca */}
@@ -24,13 +30,14 @@ export function Sidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col items-center gap-2">
-        {NAV.map(({ icon: Icon, label, active }) => (
+        {NAV.map(({ icon: Icon, label, view }) => (
           <button
             key={label}
             title={label}
+            onClick={() => onNavigate(view)}
             className={cn(
               'flex size-10 items-center justify-center rounded-xl transition-colors',
-              active
+              active === view
                 ? 'bg-surface-raised text-data'
                 : 'text-fg-muted hover:bg-surface-raised hover:text-fg',
             )}
