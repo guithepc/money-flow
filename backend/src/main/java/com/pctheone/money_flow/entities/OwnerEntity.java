@@ -1,6 +1,8 @@
 package com.pctheone.money_flow.entities;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "owner")
@@ -15,4 +17,8 @@ public class OwnerEntity {
 
     @Column(nullable = false)
     private String email;
+
+    @Column(name = "password_hash", columnDefinition = "CHAR(60)", nullable = false)
+    @JdbcTypeCode(SqlTypes.CHAR)
+    private String passwordHash;
 }

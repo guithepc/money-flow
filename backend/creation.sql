@@ -1,9 +1,10 @@
 CREATE TABLE owner (
 	owner_id SERIAL PRIMARY KEY,
 	name varchar(255) NOT NULL,
-	email varchar (255) NOT NULL
+    password_hash CHAR(60) NOT NULL,
+	email varchar (255) NOT NULL,
+    CONSTRAINT owner_email_key UNIQUE (email)
 );
-
 
 CREATE TABLE account (
 	account_id SERIAL PRIMARY KEY,
