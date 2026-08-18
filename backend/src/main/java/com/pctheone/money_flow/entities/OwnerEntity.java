@@ -1,10 +1,14 @@
 package com.pctheone.money_flow.entities;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 @Entity
+@Getter
+@AllArgsConstructor
 @Table(name = "owner")
 public class OwnerEntity {
     @Id
