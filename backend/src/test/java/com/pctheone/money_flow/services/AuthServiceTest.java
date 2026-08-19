@@ -40,4 +40,30 @@ public class AuthServiceTest {
         Assertions.assertEquals(Optional.of(1), result);
 
     }
+
+    @Test
+    void authenticateWithWrongPassword(){
+        String hash = new BCryptPasswordEncoder().encode("coxinha123");
+
+        OwnerEntity ownerEntity = new OwnerEntity(1, "G", "g@gmail.com", hash);
+        Mockito.when(ownerRepository.findByEmail(ArgumentMatchers.any())).thenReturn(Optional.of(ownerEntity));
+
+        AuthService service = new AuthService(new BCryptPasswordEncoder(), ownerRepository);
+        Optional<Integer> result = service.authenticate("theone@gmail.com", "otherpassword123");
+
+        Assertions.assertEquals(Optional.empty(), result);
+
+    }
+
+
+    @Test
+    void authenticateWithUnknownEmail(){
+        Mockito.when(ownerRepository.findByEmail(ArgumentMatchers.any())).thenReturn(Optional.empty());
+
+        AuthService service = new AuthService(new BCryptPasswordEncoder(), ownerRepository);
+        Optional<Integer> result = service.authenticate("theone@gmail.com", "otherpassword123");
+
+        Assertions.assertEquals(Optional.empty(), result);
+
+    }
 }
