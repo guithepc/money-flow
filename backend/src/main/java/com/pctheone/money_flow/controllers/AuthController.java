@@ -24,8 +24,6 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponseDTO> login (@RequestBody LoginRequestDTO loginRequestDTO){
-        log.info("Chegou auth");
-        String a = "A";
         Integer ownerId = authService.authenticate(loginRequestDTO.getEmail(), loginRequestDTO.getPassword()).orElseThrow(() -> new InvalidCredentialsException("Invalid credentials"));
         String token = authService.generateToken(ownerId);
         return ResponseEntity.ok(new LoginResponseDTO(token));

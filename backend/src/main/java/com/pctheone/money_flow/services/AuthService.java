@@ -2,6 +2,8 @@ package com.pctheone.money_flow.services;
 
 import com.pctheone.money_flow.entities.OwnerEntity;
 import com.pctheone.money_flow.repositories.OwnerRepository;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -9,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.Optional;
 
@@ -52,5 +55,21 @@ public class AuthService {
 
         return token;
 
+    }
+
+    public Optional<Integer> validateToken(String token){
+        try {
+            SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(this.jwtSecret));
+            Claims claims = Jwts.parser()
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+
+            String subject = claims.getSubject();
+            return Optional.of(Integer.valueOf(subject));
+        } catch (JwtException e){
+            return Optional.empty();
+        }
     }
 }
