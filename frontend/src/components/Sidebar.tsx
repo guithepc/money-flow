@@ -4,6 +4,7 @@ import {
   BarChart3,
   Repeat,
   Settings,
+  LogOut,
   Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -19,9 +20,10 @@ const NAV: { icon: typeof LayoutGrid; label: string; view: View }[] = [
 interface SidebarProps {
   active: View
   onNavigate: (view: View) => void
+  onLogout: () => void
 }
 
-export function Sidebar({ active, onNavigate }: SidebarProps) {
+export function Sidebar({ active, onNavigate, onLogout }: SidebarProps) {
   return (
     <aside className="flex w-16 shrink-0 flex-col items-center gap-8 border-r border-edge bg-surface/40 py-6">
       {/* Logo — sparkle âmbar em badge, identidade da marca */}
@@ -52,6 +54,14 @@ export function Sidebar({ active, onNavigate }: SidebarProps) {
         className="flex size-10 items-center justify-center rounded-xl text-fg-muted transition-colors hover:bg-surface-raised hover:text-fg"
       >
         <Settings className="size-5" strokeWidth={1.8} />
+      </button>
+
+      <button
+        title="Sair"
+        onClick={onLogout}
+        className="flex size-10 items-center justify-center rounded-xl text-fg-muted transition-colors hover:bg-negative/10 hover:text-negative"
+      >
+        <LogOut className="size-5" strokeWidth={1.8} />
       </button>
     </aside>
   )
