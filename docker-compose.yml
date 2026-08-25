@@ -15,7 +15,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
     labels:
       traefik.enable: "true"
-      traefik.http.routers.money-flow.rule: "Host(`mf.pctheone.com`)"
+      traefik.http.routers.money-flow.rule: "Host(`mf.pctheone.com`) && PathPrefix(`/api`)"
       traefik.http.routers.money-flow.entrypoints: websecure
       traefik.http.routers.money-flow.tls.certresolver: letsencrypt
       traefik.http.routers.money-flow.middlewares: waf@file,ratelimit@file,secheaders@file
@@ -23,3 +23,42 @@ services:
     depends_on:
       postgres: {condition: service_healthy}
     networks: [traefik_proxy, internal]
+
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [internal]
+
+  frontend:
+    build:
+      context: ../frontend
+    restart: unless-stopped
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.money-flow.rule: "Host(`mf.pctheone.com`)"
+      traefik.http.routers.money-flow.entrypoints: websecure
+      traefik.http.routers.money-flow.tls.certresolver: letsencrypt
+      traefik.http.routers.money-flow.middlewares: ratelimit@file,secheaders@file
+      traefik.http.services.money-flow.loadbalancer.server.port: "80"
+    networks: [traefik_proxy]
+    
+networks:
+  traefik_proxy:
+    external: true
+  internal:
+    name: money_flow_internal
+    internal: true
+
+volumes:
+  pgdata:
