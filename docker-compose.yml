@@ -1,0 +1,25 @@
+name: money-flow
+
+services:
+  backend:
+    build: ../backend
+    restart: unless-stopped
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      SPRING_PROFILES_ACTIVE: prod
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.money-flow.rule: "Host(`mf.pctheone.com`)"
+      traefik.http.routers.money-flow.entrypoints: websecure
+      traefik.http.routers.money-flow.tls.certresolver: letsencrypt
+      traefik.http.routers.money-flow.middlewares: waf@file,ratelimit@file,secheaders@file
+      traefik.http.services.money-flow.loadbalancer.server.port: "8080"
+    depends_on:
+      postgres: {condition: service_healthy}
+    networks: [traefik_proxy, internal]
