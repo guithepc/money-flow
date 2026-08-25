@@ -1,7 +1,7 @@
 import type { Account, AmountAndCategory, DateRange, TotalAmount } from './types'
 import { clearToken, getToken } from './auth'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api'
 
 /** Disparado quando qualquer chamada recebe 401 (token ausente/expirado). */
 export const UNAUTHORIZED_EVENT = 'auth:unauthorized'

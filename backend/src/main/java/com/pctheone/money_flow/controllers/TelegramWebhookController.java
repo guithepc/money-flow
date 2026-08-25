@@ -10,7 +10,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 
 
 @RestController
-@RequestMapping("/integration")
+@RequestMapping("/api/integration")
 public class TelegramWebhookController {
 
     @Autowired

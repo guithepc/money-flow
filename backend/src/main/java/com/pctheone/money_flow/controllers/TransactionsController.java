@@ -17,7 +17,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @RestController
-@RequestMapping("/transactions")
+@RequestMapping("/api/transactions")
 public class TransactionsController {
 
     private static final Logger log = LoggerFactory.getLogger(TransactionsController.class);
