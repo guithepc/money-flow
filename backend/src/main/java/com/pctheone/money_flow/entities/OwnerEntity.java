@@ -24,6 +24,9 @@ public class OwnerEntity {
     @Column(nullable = false)
     private String email;
 
+    @Column(name = "telegram_chat_id")
+    private Long telegramChatId;
+
     @Column(name = "password_hash", columnDefinition = "CHAR(60)", nullable = false)
     @JdbcTypeCode(SqlTypes.CHAR)
     private String passwordHash;

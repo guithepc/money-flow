@@ -3,7 +3,8 @@ CREATE TABLE owner (
 	name varchar(255) NOT NULL,
     password_hash CHAR(60) NOT NULL,
 	email varchar (255) NOT NULL,
-    CONSTRAINT owner_email_key UNIQUE (email)
+    CONSTRAINT owner_email_key UNIQUE (email),
+    telegram_chat_id BIGINT UNIQUE
 );
 
 CREATE TABLE account (
