@@ -24,7 +24,7 @@ public class AuthServiceTest {
     @Test
     void encryptString(){
         AuthService service = new AuthService(new BCryptPasswordEncoder(), ownerRepository);
-        String pass = "Senha-bem-safada-5";
+        String pass = "coxinha123";
         String hashPass = service.encodePassword(pass);
         log.info(hashPass);
 

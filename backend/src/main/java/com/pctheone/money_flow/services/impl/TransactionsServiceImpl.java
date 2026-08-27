@@ -1,6 +1,7 @@
 package com.pctheone.money_flow.services.impl;
 
 import com.pctheone.money_flow.dto.AmountAndCategoryDTO;
+import com.pctheone.money_flow.dto.TransactionDTO;
 import com.pctheone.money_flow.dto.TransactionRegistrationResultDTO;
 import com.pctheone.money_flow.entities.AccountEntity;
 import com.pctheone.money_flow.entities.CategoryEntity;
@@ -110,5 +111,11 @@ public class TransactionsServiceImpl implements TransactionsService {
         Optional<AccountEntity> account = accountRepository.findById(accountId);
 
         return new TransactionRegistrationResultDTO(amountValue, account.get().getBalance());
+    }
+
+    @Override
+    public List<TransactionDTO> listAllTransactions(LocalDate startTime, LocalDate endTime) {
+
+        return transactionsRepository.listAllTransaction(startTime, endTime);
     }
 }

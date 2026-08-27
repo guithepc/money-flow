@@ -1,6 +1,7 @@
 package com.pctheone.money_flow.services;
 
 import com.pctheone.money_flow.dto.AmountAndCategoryDTO;
+import com.pctheone.money_flow.dto.TransactionDTO;
 import com.pctheone.money_flow.dto.TransactionRegistrationResultDTO;
 
 import java.math.BigDecimal;
@@ -15,4 +16,6 @@ public interface TransactionsService {
     List<AmountAndCategoryDTO> totalSpentInMonthByCategoryDesc(LocalDate startTime, LocalDate endTime);
     TransactionRegistrationResultDTO registerExpense(Integer ownerId, String categoryDescription, Integer accountId, String amount, String description);
     TransactionRegistrationResultDTO registerIncome(Integer ownerId, String categoryDescription, Integer accountId, String amount, String description);
+    List<TransactionDTO> listAllTransactions (LocalDate startTime, LocalDate endTime);
+
 }

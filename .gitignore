@@ -43,3 +43,4 @@ build/
 application-local.properties
 application-local.yml
 *.log
+.env

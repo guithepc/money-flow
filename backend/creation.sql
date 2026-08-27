@@ -19,9 +19,6 @@ CREATE TABLE category (
 	description varchar (255) NOT NULL
 );
 
-drop table recurring_payment;
-drop table transactions;
-DROP TYPE frequency;
 CREATE TYPE frequency as ENUM ('MONTHLY', 'WEEKLY', 'ANNUAL');
 
 CREATE TABLE recurring_payment (

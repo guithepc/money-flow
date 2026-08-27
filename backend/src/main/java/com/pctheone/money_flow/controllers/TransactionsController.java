@@ -2,6 +2,7 @@ package com.pctheone.money_flow.controllers;
 
 import com.pctheone.money_flow.dto.AmountAndCategoryDTO;
 import com.pctheone.money_flow.dto.TotalAmountDTO;
+import com.pctheone.money_flow.dto.TransactionDTO;
 import com.pctheone.money_flow.services.TransactionsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,6 +77,14 @@ public class TransactionsController {
         List<AmountAndCategoryDTO> result = transactionsService.totalSpentInMonthByCategoryDesc(startDate, endDate);
         log.info("Total spent ranked by category - Total spent ranked by category {}", result);
 
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<TransactionDTO>> listAllTransactions(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate){
+        log.info("All transactions requested.");
+        List<TransactionDTO> result = transactionsService.listAllTransactions(startDate, endDate);
+        log.info("All transactions list processed successfully");
         return ResponseEntity.ok(result);
     }
 

@@ -1,6 +1,7 @@
 package com.pctheone.money_flow.repositories;
 
 import com.pctheone.money_flow.dto.AmountAndCategoryDTO;
+import com.pctheone.money_flow.dto.TransactionDTO;
 import com.pctheone.money_flow.entities.TransactionsEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -19,6 +20,9 @@ public interface TransactionsRepository extends JpaRepository<TransactionsEntity
             "GROUP BY t.category.description ORDER BY SUM(t.amount) DESC")
     List<AmountAndCategoryDTO> totalSpentInMonthByCategoryDesc(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
+    @Query("SELECT new com.pctheone.money_flow.dto.TransactionDTO(t.transactionsId, t.description, t.amount, t.timestamp, t.category.description, t.operationType) from TransactionsEntity as t " +
+            "WHERE t.timestamp BETWEEN :startDate AND :endDate")
+    List<TransactionDTO> listAllTransaction(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     @Query("SELECT COALESCE(sum(t.amount), 0) from TransactionsEntity as t " +
             "WHERE t.timestamp BETWEEN :startDate AND :endDate AND t.category.categoryId = :categoryId AND t.operationType = 'EXPENSE'")
