@@ -26,6 +26,8 @@
   --font-serif: "Fraunces Variable", Georgia, serif;
   --font-sans: "Inter Variable", system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  /* Arredondada — valores monetários (KPIs, saldo, totais) */
+  --font-rounded: "Nunito Variable", "Inter Variable", system-ui, sans-serif;
 }
 
 html {
@@ -38,6 +40,18 @@ body {
   color: var(--color-fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Fade + subida sutil — usado na troca de conta e entrada de widgets */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Eyebrow mono maiúsculo com tracking — assinatura ngrok */

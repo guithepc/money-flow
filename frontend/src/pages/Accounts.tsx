@@ -1,10 +1,11 @@
 import { Wallet } from 'lucide-react'
 import { KpiCard } from '@/components/KpiCard'
 import { useAccounts } from '@/hooks/useAccounts'
-import { formatCurrency } from '@/lib/utils'
+import { useCurrency } from '@/contexts/CurrencyContext'
 
 export function Accounts() {
   const { data, loading, error } = useAccounts()
+  const { format } = useCurrency()
 
   const total = data.reduce((acc, a) => acc + a.amount, 0)
 
@@ -71,7 +72,7 @@ export function Accounts() {
                   </span>
                 </div>
                 <span className="font-mono text-sm tabular-nums text-fg-muted">
-                  {formatCurrency(account.amount)}
+                  {format(account.amount)}
                 </span>
               </li>
             ))}

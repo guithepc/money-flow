@@ -16,7 +16,11 @@ interface ReportsState {
   error: string | null
 }
 
-export function useReports(range: DateRange): ReportsState {
+/**
+ * Agregações do dashboard pro período. `accountId` é repassado pro backend
+ * (ignorado até o filtro por conta existir).
+ */
+export function useReports(range: DateRange, accountId?: number): ReportsState {
   const [state, setState] = useState<ReportsState>({
     data: null,
     loading: true,
@@ -27,10 +31,10 @@ export function useReports(range: DateRange): ReportsState {
     setState((s) => ({ ...s, loading: true, error: null }))
     try {
       const [spent, income, recurring, ranking] = await Promise.all([
-        reportsApi.totalSpent(range),
-        reportsApi.totalIncome(range),
-        reportsApi.totalRecurring(range),
-        reportsApi.spentRankedByCategory(range),
+        reportsApi.totalSpent(range, accountId),
+        reportsApi.totalIncome(range, accountId),
+        reportsApi.totalRecurring(range, accountId),
+        reportsApi.spentRankedByCategory(range, accountId),
       ])
       setState({
         loading: false,
@@ -50,7 +54,7 @@ export function useReports(range: DateRange): ReportsState {
         error: err instanceof Error ? err.message : 'Erro ao carregar dados',
       })
     }
-  }, [range.startDate, range.endDate])
+  }, [range.startDate, range.endDate, accountId])
 
   useEffect(() => {
     void load()

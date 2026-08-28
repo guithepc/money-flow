@@ -1,4 +1,10 @@
-import type { Account, AmountAndCategory, DateRange, TotalAmount } from './types'
+import type {
+  Account,
+  AmountAndCategory,
+  DateRange,
+  TotalAmount,
+  Transaction,
+} from './types'
 import { clearToken, getToken } from './auth'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api'
@@ -47,18 +53,50 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return handleResponse<T>(res, path)
 }
 
+/**
+ * Monta os query params das queries de agregação. `accountId` é opcional e só
+ * entra no querystring quando presente — hoje o backend ignora, mas o frontend
+ * já envia pra quando o filtro por conta existir (ver contrato em CLAUDE.md/plano).
+ */
+function reportParams(range: DateRange, accountId?: number): Record<string, string> {
+  const params: Record<string, string> = { ...range }
+  if (accountId != null) params.accountId = String(accountId)
+  return params
+}
+
 export const reportsApi = {
-  totalSpent: (range: DateRange) =>
-    get<TotalAmount>('/transactions/total-spent-by-time', range),
+  totalSpent: (range: DateRange, accountId?: number) =>
+    get<TotalAmount>('/transactions/total-spent-by-time', reportParams(range, accountId)),
 
-  totalIncome: (range: DateRange) =>
-    get<TotalAmount>('/transactions/total-income-by-time', range),
+  totalIncome: (range: DateRange, accountId?: number) =>
+    get<TotalAmount>('/transactions/total-income-by-time', reportParams(range, accountId)),
 
-  totalRecurring: (range: DateRange) =>
-    get<TotalAmount>('/transactions/total-recurring-by-time', range),
+  totalRecurring: (range: DateRange, accountId?: number) =>
+    get<TotalAmount>('/transactions/total-recurring-by-time', reportParams(range, accountId)),
 
-  spentRankedByCategory: (range: DateRange) =>
-    get<AmountAndCategory[]>('/transactions/total-spent-ranked-by-category', range),
+  spentRankedByCategory: (range: DateRange, accountId?: number) =>
+    get<AmountAndCategory[]>(
+      '/transactions/total-spent-ranked-by-category',
+      reportParams(range, accountId),
+    ),
+
+  // --- Contrato dos endpoints de série temporal (fase 2, backend a fazer) ---
+  // Descomente quando os endpoints existirem no backend. As assinaturas já
+  // refletem o contrato documentado no plano.
+  //
+  // balanceHistory: (range: DateRange, accountId?: number) =>
+  //   get<TimeSeriesPoint[]>('/transactions/balance-history', reportParams(range, accountId)),
+  //
+  // incomeExpenseMonthly: (range: DateRange, accountId?: number) =>
+  //   get<MonthlyIncomeExpense[]>(
+  //     '/transactions/income-expense-monthly',
+  //     reportParams(range, accountId),
+  //   ),
+}
+
+export const transactionsApi = {
+  list: (range: DateRange, accountId?: number) =>
+    get<Transaction[]>('/transactions', reportParams(range, accountId)),
 }
 
 export const accountsApi = {

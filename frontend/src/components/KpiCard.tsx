@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { formatCurrency } from '@/lib/utils'
+import { useCurrency } from '@/contexts/CurrencyContext'
 
 type Tone = 'data' | 'negative' | 'neutral'
 
@@ -31,12 +31,13 @@ export function KpiCard({
   loading = false,
   glow = false,
 }: KpiCardProps) {
+  const { format } = useCurrency()
   return (
     <div className="relative">
       {glow && (
         <div
           aria-hidden
-          className="pointer-events-none absolute -inset-[2px] rounded-2xl opacity-70 blur-md"
+          className="pointer-events-none absolute -inset-[2px] rounded-2xl opacity-35 blur-md"
           style={{ background: RAINBOW }}
         />
       )}
@@ -52,11 +53,11 @@ export function KpiCard({
       ) : (
         <span
           className={cn(
-            'font-serif text-3xl font-semibold tabular-nums tracking-tight',
+            'font-rounded text-3xl font-bold tabular-nums tracking-tight',
             toneClasses[tone],
           )}
         >
-          {formatCurrency(value)}
+          {format(value)}
         </span>
       )}
       </div>

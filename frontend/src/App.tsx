@@ -4,6 +4,7 @@ import { Dashboard } from '@/pages/Dashboard'
 import { Accounts } from '@/pages/Accounts'
 import { Login } from '@/pages/Login'
 import { useAuth } from '@/hooks/useAuth'
+import { CurrencyProvider } from '@/contexts/CurrencyContext'
 import type { View } from '@/lib/types'
 
 function Placeholder({ title }: { title: string }) {
@@ -27,12 +28,14 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-background text-fg">
-      <Sidebar active={view} onNavigate={setView} onLogout={auth.logout} />
-      {view === 'dashboard' && <Dashboard />}
-      {view === 'accounts' && <Accounts />}
-      {view === 'reports' && <Placeholder title="Relatórios" />}
-      {view === 'recurring' && <Placeholder title="Recorrentes" />}
-    </div>
+    <CurrencyProvider>
+      <div className="flex h-screen bg-background text-fg">
+        <Sidebar active={view} onNavigate={setView} onLogout={auth.logout} />
+        {view === 'dashboard' && <Dashboard />}
+        {view === 'accounts' && <Accounts />}
+        {view === 'reports' && <Placeholder title="Relatórios" />}
+        {view === 'recurring' && <Placeholder title="Recorrentes" />}
+      </div>
+    </CurrencyProvider>
   )
 }

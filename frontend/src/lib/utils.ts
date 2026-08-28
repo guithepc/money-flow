@@ -5,13 +5,37 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-/** Formata BigDecimal (string/number) como moeda BRL. */
-export function formatCurrency(value: number | string): string {
+/** Moedas de exibição suportadas no dashboard. */
+export type Currency = 'BRL' | 'EUR' | 'USD'
+
+export const CURRENCIES: { code: Currency; label: string; symbol: string }[] = [
+  { code: 'BRL', label: 'Real', symbol: 'R$' },
+  { code: 'EUR', label: 'Euro', symbol: '€' },
+  { code: 'USD', label: 'Dólar', symbol: 'USD' },
+]
+
+const numberFmt = new Intl.NumberFormat('pt-BR', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+/**
+ * Formata um valor com a moeda escolhida. Só muda a disposição do símbolo
+ * (não converte câmbio): BRL = `R$` à esquerda; EUR = `€` à direita;
+ * USD = `USD` à direita.
+ */
+export function formatCurrency(value: number | string, currency: Currency = 'BRL'): string {
   const n = typeof value === 'string' ? Number(value) : value
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(Number.isFinite(n) ? n : 0)
+  const num = numberFmt.format(Number.isFinite(n) ? n : 0)
+  switch (currency) {
+    case 'EUR':
+      return `${num} €`
+    case 'USD':
+      return `${num} USD`
+    case 'BRL':
+    default:
+      return `R$ ${num}`
+  }
 }
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)

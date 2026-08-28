@@ -1,9 +1,15 @@
 import { useState } from 'react'
 import { ArrowDownRight, ArrowUpRight, Repeat, Scale } from 'lucide-react'
+import { AccountSwitcher } from '@/components/AccountSwitcher'
 import { KpiCard } from '@/components/KpiCard'
-import { CategoryRanking } from '@/components/CategoryRanking'
+import { CategoryDonut } from '@/components/CategoryDonut'
+import { BalanceHistoryChart } from '@/components/BalanceHistoryChart'
+import { IncomeExpenseChart } from '@/components/IncomeExpenseChart'
+import { RecentTransactions } from '@/components/RecentTransactions'
 import { PeriodPicker } from '@/components/PeriodPicker'
 import { useReports } from '@/hooks/useReports'
+import { useAccounts } from '@/hooks/useAccounts'
+import { useTransactions } from '@/hooks/useTransactions'
 import type { DateRange } from '@/lib/types'
 import { currentMonthRange } from '@/lib/utils'
 
@@ -11,7 +17,13 @@ export function Dashboard() {
   // draft = o que está nos inputs; applied = o que dispara o fetch (ao clicar na lupa).
   const [draftRange, setDraftRange] = useState<DateRange>(currentMonthRange)
   const [appliedRange, setAppliedRange] = useState<DateRange>(draftRange)
-  const { data, loading, error } = useReports(appliedRange)
+  // null = "Todas as contas" (agregado). Ao selecionar, os hooks repassam accountId.
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
+  const accountId = selectedAccountId ?? undefined
+
+  const accounts = useAccounts()
+  const { data, loading, error } = useReports(appliedRange, accountId)
+  const transactions = useTransactions(appliedRange, accountId)
 
   return (
     <main className="flex-1 overflow-y-auto px-8 py-8">
@@ -42,7 +54,23 @@ export function Dashboard() {
         </div>
       )}
 
-      <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Contas (switcher) + histórico no tempo */}
+      <section className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="h-full xl:col-span-1">
+          <AccountSwitcher
+            accounts={accounts.data}
+            selectedId={selectedAccountId}
+            onSelect={setSelectedAccountId}
+            loading={accounts.loading}
+          />
+        </div>
+        <div className="xl:col-span-2">
+          <BalanceHistoryChart loading={loading} />
+        </div>
+      </section>
+
+      {/* KPIs — como antes */}
+      <section className="mb-6 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="Entrada"
           value={data?.totalIncome ?? 0}
@@ -74,7 +102,18 @@ export function Dashboard() {
         />
       </section>
 
-      <CategoryRanking data={data?.ranking ?? []} loading={loading} />
+      {/* Esquerda: categorias (donut) + comparativo · Direita: transações */}
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="flex flex-col gap-6 xl:col-span-2">
+          <CategoryDonut data={data?.ranking ?? []} loading={loading} />
+          <div className="flex flex-1 flex-col">
+            <IncomeExpenseChart loading={loading} />
+          </div>
+        </div>
+        <div className="h-full xl:col-span-1">
+          <RecentTransactions data={transactions.data} loading={transactions.loading} />
+        </div>
+      </section>
     </main>
   )
 }
