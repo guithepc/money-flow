@@ -17,6 +17,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+
 @RestController
 @RequestMapping("/api/transactions")
 public class TransactionsController {
@@ -38,10 +39,10 @@ public class TransactionsController {
     }
 
     @GetMapping("/total-recurring-by-time")
-    public ResponseEntity<TotalAmountDTO> totalRecurringByTime(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate){
+    public ResponseEntity<TotalAmountDTO> totalRecurringByTime(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId){
 
         log.info("Total recurring by time requested: startDate={}, endDate={}", startDate, endDate);
-        BigDecimal result = transactionsService.totalRecurringByTime(startDate, endDate);
+        BigDecimal result = transactionsService.totalRecurringByTime(startDate, endDate, accountId);
         log.info("Total recurring by time processed - Amount: {}", result);
         TotalAmountDTO totalDto = new TotalAmountDTO(result);
 
@@ -49,10 +50,10 @@ public class TransactionsController {
     }
 
     @GetMapping("/total-income-by-time")
-    public ResponseEntity<TotalAmountDTO> totalIncomeByTime(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate){
+    public ResponseEntity<TotalAmountDTO> totalIncomeByTime(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId){
 
         log.info("Total income by time requested: startDate={}, endDate={}", startDate, endDate);
-        BigDecimal result = transactionsService.totalIncomeByTime(startDate, endDate);
+        BigDecimal result = transactionsService.totalIncomeByTime(startDate, endDate, accountId);
         log.info("Total income processed - Amount: {}", result);
         TotalAmountDTO totalDto = new TotalAmountDTO(result);
 
@@ -60,10 +61,10 @@ public class TransactionsController {
     }
 
     @GetMapping("/total-spent-by-time")
-    public ResponseEntity<TotalAmountDTO> totalSpentByTime(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate){
+    public ResponseEntity<TotalAmountDTO> totalSpentByTime(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId){
 
         log.info("Total Spent by time requested: startDate={}, endDate={}", startDate, endDate);
-        BigDecimal result = transactionsService.totalSpentByTime(startDate, endDate);
+        BigDecimal result = transactionsService.totalSpentByTime(startDate, endDate, accountId);
         log.info("Total Spent processed - Amount: {}", result);
         TotalAmountDTO totalDto = new TotalAmountDTO(result);
 
@@ -71,22 +72,21 @@ public class TransactionsController {
     }
 
     @GetMapping("/total-spent-ranked-by-category")
-    public ResponseEntity<List<AmountAndCategoryDTO>> totalSpentByCategoryRanked(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate){
+    public ResponseEntity<List<AmountAndCategoryDTO>> totalSpentByCategoryRanked(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId){
 
         log.info("Total spent ranked by category requested: startDate={}, endDate={}", startDate, endDate);
-        List<AmountAndCategoryDTO> result = transactionsService.totalSpentInMonthByCategoryDesc(startDate, endDate);
+        List<AmountAndCategoryDTO> result = transactionsService.totalSpentInMonthByCategoryDesc(startDate, endDate, accountId);
         log.info("Total spent ranked by category - Total spent ranked by category {}", result);
 
         return ResponseEntity.ok(result);
     }
 
     @GetMapping
-    public ResponseEntity<List<TransactionDTO>> listAllTransactions(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate){
+    public ResponseEntity<List<TransactionDTO>> listAllTransactions(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId){
         log.info("All transactions requested.");
-        List<TransactionDTO> result = transactionsService.listAllTransactions(startDate, endDate);
+        List<TransactionDTO> result = transactionsService.listAllTransactions(startDate, endDate, accountId);
         log.info("All transactions list processed successfully");
         return ResponseEntity.ok(result);
     }
-
 
 }

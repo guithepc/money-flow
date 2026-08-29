@@ -46,30 +46,45 @@ public class TransactionsServiceImpl implements TransactionsService {
     }
 
     @Override
-    public BigDecimal totalRecurringByTime(LocalDate startTime, LocalDate endTime){
+    public BigDecimal totalRecurringByTime(LocalDate startTime, LocalDate endTime, Integer accountId){
         DateUtils.validateTimeRange(startTime, endTime);
-        return transactionsRepository.totalRecurringByTime(startTime, endTime);
+        if (accountId == null) {
+            return transactionsRepository.totalRecurringByTime(startTime, endTime);
+        } else {
+            return transactionsRepository.totalRecurringByTimeByAccount(startTime, endTime, accountId);
+        }
     }
 
     @Override
-    public BigDecimal totalIncomeByTime(LocalDate startTime, LocalDate endTime) {
+    public BigDecimal totalIncomeByTime(LocalDate startTime, LocalDate endTime, Integer accountId) {
         DateUtils.validateTimeRange(startTime, endTime);
-
-        return transactionsRepository.totalIncomeByTime(startTime, endTime);
+        if (accountId == null){
+            return transactionsRepository.totalIncomeByTime(startTime, endTime);
+        } else {
+            return transactionsRepository.totalIncomeByTimeByAccount(startTime, endTime, accountId);
+        }
     }
 
     @Override
-    public BigDecimal totalSpentByTime(LocalDate startTime, LocalDate endTime) {
+    public BigDecimal totalSpentByTime(LocalDate startTime, LocalDate endTime, Integer accountId) {
         DateUtils.validateTimeRange(startTime, endTime);
-
-        return transactionsRepository.totalSpentByTime(startTime,endTime);
+        if (accountId == null){
+            return transactionsRepository.totalSpentByTime(startTime,endTime);
+        } else {
+            return transactionsRepository.totalSpentByTimeAndAccountId(startTime, endTime, accountId);
+        }
     }
 
     @Override
-    public List<AmountAndCategoryDTO> totalSpentInMonthByCategoryDesc(LocalDate startTime, LocalDate endTime) {
+    public List<AmountAndCategoryDTO> totalSpentInMonthByCategoryDesc(LocalDate startTime, LocalDate endTime, Integer accountId) {
 
         DateUtils.validateTimeRange(startTime, endTime);
-        return transactionsRepository.totalSpentInMonthByCategoryDesc(startTime, endTime);
+        if (accountId == null) {
+            return transactionsRepository.totalSpentInMonthByCategoryDesc(startTime, endTime);
+
+        } else {
+            return transactionsRepository.totalSpentInMonthByCategoryDescByAccount(startTime, endTime, accountId);
+        }
 
     }
 
@@ -114,8 +129,12 @@ public class TransactionsServiceImpl implements TransactionsService {
     }
 
     @Override
-    public List<TransactionDTO> listAllTransactions(LocalDate startTime, LocalDate endTime) {
-
-        return transactionsRepository.listAllTransaction(startTime, endTime);
+    public List<TransactionDTO> listAllTransactions(LocalDate startTime, LocalDate endTime, Integer accountId) {
+        DateUtils.validateTimeRange(startTime, endTime);
+        if (accountId == null){
+            return transactionsRepository.listAllTransaction(startTime, endTime);
+        } else{
+            return transactionsRepository.listAllTransactionByAccount(startTime, endTime, accountId);
+        }
     }
 }

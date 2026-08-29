@@ -20,9 +20,18 @@ public interface TransactionsRepository extends JpaRepository<TransactionsEntity
             "GROUP BY t.category.description ORDER BY SUM(t.amount) DESC")
     List<AmountAndCategoryDTO> totalSpentInMonthByCategoryDesc(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
+    @Query("SELECT new com.pctheone.money_flow.dto.AmountAndCategoryDTO(SUM(t.amount), t.category.description) from TransactionsEntity as t " +
+            "WHERE t.timestamp BETWEEN :startDate AND :endDate AND t.operationType = 'EXPENSE' AND t.account.accountId = :accountId " +
+            "GROUP BY t.category.description ORDER BY SUM(t.amount) DESC")
+    List<AmountAndCategoryDTO> totalSpentInMonthByCategoryDescByAccount(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("accountId") Integer accountId);
+
     @Query("SELECT new com.pctheone.money_flow.dto.TransactionDTO(t.transactionsId, t.description, t.amount, t.timestamp, t.category.description, t.operationType) from TransactionsEntity as t " +
             "WHERE t.timestamp BETWEEN :startDate AND :endDate")
     List<TransactionDTO> listAllTransaction(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    @Query("SELECT new com.pctheone.money_flow.dto.TransactionDTO(t.transactionsId, t.description, t.amount, t.timestamp, t.category.description, t.operationType) from TransactionsEntity as t " +
+            "WHERE t.timestamp BETWEEN :startDate AND :endDate AND t.account.accountId = :accountId")
+    List<TransactionDTO> listAllTransactionByAccount(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("accountId") Integer accountId);
 
     @Query("SELECT COALESCE(sum(t.amount), 0) from TransactionsEntity as t " +
             "WHERE t.timestamp BETWEEN :startDate AND :endDate AND t.category.categoryId = :categoryId AND t.operationType = 'EXPENSE'")
@@ -33,6 +42,10 @@ public interface TransactionsRepository extends JpaRepository<TransactionsEntity
             "WHERE t.timestamp BETWEEN :startDate AND :endDate AND t.recurringPayment IS NOT NULL AND t.operationType = 'EXPENSE'")
     BigDecimal totalRecurringByTime(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
+    @Query("SELECT COALESCE(sum(t.amount), 0) from TransactionsEntity as t " +
+            "WHERE t.timestamp BETWEEN :startDate AND :endDate AND t.recurringPayment IS NOT NULL AND t.operationType = 'EXPENSE' AND t.account.accountId = :accountId")
+    BigDecimal totalRecurringByTimeByAccount(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("accountId") Integer accountId);
+
 
     @Query("SELECT COALESCE(sum(t.amount), 0) from TransactionsEntity as t " +
             "WHERE t.timestamp BETWEEN :startDate AND :endDate AND t.operationType = 'INCOME'")
@@ -40,9 +53,18 @@ public interface TransactionsRepository extends JpaRepository<TransactionsEntity
 
 
     @Query("SELECT COALESCE(sum(t.amount), 0) from TransactionsEntity as t " +
+            "WHERE t.timestamp BETWEEN :startDate AND :endDate AND t.operationType = 'INCOME' AND t.account.accountId = :accountId")
+    BigDecimal totalIncomeByTimeByAccount(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("accountId") Integer accountId);
+
+
+    @Query("SELECT COALESCE(sum(t.amount), 0) from TransactionsEntity as t " +
             "WHERE t.timestamp BETWEEN :startDate AND :endDate AND t.operationType = 'EXPENSE'")
     BigDecimal totalSpentByTime(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
+
+    @Query("SELECT COALESCE(sum(t.amount), 0) from TransactionsEntity as t " +
+            "WHERE t.timestamp BETWEEN :startDate AND :endDate AND t.operationType = 'EXPENSE' AND t.account.accountId = :accountId")
+    BigDecimal totalSpentByTimeAndAccountId(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("accountId") Integer accountId);
 
     @Modifying
     @Query("INSERT into TransactionsEntity (owner, account, category, description, timestamp, operationType, amount) " +
