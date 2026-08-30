@@ -2,6 +2,7 @@ import type {
   Account,
   AmountAndCategory,
   DateRange,
+  MonthlyIncomeExpense,
   TotalAmount,
   Transaction,
 } from './types'
@@ -55,8 +56,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
 /**
  * Monta os query params das queries de agregação. `accountId` é opcional e só
- * entra no querystring quando presente — hoje o backend ignora, mas o frontend
- * já envia pra quando o filtro por conta existir (ver contrato em CLAUDE.md/plano).
+ * entra no querystring quando presente.
  */
 function reportParams(range: DateRange, accountId?: number): Record<string, string> {
   const params: Record<string, string> = { ...range }
@@ -80,18 +80,15 @@ export const reportsApi = {
       reportParams(range, accountId),
     ),
 
-  // --- Contrato dos endpoints de série temporal (fase 2, backend a fazer) ---
-  // Descomente quando os endpoints existirem no backend. As assinaturas já
-  // refletem o contrato documentado no plano.
-  //
+  incomeExpenseMonthly: (range: DateRange, accountId?: number) =>
+    get<MonthlyIncomeExpense[]>(
+      '/transactions/income-expense-monthly',
+      reportParams(range, accountId),
+    ),
+
+  // --- balance-history ainda não existe no backend (próxima etapa) ---
   // balanceHistory: (range: DateRange, accountId?: number) =>
   //   get<TimeSeriesPoint[]>('/transactions/balance-history', reportParams(range, accountId)),
-  //
-  // incomeExpenseMonthly: (range: DateRange, accountId?: number) =>
-  //   get<MonthlyIncomeExpense[]>(
-  //     '/transactions/income-expense-monthly',
-  //     reportParams(range, accountId),
-  //   ),
 }
 
 export const transactionsApi = {

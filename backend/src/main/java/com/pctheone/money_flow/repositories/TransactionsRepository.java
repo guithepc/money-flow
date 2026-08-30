@@ -1,8 +1,10 @@
 package com.pctheone.money_flow.repositories;
 
 import com.pctheone.money_flow.dto.AmountAndCategoryDTO;
+import com.pctheone.money_flow.dto.MonthlyIncomeExpenseDTO;
 import com.pctheone.money_flow.dto.TransactionDTO;
 import com.pctheone.money_flow.entities.TransactionsEntity;
+import org.springframework.cglib.core.Local;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -77,4 +79,13 @@ public interface TransactionsRepository extends JpaRepository<TransactionsEntity
             "VALUES (:ownerId, :accountId, :categoryId, :description, :timestamp, 'INCOME', :amount)")
     void insertSingleIncome(@Param("ownerId") Integer ownerId, @Param("accountId") Integer accountId, @Param("categoryId") Integer categoryId, @Param("description") String description,
                             @Param("timestamp") LocalDate timestamp, @Param ("amount") BigDecimal amount);
+
+    @Query("SELECT FUNCTION('date_trunc', 'month', t.timestamp), " +
+    "SUM (CASE WHEN t.operationType = 'INCOME' THEN t.amount ELSE 0 END), " +
+    "SUM (CASE WHEN t.operationType = 'EXPENSE' THEN t.amount ELSE 0 END) " +
+    "FROM TransactionsEntity t " +
+    "WHERE t.timestamp BETWEEN :startDate AND :endDate " +
+    "GROUP BY FUNCTION('date_trunc', 'month', t.timestamp) " +
+    "ORDER BY FUNCTION('date_trunc', 'month', t.timestamp)")
+    List<Object[]> incomeExpenseMonthly(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }

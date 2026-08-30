@@ -1,6 +1,7 @@
 package com.pctheone.money_flow.services.impl;
 
 import com.pctheone.money_flow.dto.AmountAndCategoryDTO;
+import com.pctheone.money_flow.dto.MonthlyIncomeExpenseDTO;
 import com.pctheone.money_flow.dto.TransactionDTO;
 import com.pctheone.money_flow.dto.TransactionRegistrationResultDTO;
 import com.pctheone.money_flow.entities.AccountEntity;
@@ -17,6 +18,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -137,4 +140,18 @@ public class TransactionsServiceImpl implements TransactionsService {
             return transactionsRepository.listAllTransactionByAccount(startTime, endTime, accountId);
         }
     }
+
+    @Override
+    public List<MonthlyIncomeExpenseDTO> monthlyIncomeExpense(LocalDate startTime, LocalDate endTime) {
+        DateUtils.validateTimeRange(startTime, endTime);
+        List<Object[]> rows = transactionsRepository.incomeExpenseMonthly(startTime, endTime);
+        List<MonthlyIncomeExpenseDTO> result = new ArrayList<>();
+        for (Object[] row : rows) {
+            LocalDate month = (LocalDate) row[0];
+            result.add(new MonthlyIncomeExpenseDTO(month, (BigDecimal) row[1], (BigDecimal) row[2]));
+
+        }
+        return result;
+    }
+
 }

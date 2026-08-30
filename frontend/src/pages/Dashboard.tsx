@@ -107,7 +107,7 @@ export function Dashboard() {
         <div className="flex flex-col gap-6 xl:col-span-2">
           <CategoryDonut data={data?.ranking ?? []} loading={loading} />
           <div className="flex flex-1 flex-col">
-            <IncomeExpenseChart loading={loading} />
+            <IncomeExpenseChart data={data?.monthlyIncomeExpense ?? []} loading={loading} />
           </div>
         </div>
         <div className="h-full xl:col-span-1">

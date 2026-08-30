@@ -1,6 +1,7 @@
 package com.pctheone.money_flow.controllers;
 
 import com.pctheone.money_flow.dto.AmountAndCategoryDTO;
+import com.pctheone.money_flow.dto.MonthlyIncomeExpenseDTO;
 import com.pctheone.money_flow.dto.TotalAmountDTO;
 import com.pctheone.money_flow.dto.TransactionDTO;
 import com.pctheone.money_flow.services.TransactionsService;
@@ -86,6 +87,14 @@ public class TransactionsController {
         log.info("All transactions requested.");
         List<TransactionDTO> result = transactionsService.listAllTransactions(startDate, endDate, accountId);
         log.info("All transactions list processed successfully");
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/income-expense-monthly")
+    public ResponseEntity<List<MonthlyIncomeExpenseDTO>> monthlyIncomeExpense(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate){
+        log.info("Monthly income expense requested.");
+        List<MonthlyIncomeExpenseDTO> result = transactionsService.monthlyIncomeExpense(startDate, endDate);
+        log.info("Monthly income expense answered.");
         return ResponseEntity.ok(result);
     }
 

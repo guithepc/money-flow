@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { reportsApi } from '@/lib/api'
-import type { AmountAndCategory, DateRange } from '@/lib/types'
+import type { AmountAndCategory, DateRange, MonthlyIncomeExpense } from '@/lib/types'
 
 export interface ReportsData {
   totalSpent: number
@@ -8,6 +8,7 @@ export interface ReportsData {
   totalRecurring: number
   balance: number
   ranking: AmountAndCategory[]
+  monthlyIncomeExpense: MonthlyIncomeExpense[]
 }
 
 interface ReportsState {
@@ -30,11 +31,12 @@ export function useReports(range: DateRange, accountId?: number): ReportsState {
   const load = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: null }))
     try {
-      const [spent, income, recurring, ranking] = await Promise.all([
+      const [spent, income, recurring, ranking, monthlyIncomeExpense] = await Promise.all([
         reportsApi.totalSpent(range, accountId),
         reportsApi.totalIncome(range, accountId),
         reportsApi.totalRecurring(range, accountId),
         reportsApi.spentRankedByCategory(range, accountId),
+        reportsApi.incomeExpenseMonthly(range, accountId),
       ])
       setState({
         loading: false,
@@ -45,6 +47,7 @@ export function useReports(range: DateRange, accountId?: number): ReportsState {
           totalRecurring: recurring.total,
           balance: income.total - spent.total,
           ranking,
+          monthlyIncomeExpense,
         },
       })
     } catch (err) {
