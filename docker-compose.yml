@@ -17,7 +17,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
     labels:
       traefik.enable: "true"
-      traefik.http.routers.money-flow-api.rule: "Host(`mf.pctheone.com`) && PathPrefix(`/api`)"
+      traefik.http.routers.money-flow-api.rule: "Host(`moneyflow.pctheone.com`) && PathPrefix(`/api`)"
       traefik.http.routers.money-flow-api.entrypoints: websecure
       traefik.http.routers.money-flow-api.tls.certresolver: letsencrypt
       traefik.http.routers.money-flow-api.middlewares: waf@file,ratelimit@file,secheaders@file
@@ -49,7 +49,7 @@ services:
     restart: unless-stopped
     labels:
       traefik.enable: "true"
-      traefik.http.routers.money-flow-front.rule: "Host(`mf.pctheone.com`)"
+      traefik.http.routers.money-flow-front.rule: "Host(`moneyflow.pctheone.com`)"
       traefik.http.routers.money-flow-front.entrypoints: websecure
       traefik.http.routers.money-flow-front.tls.certresolver: letsencrypt
       traefik.http.routers.money-flow-front.middlewares: ratelimit@file,secheaders@file
