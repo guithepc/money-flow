@@ -1,22 +1,43 @@
+import { useMemo } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Clock } from 'lucide-react'
-import type { TimeSeriesPoint } from '@/lib/types'
+import type { DateRange, TimeSeriesPoint } from '@/lib/types'
 import { CHART } from '@/lib/chartColors'
 import { useCurrency } from '@/contexts/CurrencyContext'
 
 interface BalanceHistoryChartProps {
   data?: TimeSeriesPoint[]
   loading?: boolean
+  range?: DateRange
 }
 
-/**
- * Histórico de renda × gasto no tempo. O endpoint (`balance-history`) ainda não
- * existe no backend — enquanto isso, exibe estado "aguardando backend".
- */
-export function BalanceHistoryChart({ data = [], loading = false }: BalanceHistoryChartProps) {
+function fillDailyGaps(data: TimeSeriesPoint[], range?: DateRange): TimeSeriesPoint[] {
+  if (!range) return data
+
+  const lookup = new Map(data.map((p) => [p.date, p]))
+  const filled: TimeSeriesPoint[] = []
+  const cursor = new Date(range.startDate + 'T00:00:00')
+  const end = new Date(range.endDate + 'T00:00:00')
+  let runningBalance = 0
+
+  while (cursor <= end) {
+    const key = cursor.toISOString().slice(0, 10)
+    const point = lookup.get(key)
+    if (point) {
+      runningBalance += point.net
+    }
+    filled.push({ date: key, income: point?.income ?? 0, expense: point?.expense ?? 0, net: runningBalance })
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return filled
+}
+
+export function BalanceHistoryChart({ data = [], loading = false, range }: BalanceHistoryChartProps) {
   const { format } = useCurrency()
+  const filled = useMemo(() => fillDailyGaps(data, range), [data, range])
+
   return (
-    <section className="flex flex-col gap-6 rounded-2xl border border-edge bg-surface p-6">
+    <section className="flex h-full flex-col gap-4 rounded-2xl border border-edge bg-surface p-6">
       <div className="flex flex-col gap-1">
         <span className="eyebrow text-brand">Fluxo no tempo</span>
         <h2 className="font-serif text-2xl font-semibold tracking-tight text-fg">
@@ -24,52 +45,76 @@ export function BalanceHistoryChart({ data = [], loading = false }: BalanceHisto
         </h2>
       </div>
 
-      {data.length === 0 ? (
-        <WaitingBackend loading={loading} height="h-32" />
+      {filled.length === 0 ? (
+        <WaitingBackend loading={loading} height="flex-1 min-h-32" />
       ) : (
-        <div className="h-32">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
-              <defs>
-                <linearGradient id="hist-income" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={CHART.income} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={CHART.income} stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="hist-expense" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={CHART.expense} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={CHART.expense} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid stroke={CHART.grid} vertical={false} />
-              <XAxis dataKey="date" stroke={CHART.axis} tickLine={false} fontSize={11} />
-              <YAxis stroke={CHART.axis} tickLine={false} fontSize={11} width={48} />
-              <Tooltip
-                contentStyle={{
-                  background: CHART.surface,
-                  border: `1px solid ${CHART.grid}`,
-                  borderRadius: 12,
-                }}
-                formatter={(value) => format(Number(value))}
-              />
-              <Area
-                type="monotone"
-                dataKey="income"
-                name="Renda"
-                stroke={CHART.income}
-                fill="url(#hist-income)"
-                strokeWidth={2}
-              />
-              <Area
-                type="monotone"
-                dataKey="expense"
-                name="Gasto"
-                stroke={CHART.expense}
-                fill="url(#hist-expense)"
-                strokeWidth={2}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+          <div className="flex-1 min-h-44">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={filled} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
+                <defs>
+                  <linearGradient id="balance-net-fill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={CHART.income} stopOpacity={0.35} />
+                    <stop offset="100%" stopColor={CHART.income} stopOpacity={0.03} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  stroke={CHART.grid}
+                  strokeDasharray="3 3"
+                  vertical={true}
+                  strokeOpacity={0.6}
+                />
+                <XAxis
+                  dataKey="date"
+                  stroke={CHART.axis}
+                  tickLine={false}
+                  axisLine={false}
+                  fontSize={10}
+                  tickFormatter={(v: string) => {
+                    const d = new Date(v + 'T00:00:00')
+                    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+                  }}
+                />
+                <YAxis
+                  stroke={CHART.axis}
+                  tickLine={false}
+                  axisLine={false}
+                  fontSize={10}
+                  width={52}
+                  tickFormatter={(v: number) => {
+                    if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}k`
+                    return String(v)
+                  }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: CHART.surface,
+                    border: `1px solid ${CHART.grid}`,
+                    borderRadius: 12,
+                    fontSize: 12,
+                  }}
+                  labelFormatter={(label: string) => {
+                    const d = new Date(label + 'T00:00:00')
+                    return d.toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: 'long',
+                      year: 'numeric',
+                    })
+                  }}
+                  formatter={(value: number) => [format(value), 'Saldo líquido']}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="net"
+                  name="Saldo líquido"
+                  stroke={CHART.income}
+                  fill="url(#balance-net-fill)"
+                  strokeWidth={2.5}
+                  dot={false}
+                  activeDot={{ r: 4, strokeWidth: 0, fill: CHART.income }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
       )}
     </section>
   )

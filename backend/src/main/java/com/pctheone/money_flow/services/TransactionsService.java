@@ -1,9 +1,6 @@
 package com.pctheone.money_flow.services;
 
-import com.pctheone.money_flow.dto.AmountAndCategoryDTO;
-import com.pctheone.money_flow.dto.MonthlyIncomeExpenseDTO;
-import com.pctheone.money_flow.dto.TransactionDTO;
-import com.pctheone.money_flow.dto.TransactionRegistrationResultDTO;
+import com.pctheone.money_flow.dto.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -18,6 +15,7 @@ public interface TransactionsService {
     TransactionRegistrationResultDTO registerExpense(Integer ownerId, String categoryDescription, Integer accountId, String amount, String description);
     TransactionRegistrationResultDTO registerIncome(Integer ownerId, String categoryDescription, Integer accountId, String amount, String description);
     List<TransactionDTO> listAllTransactions (LocalDate startTime, LocalDate endTime, Integer accountId);
-    List<MonthlyIncomeExpenseDTO> monthlyIncomeExpense(LocalDate startTime, LocalDate endTime);
+    List<MonthlyIncomeExpenseDTO> monthlyIncomeExpense(LocalDate startTime, LocalDate endTime, Integer accountId);
+    List<DailyBalanceDTO> dailyBalance(LocalDate startTime, LocalDate endTime, Integer accountId);
 
 }

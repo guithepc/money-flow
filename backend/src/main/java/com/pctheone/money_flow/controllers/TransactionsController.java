@@ -1,9 +1,6 @@
 package com.pctheone.money_flow.controllers;
 
-import com.pctheone.money_flow.dto.AmountAndCategoryDTO;
-import com.pctheone.money_flow.dto.MonthlyIncomeExpenseDTO;
-import com.pctheone.money_flow.dto.TotalAmountDTO;
-import com.pctheone.money_flow.dto.TransactionDTO;
+import com.pctheone.money_flow.dto.*;
 import com.pctheone.money_flow.services.TransactionsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,10 +88,18 @@ public class TransactionsController {
     }
 
     @GetMapping("/income-expense-monthly")
-    public ResponseEntity<List<MonthlyIncomeExpenseDTO>> monthlyIncomeExpense(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate){
-        log.info("Monthly income expense requested.");
-        List<MonthlyIncomeExpenseDTO> result = transactionsService.monthlyIncomeExpense(startDate, endDate);
-        log.info("Monthly income expense answered.");
+    public ResponseEntity<List<MonthlyIncomeExpenseDTO>> monthlyIncomeExpense(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId){
+        log.info("Monthly income expense requested: startDate={}, endDate={}, accountId={}", startDate, endDate, accountId);
+        List<MonthlyIncomeExpenseDTO> result = transactionsService.monthlyIncomeExpense(startDate, endDate, accountId);
+        log.info("Monthly income expense responded");
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/history-balance")
+    public ResponseEntity<List<DailyBalanceDTO>> dailyBalance(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId){
+        log.info("Daily balance requested: startDate={}, endDate={}, accountId={}", startDate, endDate, accountId);
+        List<DailyBalanceDTO> result = transactionsService.dailyBalance(startDate, endDate, accountId);
+        log.info("Daily balance responded.");
         return ResponseEntity.ok(result);
     }
 

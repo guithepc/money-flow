@@ -1,9 +1,6 @@
 package com.pctheone.money_flow.services.impl;
 
-import com.pctheone.money_flow.dto.AmountAndCategoryDTO;
-import com.pctheone.money_flow.dto.MonthlyIncomeExpenseDTO;
-import com.pctheone.money_flow.dto.TransactionDTO;
-import com.pctheone.money_flow.dto.TransactionRegistrationResultDTO;
+import com.pctheone.money_flow.dto.*;
 import com.pctheone.money_flow.entities.AccountEntity;
 import com.pctheone.money_flow.entities.CategoryEntity;
 import com.pctheone.money_flow.exceptions.CategoryNotFoundException;
@@ -142,14 +139,39 @@ public class TransactionsServiceImpl implements TransactionsService {
     }
 
     @Override
-    public List<MonthlyIncomeExpenseDTO> monthlyIncomeExpense(LocalDate startTime, LocalDate endTime) {
+    public List<MonthlyIncomeExpenseDTO> monthlyIncomeExpense(LocalDate startTime, LocalDate endTime, Integer accountId) {
         DateUtils.validateTimeRange(startTime, endTime);
-        List<Object[]> rows = transactionsRepository.incomeExpenseMonthly(startTime, endTime);
+        List<Object[]> rows;
+        if (accountId == null) {
+            rows = transactionsRepository.incomeExpenseMonthly(startTime, endTime);
+        } else {
+            rows = transactionsRepository.incomeExpenseMonthlyByAccount(startTime, endTime, accountId);
+        }
         List<MonthlyIncomeExpenseDTO> result = new ArrayList<>();
         for (Object[] row : rows) {
             LocalDate month = (LocalDate) row[0];
             result.add(new MonthlyIncomeExpenseDTO(month, (BigDecimal) row[1], (BigDecimal) row[2]));
 
+        }
+        return result;
+    }
+
+    @Override
+    public List<DailyBalanceDTO> dailyBalance(LocalDate startTime, LocalDate endTime, Integer accountId) {
+        DateUtils.validateTimeRange(startTime, endTime);
+        List<Object[]> rows;
+        if (accountId == null) {
+            rows = transactionsRepository.balanceHistory(startTime, endTime);
+        } else {
+            rows = transactionsRepository.balanceHistoryByAccount(startTime, endTime, accountId);
+        }
+        List<DailyBalanceDTO> result = new ArrayList<>();
+        for (Object[] row : rows){
+            LocalDate day = (LocalDate) row[0];
+            BigDecimal income = (BigDecimal) row[1];
+            BigDecimal expense = (BigDecimal) row[2];
+            BigDecimal net = income.subtract(expense);
+            result.add(new DailyBalanceDTO(day, income, expense, net));
         }
         return result;
     }

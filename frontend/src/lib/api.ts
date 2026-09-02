@@ -3,6 +3,7 @@ import type {
   AmountAndCategory,
   DateRange,
   MonthlyIncomeExpense,
+  TimeSeriesPoint,
   TotalAmount,
   Transaction,
 } from './types'
@@ -86,9 +87,18 @@ export const reportsApi = {
       reportParams(range, accountId),
     ),
 
-  // --- balance-history ainda não existe no backend (próxima etapa) ---
-  // balanceHistory: (range: DateRange, accountId?: number) =>
-  //   get<TimeSeriesPoint[]>('/transactions/balance-history', reportParams(range, accountId)),
+  balanceHistory: async (range: DateRange, accountId?: number) => {
+    const raw = await get<Record<string, unknown>[]>(
+      '/transactions/history-balance',
+      reportParams(range, accountId),
+    )
+    return raw.map((r) => ({
+      date: String(r.date ?? r.day),
+      income: Number(r.income),
+      expense: Number(r.expense),
+      net: Number(r.net),
+    })) as TimeSeriesPoint[]
+  },
 }
 
 export const transactionsApi = {

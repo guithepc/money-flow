@@ -88,4 +88,31 @@ public interface TransactionsRepository extends JpaRepository<TransactionsEntity
     "GROUP BY FUNCTION('date_trunc', 'month', t.timestamp) " +
     "ORDER BY FUNCTION('date_trunc', 'month', t.timestamp)")
     List<Object[]> incomeExpenseMonthly(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    @Query("SELECT FUNCTION('date_trunc', 'month', t.timestamp), " +
+    "SUM (CASE WHEN t.operationType = 'INCOME' THEN t.amount ELSE 0 END), " +
+    "SUM (CASE WHEN t.operationType = 'EXPENSE' THEN t.amount ELSE 0 END) " +
+    "FROM TransactionsEntity t " +
+    "WHERE t.timestamp BETWEEN :startDate AND :endDate AND t.account.accountId = :accountId " +
+    "GROUP BY FUNCTION('date_trunc', 'month', t.timestamp) " +
+    "ORDER BY FUNCTION('date_trunc', 'month', t.timestamp)")
+    List<Object[]> incomeExpenseMonthlyByAccount(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("accountId") Integer accountId);
+
+    @Query("SELECT FUNCTION('date_trunc', 'day', t.timestamp), " +
+            "SUM (CASE WHEN t.operationType = 'INCOME' THEN t.amount ELSE 0 END), " +
+            "SUM (CASE WHEN t.operationType = 'EXPENSE' THEN t.amount ELSE 0 END) " +
+            "FROM TransactionsEntity t " +
+            "WHERE t.timestamp BETWEEN :startDate AND :endDate " +
+            "GROUP BY FUNCTION('date_trunc', 'day', t.timestamp) " +
+            "ORDER BY FUNCTION('date_trunc', 'day', t.timestamp)")
+    List<Object[]> balanceHistory(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    @Query("SELECT FUNCTION('date_trunc', 'day', t.timestamp), " +
+            "SUM (CASE WHEN t.operationType = 'INCOME' THEN t.amount ELSE 0 END), " +
+            "SUM (CASE WHEN t.operationType = 'EXPENSE' THEN t.amount ELSE 0 END) " +
+            "FROM TransactionsEntity t " +
+            "WHERE t.timestamp BETWEEN :startDate AND :endDate AND t.account.accountId = :accountId " +
+            "GROUP BY FUNCTION('date_trunc', 'day', t.timestamp) " +
+            "ORDER BY FUNCTION('date_trunc', 'day', t.timestamp)")
+    List<Object[]> balanceHistoryByAccount(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("accountId") Integer accountId);
 }

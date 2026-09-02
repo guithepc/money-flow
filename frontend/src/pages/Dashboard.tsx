@@ -65,7 +65,7 @@ export function Dashboard() {
           />
         </div>
         <div className="xl:col-span-2">
-          <BalanceHistoryChart loading={loading} />
+          <BalanceHistoryChart data={data?.balanceHistory} loading={loading} range={appliedRange} />
         </div>
       </section>
 
