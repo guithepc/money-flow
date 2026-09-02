@@ -35,9 +35,18 @@ async function get<T>(path: string, params: Record<string, string> = {}): Promis
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value)
   }
-  const res = await fetch(url, {
-    headers: { Accept: 'application/json', ...authHeaders() },
-  })
+  let res: Response
+  try {
+    res = await fetch(url, {
+      headers: { Accept: 'application/json', ...authHeaders() },
+    })
+  } catch {
+    if (getToken()) {
+      clearToken()
+      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
+    }
+    throw new Error(`Network error — ${path}`)
+  }
   return handleResponse<T>(res, path)
 }
 
