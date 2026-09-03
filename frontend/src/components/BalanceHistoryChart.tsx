@@ -92,15 +92,15 @@ export function BalanceHistoryChart({ data = [], loading = false, range }: Balan
                     borderRadius: 12,
                     fontSize: 12,
                   }}
-                  labelFormatter={(label: string) => {
-                    const d = new Date(label + 'T00:00:00')
+                  labelFormatter={(label) => {
+                    const d = new Date(`${label}T00:00:00`)
                     return d.toLocaleDateString('pt-BR', {
                       day: '2-digit',
                       month: 'long',
                       year: 'numeric',
                     })
                   }}
-                  formatter={(value: number) => [format(value), 'Saldo líquido']}
+                  formatter={(value) => [format(Number(value)), 'Saldo líquido']}
                 />
                 <Area
                   type="monotone"
