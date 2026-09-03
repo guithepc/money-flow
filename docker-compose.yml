@@ -44,6 +44,8 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
     restart: unless-stopped
     labels:
       traefik.enable: "true"
