@@ -12,6 +12,7 @@ services:
       DB_PASS: ${DB_PASS}
       DB_HOST: ${DB_HOST}
       DB_NAME: ${DB_NAME}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS}
       SPRING_PROFILES_ACTIVE: prod
     labels:
       traefik.enable: "true"
