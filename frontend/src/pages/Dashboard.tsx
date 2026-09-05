@@ -102,7 +102,7 @@ export function Dashboard() {
           loading={loading}
         />
         <KpiCard
-          label="Saldo"
+          label="Saldo do período"
           value={data?.balance ?? 0}
           icon={Scale}
           tone={(data?.balance ?? 0) < 0 ? 'negative' : 'data'}

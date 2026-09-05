@@ -78,7 +78,7 @@ export function AccountSwitcher({
           ) : (
             <>
               <div className="flex items-center justify-between">
-                <span className="eyebrow text-brand">Saldo</span>
+                <span className="eyebrow text-brand">Saldo acumulado</span>
               </div>
               <span
                 className={cn(
