@@ -4,6 +4,7 @@ import com.pctheone.money_flow.dto.AccountDTO;
 import com.pctheone.money_flow.dto.CategoryDTO;
 import com.pctheone.money_flow.dto.TransactionRegistrationResultDTO;
 import com.pctheone.money_flow.exceptions.InvalidMoneyFormatException;
+import com.pctheone.money_flow.utils.MoneyFormat;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +59,7 @@ public class TelegramBotServices {
 
     public void telegramRouter(Update update){
         //---- /gasto mercado carne 25 1
-        if (!update.hasMessage()) {
+        if (!update.hasMessage() || (update.getMessage().getText() == null && update.getMessage().getAudio() == null)) {
             log.info("No message in update.");
             return;
         }
@@ -125,7 +126,7 @@ public class TelegramBotServices {
                 if (isCommandToShort(command, 3, update))
                     break;
                 log.info("Add account requested.");
-                String telegramMessage = accountService.addAccount(command.get(1), new BigDecimal(command.get(2)), 1);
+                String telegramMessage = accountService.addAccount(command.get(1), new BigDecimal(MoneyFormat.format(command.get(2))), 1);
                 sendReply(update.getMessage().getChatId(), telegramMessage);
                 break;
             }

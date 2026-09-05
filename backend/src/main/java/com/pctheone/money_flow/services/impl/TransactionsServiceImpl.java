@@ -9,6 +9,7 @@ import com.pctheone.money_flow.repositories.CategoryRepository;
 import com.pctheone.money_flow.repositories.TransactionsRepository;
 import com.pctheone.money_flow.services.TransactionsService;
 import com.pctheone.money_flow.utils.DateUtils;
+import com.pctheone.money_flow.utils.MoneyFormat;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -99,7 +100,7 @@ public class TransactionsServiceImpl implements TransactionsService {
         if (category.isEmpty())
             throw new CategoryNotFoundException("No category found for this description");
 
-        BigDecimal amountValue = new BigDecimal(amount);
+        BigDecimal amountValue = new BigDecimal(MoneyFormat.format(amount));
 
         transactionsRepository.insertSingleExpense(ownerId, accountId, category.get().getCategoryId(), description, LocalDate.now(), amountValue);
         accountRepository.decrementBalance(accountId, amountValue);
@@ -119,7 +120,7 @@ public class TransactionsServiceImpl implements TransactionsService {
         if (category.isEmpty())
             throw new CategoryNotFoundException("No category found for this description");
 
-        BigDecimal amountValue = new BigDecimal(amount);
+        BigDecimal amountValue = new BigDecimal(MoneyFormat.format(amount));
 
         transactionsRepository.insertSingleIncome(ownerId, accountId, category.get().getCategoryId(), description, LocalDate.now(), amountValue);
         accountRepository.incrementBalance(accountId, amountValue);
