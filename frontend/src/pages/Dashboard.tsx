@@ -65,7 +65,16 @@ export function Dashboard() {
           />
         </div>
         <div className="xl:col-span-2">
-          <BalanceHistoryChart data={data?.balanceHistory} loading={loading} range={appliedRange} />
+          <BalanceHistoryChart
+            data={data?.balanceHistory}
+            loading={loading}
+            range={appliedRange}
+            currentBalance={
+              selectedAccountId == null
+                ? accounts.data.reduce((sum, a) => sum + a.amount, 0)
+                : (accounts.data.find((a) => a.accountId === selectedAccountId)?.amount ?? 0)
+            }
+          />
         </div>
       </section>
 

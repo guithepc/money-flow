@@ -9,16 +9,19 @@ interface BalanceHistoryChartProps {
   data?: TimeSeriesPoint[]
   loading?: boolean
   range?: DateRange
+  currentBalance?: number
 }
 
-function fillDailyGaps(data: TimeSeriesPoint[], range?: DateRange): TimeSeriesPoint[] {
+function fillDailyGaps(data: TimeSeriesPoint[], range?: DateRange, currentBalance?: number): TimeSeriesPoint[] {
   if (!range) return data
 
   const lookup = new Map(data.map((p) => [p.date, p]))
   const filled: TimeSeriesPoint[] = []
   const cursor = new Date(range.startDate + 'T00:00:00')
   const end = new Date(range.endDate + 'T00:00:00')
-  let runningBalance = 0
+
+  const totalNet = data.reduce((sum, p) => sum + p.net, 0)
+  let runningBalance = currentBalance != null ? currentBalance - totalNet : 0
 
   while (cursor <= end) {
     const key = cursor.toISOString().slice(0, 10)
@@ -32,9 +35,9 @@ function fillDailyGaps(data: TimeSeriesPoint[], range?: DateRange): TimeSeriesPo
   return filled
 }
 
-export function BalanceHistoryChart({ data = [], loading = false, range }: BalanceHistoryChartProps) {
+export function BalanceHistoryChart({ data = [], loading = false, range, currentBalance }: BalanceHistoryChartProps) {
   const { format } = useCurrency()
-  const filled = useMemo(() => fillDailyGaps(data, range), [data, range])
+  const filled = useMemo(() => fillDailyGaps(data, range, currentBalance), [data, range, currentBalance])
 
   return (
     <section className="flex h-full flex-col gap-4 rounded-2xl border border-edge bg-surface p-6">
