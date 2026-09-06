@@ -77,7 +77,6 @@ public class TelegramBotServices {
             case "/gasto":{
                 if (isCommandToShort(command, 5, update))
                     break;
-                checkMessage(command);
                 log.info("Expense being registered.");
                 TransactionRegistrationResultDTO expense = transactionsService.registerExpense(1, command.get(1), Integer.valueOf(command.getLast()), command.get(3), command.get(2));
                 log.info("Expense registered successfully, amount:  {} -  Actual balance: {}", expense.getAmount(), expense.getNewBalance());
@@ -88,7 +87,6 @@ public class TelegramBotServices {
             case "/entrada":{
                 if (isCommandToShort(command, 5, update))
                     break;
-                checkMessage(command);
                 log.info("Income being registered.");
                 TransactionRegistrationResultDTO income = transactionsService.registerIncome(1, command.get(1), Integer.valueOf(command.getLast()), command.get(3), command.get(2));
                 log.info("Income registered successfully, amount:  {} -  Actual balance: {}", income.getAmount(), income.getNewBalance());
@@ -185,11 +183,6 @@ public class TelegramBotServices {
 
     }
 
-    private void checkMessage(List<String> command){
-        if (command.get(3).contains(","))
-            throw new InvalidMoneyFormatException("Wrong money format");
-        log.info("Message checked successfully");
-    }
 
     private boolean isCommandToShort(List<String> command, int expectedSize, Update update){
         if (command.size() < expectedSize){
