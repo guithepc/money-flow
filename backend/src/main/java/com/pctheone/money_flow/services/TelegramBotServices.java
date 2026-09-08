@@ -2,6 +2,7 @@ package com.pctheone.money_flow.services;
 
 import com.pctheone.money_flow.dto.AccountDTO;
 import com.pctheone.money_flow.dto.CategoryDTO;
+import com.pctheone.money_flow.dto.TransactionDTO;
 import com.pctheone.money_flow.dto.TransactionRegistrationResultDTO;
 import com.pctheone.money_flow.exceptions.InvalidMoneyFormatException;
 import com.pctheone.money_flow.utils.MoneyFormat;
@@ -22,6 +23,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 
@@ -143,6 +145,26 @@ public class TelegramBotServices {
                             .append(accountDTO.getDescription())
                             .append(" | ")
                             .append(accountDTO.getAmount())
+                            .append("\n");
+                }
+                sendReply(update.getMessage().getChatId(), telegramMessage.toString());
+                break;
+            }
+            case "/transacoes":{
+                if (isCommandToShort(command, 1, update))
+                    break;
+                log.info("Transactions requested.");
+                List<TransactionDTO> transactionDTOS = transactionsService.listAllTransactions(LocalDate.now().minusDays(7), LocalDate.now(), null);
+                log.info("Last transactions:  {}", transactionDTOS.size());
+                StringBuilder telegramMessage = new StringBuilder("⚡️Last transactions:\n");
+
+                for (TransactionDTO transactionDTO : transactionDTOS){
+                    telegramMessage.append("ID: ")
+                            .append(transactionDTO.getId())
+                            .append(" - ")
+                            .append(transactionDTO.getDescription())
+                            .append(" - ")
+                            .append(transactionDTO.getAmount())
                             .append("\n");
                 }
                 sendReply(update.getMessage().getChatId(), telegramMessage.toString());
