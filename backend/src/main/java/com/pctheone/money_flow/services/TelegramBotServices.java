@@ -154,7 +154,7 @@ public class TelegramBotServices {
                 if (isCommandToShort(command, 1, update))
                     break;
                 log.info("Transactions requested.");
-                List<TransactionDTO> transactionDTOS = transactionsService.listAllTransactions(LocalDate.now().minusDays(7), LocalDate.now(), null);
+                List<TransactionDTO> transactionDTOS = transactionsService.listAllTransactions(LocalDate.now().minusDays(7), LocalDate.now(), null).reversed();
                 log.info("Last transactions:  {}", transactionDTOS.size());
                 StringBuilder telegramMessage = new StringBuilder("⚡️Last transactions:\n");
 
