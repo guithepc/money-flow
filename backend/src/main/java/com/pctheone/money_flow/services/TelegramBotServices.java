@@ -170,6 +170,14 @@ public class TelegramBotServices {
                 sendReply(update.getMessage().getChatId(), telegramMessage.toString());
                 break;
             }
+            case "/deletar-transacao":{
+                if (isCommandToShort(command, 2, update))
+                    break;
+                log.info("Transaction deletion requested");
+                String response = transactionsService.deleteTransaction(Integer.valueOf(command.get(1)));
+                sendReply(update.getMessage().getChatId(), response);
+                break;
+            }
             default:
                 break;
 

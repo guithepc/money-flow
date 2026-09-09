@@ -2,10 +2,12 @@ package com.pctheone.money_flow.entities;
 
 import com.pctheone.money_flow.enums.OperationTypeEnum;
 import jakarta.persistence.*;
+import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+@Getter
 @Entity
 @Table(name = "transactions")
 public class TransactionsEntity {

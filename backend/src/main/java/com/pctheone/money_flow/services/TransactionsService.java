@@ -17,5 +17,6 @@ public interface TransactionsService {
     List<TransactionDTO> listAllTransactions (LocalDate startTime, LocalDate endTime, Integer accountId);
     List<MonthlyIncomeExpenseDTO> monthlyIncomeExpense(LocalDate startTime, LocalDate endTime, Integer accountId);
     List<DailyBalanceDTO> dailyBalance(LocalDate startTime, LocalDate endTime, Integer accountId);
+    String deleteTransaction(Integer id);
 
 }

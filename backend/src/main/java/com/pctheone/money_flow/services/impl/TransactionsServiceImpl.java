@@ -3,6 +3,8 @@ package com.pctheone.money_flow.services.impl;
 import com.pctheone.money_flow.dto.*;
 import com.pctheone.money_flow.entities.AccountEntity;
 import com.pctheone.money_flow.entities.CategoryEntity;
+import com.pctheone.money_flow.entities.TransactionsEntity;
+import com.pctheone.money_flow.enums.OperationTypeEnum;
 import com.pctheone.money_flow.exceptions.CategoryNotFoundException;
 import com.pctheone.money_flow.repositories.AccountRepository;
 import com.pctheone.money_flow.repositories.CategoryRepository;
@@ -175,6 +177,26 @@ public class TransactionsServiceImpl implements TransactionsService {
             result.add(new DailyBalanceDTO(day, income, expense, net));
         }
         return result;
+    }
+
+    @Override
+    @Transactional
+    public String deleteTransaction(Integer id) {
+        Optional<TransactionsEntity> transactionsEntity = transactionsRepository.findById(id);
+        if (transactionsEntity.isEmpty()){
+            return "No transactions found for this id: " + id;
+        }
+        TransactionsEntity transactions = transactionsEntity.get();
+
+        if (transactions.getOperationType() == OperationTypeEnum.EXPENSE){
+            accountRepository.incrementBalance(transactions.getAccount().getAccountId(), transactions.getAmount());
+        } else if (transactions.getOperationType() == OperationTypeEnum.INCOME){
+            accountRepository.decrementBalance(transactions.getAccount().getAccountId(), transactions.getAmount());
+        }
+
+        transactionsRepository.deleteById(id);
+
+        return "Transaction deleted " + transactions.getDescription() + " - " + transactions.getAmount();
     }
 
 }
