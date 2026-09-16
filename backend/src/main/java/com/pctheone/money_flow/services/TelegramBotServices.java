@@ -1,5 +1,6 @@
 package com.pctheone.money_flow.services;
 
+import com.openai.models.audio.transcriptions.TranscriptionCreateParams;
 import com.pctheone.money_flow.dto.AccountDTO;
 import com.pctheone.money_flow.dto.CategoryDTO;
 import com.pctheone.money_flow.dto.TransactionDTO;
@@ -12,8 +13,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.telegram.telegrambots.meta.api.methods.GetFile;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.Audio;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.Voice;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
@@ -22,11 +27,16 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 
+import com.openai.client.OpenAIClient;
+import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.models.responses.Response;
+import com.openai.models.responses.ResponseCreateParams;
 @Service
 public class TelegramBotServices {
 
@@ -60,6 +70,13 @@ public class TelegramBotServices {
     AccountService accountService;
 
     public void telegramRouter(Update update){
+        if (update.getMessage().getVoice() != null) {
+
+            audioCommand(update);
+            return;
+        }
+
+
         //---- /gasto mercado carne 25 1
         if (!update.hasMessage() || (update.getMessage().getText() == null && update.getMessage().getAudio() == null)) {
             log.info("No message in update.");
@@ -181,6 +198,55 @@ public class TelegramBotServices {
             default:
                 break;
 
+        }
+    }
+
+    public void audioCommand(Update update){
+        Voice voiceAudio = update.getMessage().getVoice();
+        String fileId = voiceAudio.getFileId();
+        ObjectMapper objectMapper = new ObjectMapper();
+
+
+        String telegramRequestUrl = telegramUrl + telegramBotToken;
+        try{
+            HttpRequest getFileRequest = HttpRequest.newBuilder()
+                    .uri(URI.create(telegramRequestUrl + "/getFile" + "?file_id=" + fileId))
+                    .header("Content-Type", "application/json")
+                    .build();
+
+            HttpResponse<String> getFileResponse = httpClient.send(getFileRequest, HttpResponse.BodyHandlers.ofString());
+
+            JsonNode node = objectMapper.readTree(getFileResponse.body());
+
+            String filePath = node.get("result").get("file_path").asString();
+
+            HttpRequest downloadFileRequest = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.telegram.org/file/bot" + telegramBotToken + "/" + filePath))
+                    .build();
+
+            HttpResponse<byte[]> downloadFileResponse = httpClient.send(downloadFileRequest, HttpResponse.BodyHandlers.ofByteArray());
+
+            OpenAIClient client = OpenAIOkHttpClient.fromEnv();
+
+//            //Get transciption
+//            var result =
+//                    client
+//                        .audio()
+//                        .transcriptions()
+//                        .create(
+//                            TranscriptionCreateParams.builder()
+//                                .file(Path.of(System.getenv("OPENAI_EXAMPLE_AUDIO_PATH")))
+//                                .model("gpt-transcribe")
+//                                .build());
+//
+//            //aqui enviaremos o prompt pra ele retornar o comando pronto
+//            ResponseCreateParams params =
+//                    ResponseCreateParams.builder().model("gpt-6-astra").input("Write a short bedtime story about a unicorn.").build();
+//
+
+        } catch (Exception e){
+            Thread.currentThread().interrupt();
+            log.error("Failed to call Telegram API {}", e.getMessage(), e);
         }
     }
 
