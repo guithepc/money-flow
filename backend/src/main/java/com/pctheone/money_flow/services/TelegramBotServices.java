@@ -1,21 +1,17 @@
 package com.pctheone.money_flow.services;
 
 import com.openai.models.audio.transcriptions.TranscriptionCreateParams;
-import com.pctheone.money_flow.dto.AccountDTO;
-import com.pctheone.money_flow.dto.CategoryDTO;
-import com.pctheone.money_flow.dto.TransactionDTO;
-import com.pctheone.money_flow.dto.TransactionRegistrationResultDTO;
-import com.pctheone.money_flow.exceptions.InvalidMoneyFormatException;
+import com.pctheone.money_flow.dto.*;
+import com.pctheone.money_flow.enums.OperationTypeEnum;
 import com.pctheone.money_flow.utils.MoneyFormat;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
-import org.telegram.telegrambots.meta.api.methods.GetFile;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.objects.Audio;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.Voice;
 import tools.jackson.databind.JsonNode;
@@ -27,6 +23,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -50,6 +47,9 @@ public class TelegramBotServices {
 
     @Value("${telegram.timeout}")
     private int telegramTimeout;
+
+    @Value("classpath:prompts/voice-parser.txt")
+    private Resource voiceParserPrompt;
 
     private HttpClient httpClient;
 
@@ -226,28 +226,53 @@ public class TelegramBotServices {
 
             HttpResponse<byte[]> downloadFileResponse = httpClient.send(downloadFileRequest, HttpResponse.BodyHandlers.ofByteArray());
 
+            Path tempFile = Files.createTempFile("voice_", ".ogg");
+
+            Files.write(tempFile, downloadFileResponse.body());
+
             OpenAIClient client = OpenAIOkHttpClient.fromEnv();
 
-//            //Get transciption
-//            var result =
-//                    client
-//                        .audio()
-//                        .transcriptions()
-//                        .create(
-//                            TranscriptionCreateParams.builder()
-//                                .file(Path.of(System.getenv("OPENAI_EXAMPLE_AUDIO_PATH")))
-//                                .model("gpt-transcribe")
-//                                .build());
-//
-//            //aqui enviaremos o prompt pra ele retornar o comando pronto
-//            ResponseCreateParams params =
-//                    ResponseCreateParams.builder().model("gpt-6-astra").input("Write a short bedtime story about a unicorn.").build();
-//
+            var result = client.audio().transcriptions().create(
+                    TranscriptionCreateParams.builder()
+                    .file(tempFile)
+                            .model("gpt-transcribe")
+                            .build());
+
+            String transcription = result.toString();
+
+            String template = new String(voiceParserPrompt.getInputStream().readAllBytes());
+            String prompt = String.format(template, this.listCategories(), this.listAccounts());
+
+            ResponseCreateParams params =
+                ResponseCreateParams.builder().model("gpt-4o-mini").instructions(prompt).input(transcription).build();
+
+            Response openAiResponse = client.responses().create(params);
+
+            proccessTranscriptedMessage(openAiResponse, update);
+
 
         } catch (Exception e){
             Thread.currentThread().interrupt();
             log.error("Failed to call Telegram API {}", e.getMessage(), e);
         }
+    }
+
+    private void proccessTranscriptedMessage(Response openAiResponse, Update update){
+        String response = openAiResponse.output().stream().flatMap(item -> item.asMessage().content().stream())
+                .map(content -> content.asOutputText().text())
+                .findFirst()
+                .orElse("");
+
+        String a = "a";
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        OpenAITransactionDTO transactionDTO = objectMapper.readValue(response, OpenAITransactionDTO.class);
+
+        if (OperationTypeEnum.EXPENSE.equals(transactionDTO.getOperationType())){
+            transactionsService.registerExpense(1, transactionDTO.getCategory(), transactionDTO.getAccountId(), transactionDTO.getAmount(), transactionDTO.getDescription());
+            this.sendReply(update.getMessage().getChatId(), "Voice expense saved successfully!");
+        }
+        String b ="b";
     }
 
     private void sendReply(Long chatId, String text){
@@ -287,5 +312,33 @@ public class TelegramBotServices {
             return true;
         }
         return false;
+    }
+
+    private StringBuilder listAccounts(){
+        List<AccountDTO> accountDTOList = accountService.listAllAccounts();
+        StringBuilder accountListText = new StringBuilder();
+        for (AccountDTO accountDTO : accountDTOList){
+            accountListText.append("ID: ")
+                    .append(accountDTO.getAccountId())
+                    .append(" - ")
+                    .append(accountDTO.getDescription())
+                    .append(" - ")
+                    .append(accountDTO.getAmount())
+                    .append("\n");
+        }
+        return accountListText;
+    }
+
+    private StringBuilder listCategories(){
+        List<CategoryDTO> categoryDTOList = categoryService.listAllCategories();
+        StringBuilder categoryListText = new StringBuilder();
+        for (CategoryDTO categoryDTO : categoryDTOList){
+            categoryListText.append("ID: ")
+                    .append(categoryDTO.getCategoryId())
+                    .append(" - ")
+                    .append(categoryDTO.getCategoryDescription())
+                    .append("\n");
+        }
+        return categoryListText;
     }
 }
