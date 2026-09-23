@@ -273,9 +273,13 @@ public class TelegramBotServices {
         log.info("GPT parser response: {}", response);
 
         ObjectMapper objectMapper = new ObjectMapper();
-        if (response.contains("error")) {
+        if (response.contains("repetir")) {
             log.info("GPT returned error response, notifying user");
             this.sendReply(update.getMessage().getChatId(), "🚨 Voice command not recognized, send again.");
+            return;
+        } else if (response.contains("categoria")){
+            log.info("No category found, notifying user");
+            this.sendReply(update.getMessage().getChatId(), "🚨 Category not found, try with valid category");
             return;
         }
 

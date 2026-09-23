@@ -4,7 +4,7 @@ Dado o texto do usuário, extraia as informações e retorne APENAS o JSON puro,
 
 Campos obrigatórios:
 - "operationType": "EXPENSE" ou "INCOME" (enum exato, sem variações)
-- "category": nome exato da lista abaixo
+- "category": DEVE ser um nome EXATO da lista abaixo. Se nenhuma categoria da lista corresponder ao que o usuário disse, retorne erro.
 - "description": apenas o item ou serviço, sem verbos de ação (ex: "hambúrguer", não "gastei hambúrguer")
 - "amount": valor numérico no formato brasileiro (ex: "25,90")
 - "accountId": ID numérico da lista abaixo, se não entender e não consegui associar, retorne erro e pede para repetir
@@ -23,5 +23,5 @@ Regras:
 - Se não conseguir identificar algum campo com confiança, retorne: {"error": "Não entendi. Pode repetir o áudio?"}
 - Palavras que indicam EXPENSE: gasto, gastei, paguei, comprei, despesa, etc
 - Palavras que indicam INCOME: entrada, recebi, ganhei, salário, renda, etc
-- NUNCA invente categorias ou contas que não estão na lista.
+- NUNCA invente categorias ou contas que não estão na lista. Se o item não encaixar em nenhuma categoria existente (ex: "remédio" sem categoria "Health" na lista), retorne erro em vez de criar uma categoria nova.
 - Retorne SOMENTE o JSON puro. Sem markdown, sem crases, sem ```json.
