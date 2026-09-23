@@ -202,6 +202,7 @@ public class TelegramBotServices {
     }
 
     public void audioCommand(Update update){
+        log.info("Voice message received from chatId: {}", update.getMessage().getChatId());
         Voice voiceAudio = update.getMessage().getVoice();
         String fileId = voiceAudio.getFileId();
         ObjectMapper objectMapper = new ObjectMapper();
@@ -209,6 +210,7 @@ public class TelegramBotServices {
 
         String telegramRequestUrl = telegramUrl + telegramBotToken;
         try{
+            log.info("Requesting file metadata from Telegram API, fileId: {}", fileId);
             HttpRequest getFileRequest = HttpRequest.newBuilder()
                     .uri(URI.create(telegramRequestUrl + "/getFile" + "?file_id=" + fileId))
                     .header("Content-Type", "application/json")
@@ -219,12 +221,14 @@ public class TelegramBotServices {
             JsonNode node = objectMapper.readTree(getFileResponse.body());
 
             String filePath = node.get("result").get("file_path").asString();
+            log.info("File metadata retrieved, filePath: {}", filePath);
 
             HttpRequest downloadFileRequest = HttpRequest.newBuilder()
                     .uri(URI.create("https://api.telegram.org/file/bot" + telegramBotToken + "/" + filePath))
                     .build();
 
             HttpResponse<byte[]> downloadFileResponse = httpClient.send(downloadFileRequest, HttpResponse.BodyHandlers.ofByteArray());
+            log.info("Voice file downloaded, size: {} bytes", downloadFileResponse.body().length);
 
             Path tempFile = Files.createTempFile("voice_", ".ogg");
 
@@ -232,6 +236,7 @@ public class TelegramBotServices {
 
             OpenAIClient client = OpenAIOkHttpClient.fromEnv();
 
+            log.info("Sending audio to Whisper for transcription");
             var result = client.audio().transcriptions().create(
                     TranscriptionCreateParams.builder()
                     .file(tempFile)
@@ -239,10 +244,12 @@ public class TelegramBotServices {
                             .build());
 
             String transcription = result.toString();
+            log.info("Whisper transcription result: {}", transcription);
 
             String template = new String(voiceParserPrompt.getInputStream().readAllBytes());
             String prompt = String.format(template, this.listCategories(), this.listAccounts());
 
+            log.info("Sending transcription to GPT for parsing");
             ResponseCreateParams params =
                 ResponseCreateParams.builder().model("gpt-4o-mini").instructions(prompt).input(transcription).build();
 
@@ -253,7 +260,7 @@ public class TelegramBotServices {
 
         } catch (Exception e){
             Thread.currentThread().interrupt();
-            log.error("Failed to call Telegram API {}", e.getMessage(), e);
+            log.error("Failed to process voice message: {}", e.getMessage(), e);
         }
     }
 
@@ -263,16 +270,30 @@ public class TelegramBotServices {
                 .findFirst()
                 .orElse("");
 
-        String a = "a";
+        log.info("GPT parser response: {}", response);
+
         ObjectMapper objectMapper = new ObjectMapper();
+        if (response.contains("error")) {
+            log.info("GPT returned error response, notifying user");
+            this.sendReply(update.getMessage().getChatId(), "🚨 Voice command not recognized, send again.");
+            return;
+        }
 
         OpenAITransactionDTO transactionDTO = objectMapper.readValue(response, OpenAITransactionDTO.class);
+        log.info("Parsed transaction - operation: {}, category: {}, description: {}, amount: {}, accountId: {}",
+                transactionDTO.getOperationType(), transactionDTO.getCategory(), transactionDTO.getDescription(),
+                transactionDTO.getAmount(), transactionDTO.getAccountId());
 
-        if (OperationTypeEnum.EXPENSE.equals(transactionDTO.getOperationType())){
+        if (OperationTypeEnum.EXPENSE.equals(transactionDTO.getOperationType())) {
             transactionsService.registerExpense(1, transactionDTO.getCategory(), transactionDTO.getAccountId(), transactionDTO.getAmount(), transactionDTO.getDescription());
-            this.sendReply(update.getMessage().getChatId(), "Voice expense saved successfully!");
+            log.info("Voice expense registered successfully");
+            this.sendReply(update.getMessage().getChatId(), "✅ Voice expense saved successfully!");
+        } else if (OperationTypeEnum.INCOME.equals(transactionDTO.getOperationType())) {
+            transactionsService.registerIncome(1, transactionDTO.getCategory(), transactionDTO.getAccountId(), transactionDTO.getAmount(), transactionDTO.getDescription());
+            log.info("Voice income registered successfully");
+            this.sendReply(update.getMessage().getChatId(), "✅ Voice income saved successfully!");
+        } else {
         }
-        String b ="b";
     }
 
     private void sendReply(Long chatId, String text){
