@@ -5,7 +5,7 @@ Dado o texto do usuário, extraia as informações e retorne APENAS o JSON puro,
 Campos obrigatórios:
 - "operationType": "EXPENSE" ou "INCOME" (enum exato, sem variações)
 - "category": nome exato da lista abaixo
-- "description": descrição do gasto/entrada
+- "description": apenas o item ou serviço, sem verbos de ação (ex: "hambúrguer", não "gastei hambúrguer")
 - "amount": valor numérico no formato brasileiro (ex: "25,90")
 - "accountId": ID numérico da lista abaixo, se não entender e não consegui associar, retorne erro e pede para repetir
 
@@ -16,7 +16,10 @@ Contas disponíveis:
 %s
 
 Regras:
-- Se o usuário falar algo parecido com um nome da lista (ex: "Santa" para "Santander"), use o nome correto da lista.
+- O usuário pode falar em português ou inglês. Interprete ambos os idiomas corretamente.
+- A ordem das informações na frase NÃO importa. Extraia os campos independente da ordem em que aparecem.
+- Se o usuário falar algo parecido com um nome de conta da lista (ex: "Santa" para "Santander"), use o nome correto da lista.
+- Se a categoria mencionada NÃO existir na lista acima, retorne: {"error": "Categoria não encontrada. Use /categorias para ver as disponíveis."}
 - Se não conseguir identificar algum campo com confiança, retorne: {"error": "Não entendi. Pode repetir o áudio?"}
 - Palavras que indicam EXPENSE: gasto, gastei, paguei, comprei, despesa, etc
 - Palavras que indicam INCOME: entrada, recebi, ganhei, salário, renda, etc
