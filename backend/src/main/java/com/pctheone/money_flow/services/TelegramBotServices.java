@@ -296,8 +296,7 @@ public class TelegramBotServices {
             transactionsService.registerIncome(1, transactionDTO.getCategory(), transactionDTO.getAccountId(), transactionDTO.getAmount(), transactionDTO.getDescription());
             log.info("Voice income registered successfully");
             this.sendReply(update.getMessage().getChatId(), "✅ Voice income saved successfully!");
-        } else {
-        }
+        } 
     }
 
     private void sendReply(Long chatId, String text){
