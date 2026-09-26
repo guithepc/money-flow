@@ -6,6 +6,8 @@ interface CurrencyContextValue {
   setCurrency: (c: Currency) => void
   /** Formata um valor na moeda atualmente selecionada. */
   format: (value: number | string) => string
+  valuesVisible: boolean
+  toggleValuesVisible: () => void
 }
 
 const CurrencyContext = createContext<CurrencyContextValue | null>(null)
@@ -18,21 +20,36 @@ function initialCurrency(): Currency {
 }
 
 /** Moeda de exibição global do dashboard (persistida em localStorage). */
+const VISIBILITY_KEY = 'money-flow:values-visible'
+
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrencyState] = useState<Currency>(initialCurrency)
+  const [valuesVisible, setValuesVisible] = useState<boolean>(
+    () => localStorage.getItem(VISIBILITY_KEY) !== 'false',
+  )
 
   const setCurrency = useCallback((c: Currency) => {
     setCurrencyState(c)
     localStorage.setItem(STORAGE_KEY, c)
   }, [])
 
+  const toggleValuesVisible = useCallback(() => {
+    setValuesVisible((prev) => {
+      const next = !prev
+      localStorage.setItem(VISIBILITY_KEY, String(next))
+      return next
+    })
+  }, [])
+
   const value = useMemo<CurrencyContextValue>(
     () => ({
       currency,
       setCurrency,
-      format: (v) => formatCurrency(v, currency),
+      format: (v) => (valuesVisible ? formatCurrency(v, currency) : '••••••'),
+      valuesVisible,
+      toggleValuesVisible,
     }),
-    [currency, setCurrency],
+    [currency, setCurrency, valuesVisible, toggleValuesVisible],
   )
 
   return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>

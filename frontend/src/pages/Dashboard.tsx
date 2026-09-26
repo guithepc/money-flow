@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowDownRight, ArrowUpRight, Repeat, Scale } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Eye, EyeOff, Repeat, Scale } from 'lucide-react'
 import { AccountSwitcher } from '@/components/AccountSwitcher'
 import { KpiCard } from '@/components/KpiCard'
 import { CategoryDonut } from '@/components/CategoryDonut'
@@ -7,6 +7,7 @@ import { BalanceHistoryChart } from '@/components/BalanceHistoryChart'
 import { IncomeExpenseChart } from '@/components/IncomeExpenseChart'
 import { RecentTransactions } from '@/components/RecentTransactions'
 import { PeriodPicker } from '@/components/PeriodPicker'
+import { useCurrency } from '@/contexts/CurrencyContext'
 import { useReports } from '@/hooks/useReports'
 import { useAccounts } from '@/hooks/useAccounts'
 import { useTransactions } from '@/hooks/useTransactions'
@@ -21,6 +22,7 @@ export function Dashboard() {
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
   const accountId = selectedAccountId ?? undefined
 
+  const { valuesVisible, toggleValuesVisible } = useCurrency()
   const accounts = useAccounts()
   const { data, loading, error } = useReports(appliedRange, accountId)
   const transactions = useTransactions(appliedRange, accountId)
@@ -30,9 +32,23 @@ export function Dashboard() {
       <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <span className="eyebrow text-brand">Visão geral</span>
-          <h1 className="font-serif text-4xl font-semibold tracking-tight text-fg">
-            Dashboard
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="font-serif text-4xl font-semibold tracking-tight text-fg">
+              Dashboard
+            </h1>
+            <button
+              type="button"
+              onClick={toggleValuesVisible}
+              className="flex size-8 items-center justify-center rounded-lg text-fg-muted transition-colors hover:bg-surface-raised hover:text-fg"
+              title={valuesVisible ? 'Ocultar valores' : 'Mostrar valores'}
+            >
+              {valuesVisible ? (
+                <Eye className="size-5" strokeWidth={1.8} />
+              ) : (
+                <EyeOff className="size-5" strokeWidth={1.8} />
+              )}
+            </button>
+          </div>
           <p className="text-sm text-fg-muted">
             Suas finanças organizadas em 2 segundos.
           </p>
