@@ -7,6 +7,8 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Getter
 @AllArgsConstructor
@@ -30,4 +32,7 @@ public class OwnerEntity {
     @Column(name = "password_hash", columnDefinition = "CHAR(60)", nullable = false)
     @JdbcTypeCode(SqlTypes.CHAR)
     private String passwordHash;
+
+    @Column(name = "invite_expiration")
+    private LocalDateTime inviteExpireDate;
 }

@@ -39,6 +39,10 @@ build/
 ### macOS ###
 .DS_Store
 
+### Claude Code ###
+.agents/
+skills-lock.json
+
 ### Application ###
 application-local.properties
 application-local.yml

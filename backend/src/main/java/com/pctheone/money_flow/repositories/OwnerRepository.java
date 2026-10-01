@@ -1,6 +1,5 @@
 package com.pctheone.money_flow.repositories;
 
-import com.pctheone.money_flow.entities.AccountEntity;
 import com.pctheone.money_flow.entities.OwnerEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 

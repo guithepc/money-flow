@@ -2,8 +2,10 @@ package com.pctheone.money_flow.controllers;
 
 import com.pctheone.money_flow.dto.LoginRequestDTO;
 import com.pctheone.money_flow.dto.LoginResponseDTO;
+import com.pctheone.money_flow.dto.RegisterRequestDTO;
 import com.pctheone.money_flow.exceptions.InvalidCredentialsException;
 import com.pctheone.money_flow.services.AuthService;
+import com.pctheone.money_flow.services.OwnerService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,10 +24,21 @@ public class AuthController {
     @Autowired
     AuthService authService;
 
+    @Autowired
+    OwnerService ownerService;
+
     @PostMapping("/login")
     public ResponseEntity<LoginResponseDTO> login (@RequestBody LoginRequestDTO loginRequestDTO){
         log.info("Login requested.");
         Integer ownerId = authService.authenticate(loginRequestDTO.getEmail(), loginRequestDTO.getPassword()).orElseThrow(() -> new InvalidCredentialsException("Invalid credentials"));
+        String token = authService.generateToken(ownerId);
+        return ResponseEntity.ok(new LoginResponseDTO(token));
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<LoginResponseDTO> register (@RequestBody RegisterRequestDTO registerRequestDTO){
+        log.info("Register requested.");
+        Integer ownerId = ownerService.registerOwner(registerRequestDTO.getName(), registerRequestDTO.getEmail(), registerRequestDTO.getPassword()).orElseThrow(() -> new InvalidCredentialsException("Invalid credentials"));
         String token = authService.generateToken(ownerId);
         return ResponseEntity.ok(new LoginResponseDTO(token));
     }

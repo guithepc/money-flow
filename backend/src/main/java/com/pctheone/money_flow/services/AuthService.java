@@ -12,8 +12,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -42,6 +44,12 @@ public class AuthService {
         Optional<OwnerEntity> ownerValidated = owner.filter(ownerEntity -> passwordEncoder.matches(pass, ownerEntity.getPasswordHash()));
         return ownerValidated.map(OwnerEntity::getOwnerId);
     }
+
+    public Optional<Integer> register(String name, String email, String pass){
+        OwnerEntity owner = ownerRepository.save(new OwnerEntity(null, name, email, null, this.encodePassword(pass), null));
+        return Optional.of(owner.getOwnerId());
+    }
+
     public String generateToken(Integer ownerId){
 
         byte[] byteKey = Decoders.BASE64.decode(jwtSecret);
