@@ -122,4 +122,6 @@ export const accountsApi = {
 export const authApi = {
   login: (email: string, password: string) =>
     post<{ token: string }>('/auth/login', { email, password }),
+  register: (name: string, email: string, password: string) =>
+    post<{ token: string }>('/auth/register', { name, email, password }),
 }

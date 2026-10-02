@@ -3,6 +3,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { Dashboard } from '@/pages/Dashboard'
 import { Accounts } from '@/pages/Accounts'
 import { Login } from '@/pages/Login'
+import { Register } from '@/pages/Register'
 import { useAuth } from '@/hooks/useAuth'
 import { CurrencyProvider } from '@/contexts/CurrencyContext'
 import type { View } from '@/lib/types'
@@ -17,12 +18,17 @@ function Placeholder({ title }: { title: string }) {
 
 export default function App() {
   const [view, setView] = useState<View>('dashboard')
+  const [authView, setAuthView] = useState<'login' | 'register'>('login')
   const auth = useAuth()
 
   if (!auth.isAuthenticated) {
     return (
       <div className="flex h-screen bg-background text-fg">
-        <Login auth={auth} />
+        {authView === 'login' ? (
+          <Login auth={auth} onSwitchToRegister={() => setAuthView('register')} />
+        ) : (
+          <Register auth={auth} onSwitchToLogin={() => setAuthView('login')} />
+        )}
       </div>
     )
   }

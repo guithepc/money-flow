@@ -1,19 +1,20 @@
 import { useState, type FormEvent } from 'react'
-import { LogIn, Sparkles } from 'lucide-react'
+import { UserPlus, Sparkles } from 'lucide-react'
 import type { UseAuth } from '@/hooks/useAuth'
 
-interface LoginProps {
+interface RegisterProps {
   auth: UseAuth
-  onSwitchToRegister: () => void
+  onSwitchToLogin: () => void
 }
 
-export function Login({ auth, onSwitchToRegister }: LoginProps) {
+export function Register({ auth, onSwitchToLogin }: RegisterProps) {
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    void auth.login(email, password)
+    void auth.register(name, email, password)
   }
 
   return (
@@ -25,10 +26,10 @@ export function Login({ auth, onSwitchToRegister }: LoginProps) {
           </div>
           <span className="eyebrow text-brand">Money Flow</span>
           <h1 className="font-serif text-4xl font-semibold tracking-tight text-fg">
-            Entrar
+            Criar conta
           </h1>
           <p className="text-sm text-fg-muted">
-            Acesse suas contas e transações.
+            Comece a organizar suas finanças.
           </p>
         </div>
 
@@ -41,6 +42,19 @@ export function Login({ auth, onSwitchToRegister }: LoginProps) {
               {auth.error}
             </div>
           )}
+
+          <label className="flex flex-col gap-2">
+            <span className="text-sm font-medium text-fg-muted">Nome</span>
+            <input
+              type="text"
+              required
+              autoComplete="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="rounded-xl border border-edge bg-surface-raised px-3 py-2 text-sm text-fg outline-none focus:border-brand"
+              placeholder="Seu nome"
+            />
+          </label>
 
           <label className="flex flex-col gap-2">
             <span className="text-sm font-medium text-fg-muted">Email</span>
@@ -60,7 +74,7 @@ export function Login({ auth, onSwitchToRegister }: LoginProps) {
             <input
               type="password"
               required
-              autoComplete="current-password"
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="rounded-xl border border-edge bg-surface-raised px-3 py-2 text-sm text-fg outline-none focus:border-brand"
@@ -73,18 +87,18 @@ export function Login({ auth, onSwitchToRegister }: LoginProps) {
             disabled={auth.loading}
             className="mt-2 flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            <LogIn className="size-4" strokeWidth={2} />
-            {auth.loading ? 'Entrando…' : 'Entrar'}
+            <UserPlus className="size-4" strokeWidth={2} />
+            {auth.loading ? 'Criando…' : 'Criar conta'}
           </button>
 
           <p className="text-center text-sm text-fg-muted">
-            Não tem conta?{' '}
+            Já tem conta?{' '}
             <button
               type="button"
-              onClick={onSwitchToRegister}
+              onClick={onSwitchToLogin}
               className="font-medium text-brand hover:underline"
             >
-              Criar conta
+              Entrar
             </button>
           </p>
         </form>

@@ -10,6 +10,7 @@ interface AuthState {
 
 export interface UseAuth extends AuthState {
   login: (email: string, password: string) => Promise<void>
+  register: (name: string, email: string, password: string) => Promise<void>
   logout: () => void
 }
 
@@ -40,10 +41,21 @@ export function useAuth(): UseAuth {
     }
   }, [])
 
+  const register = useCallback(async (name: string, email: string, password: string) => {
+    setState((s) => ({ ...s, loading: true, error: null }))
+    try {
+      const { token } = await authApi.register(name, email, password)
+      setToken(token)
+      setState({ isAuthenticated: true, loading: false, error: null })
+    } catch {
+      setState({ isAuthenticated: false, loading: false, error: 'Não foi possível criar a conta.' })
+    }
+  }, [])
+
   const logout = useCallback(() => {
     clearToken()
     setState({ isAuthenticated: false, loading: false, error: null })
   }, [])
 
-  return { ...state, login, logout }
+  return { ...state, login, register, logout }
 }
