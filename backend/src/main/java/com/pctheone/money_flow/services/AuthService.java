@@ -46,7 +46,7 @@ public class AuthService {
     }
 
     public Optional<Integer> register(String name, String email, String pass){
-        OwnerEntity owner = ownerRepository.save(new OwnerEntity(null, name, email, null, this.encodePassword(pass), null));
+        OwnerEntity owner = ownerRepository.save(new OwnerEntity(null, name, email, null, this.encodePassword(pass), null, null));
         return Optional.of(owner.getOwnerId());
     }
 

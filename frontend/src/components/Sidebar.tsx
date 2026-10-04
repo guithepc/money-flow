@@ -51,7 +51,13 @@ export function Sidebar({ active, onNavigate, onLogout }: SidebarProps) {
 
       <button
         title="Configurações"
-        className="flex size-10 items-center justify-center rounded-xl text-fg-muted transition-colors hover:bg-surface-raised hover:text-fg"
+        onClick={() => onNavigate('settings')}
+        className={cn(
+          'flex size-10 items-center justify-center rounded-xl transition-colors',
+          active === 'settings'
+            ? 'bg-surface-raised text-data'
+            : 'text-fg-muted hover:bg-surface-raised hover:text-fg',
+        )}
       >
         <Settings className="size-5" strokeWidth={1.8} />
       </button>

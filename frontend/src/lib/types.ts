@@ -57,7 +57,12 @@ export interface MonthlyIncomeExpense {
 }
 
 /** Seções navegáveis da sidebar. */
-export type View = 'dashboard' | 'accounts' | 'reports' | 'recurring'
+export type View = 'dashboard' | 'accounts' | 'reports' | 'recurring' | 'settings'
+
+/** TelegramInviteResponseDTO { link: String } — deep link para conectar o bot. */
+export interface TelegramInvite {
+  link: string
+}
 
 /** Intervalo de datas ISO (yyyy-mm-dd) usado nas queries de agregação. */
 export type DateRange = {

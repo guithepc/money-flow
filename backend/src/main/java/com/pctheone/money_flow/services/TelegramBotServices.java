@@ -2,7 +2,9 @@ package com.pctheone.money_flow.services;
 
 import com.openai.models.audio.transcriptions.TranscriptionCreateParams;
 import com.pctheone.money_flow.dto.*;
+import com.pctheone.money_flow.entities.OwnerEntity;
 import com.pctheone.money_flow.enums.OperationTypeEnum;
+import com.pctheone.money_flow.repositories.OwnerRepository;
 import com.pctheone.money_flow.utils.MoneyFormat;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -29,6 +31,8 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
@@ -69,35 +73,56 @@ public class TelegramBotServices {
     @Autowired
     AccountService accountService;
 
+    @Autowired
+    OwnerRepository ownerRepository;
+
+    @Autowired
+    OwnerService ownerService;
+
     public void telegramRouter(Update update){
-        if (update.getMessage().getVoice() != null) {
-
-            audioCommand(update);
-            return;
-        }
-
-
-        //---- /gasto mercado carne 25 1
-        if (!update.hasMessage() || (update.getMessage().getText() == null && update.getMessage().getAudio() == null)) {
+        if (!update.hasMessage()) {
             log.info("No message in update.");
             return;
         }
 
-        String message = update.getMessage().getText();
+        Long chatId = update.getMessage().getChatId();
+        String text = update.getMessage().getText();
 
-        List<String> command = Arrays.asList(message.split(" "));
-        if ("/start".equals(command.getFirst())){
-            log.info("Telegram bot starting.");
+        //---- /start <uuid> onboarding runs before owner resolution.
+        if (text != null && "/start".equals(text.split(" ")[0])) {
+            handleStart(Arrays.asList(text.split(" ")), chatId);
             return;
         }
 
+        Optional<OwnerEntity> owner = ownerRepository.findByTelegramChatId(chatId);
+        if (owner.isEmpty()) {
+            log.info("Unlinked chatId {} tried to use the bot.", chatId);
+            sendReply(chatId, "👋 Your Telegram isn't linked yet. Register at Money Flow and use the \"Link Telegram\" button to connect your account.");
+            return;
+        }
+        Integer ownerId = owner.get().getOwnerId();
+
+        if (update.getMessage().getVoice() != null) {
+            audioCommand(update, ownerId);
+            return;
+        }
+
+        //---- /gasto mercado carne 25 1
+        if (text == null && update.getMessage().getAudio() == null) {
+            log.info("No message in update.");
+            return;
+        }
+
+        String message = text;
+
+        List<String> command = Arrays.asList(message.split(" "));
 
         switch (command.getFirst()){
             case "/gasto":{
                 if (isCommandToShort(command, 5, update))
                     break;
                 log.info("Expense being registered.");
-                TransactionRegistrationResultDTO expense = transactionsService.registerExpense(1, command.get(1), Integer.valueOf(command.getLast()), command.get(3), command.get(2));
+                TransactionRegistrationResultDTO expense = transactionsService.registerExpense(ownerId, command.get(1), Integer.valueOf(command.getLast()), command.get(3), command.get(2));
                 log.info("Expense registered successfully, amount:  {} -  Actual balance: {}", expense.getAmount(), expense.getNewBalance());
                 String telegramMessage = "📉 Expense registered successfully. \n💰 Actual balance: €" + expense.getNewBalance().toString();
                 sendReply(update.getMessage().getChatId(), telegramMessage);
@@ -107,7 +132,7 @@ public class TelegramBotServices {
                 if (isCommandToShort(command, 5, update))
                     break;
                 log.info("Income being registered.");
-                TransactionRegistrationResultDTO income = transactionsService.registerIncome(1, command.get(1), Integer.valueOf(command.getLast()), command.get(3), command.get(2));
+                TransactionRegistrationResultDTO income = transactionsService.registerIncome(ownerId, command.get(1), Integer.valueOf(command.getLast()), command.get(3), command.get(2));
                 log.info("Income registered successfully, amount:  {} -  Actual balance: {}", income.getAmount(), income.getNewBalance());
                 String telegramMessage = "📈 Income registered successfully. \n💰 Actual balance: €" + income.getNewBalance().toString();
                 sendReply(update.getMessage().getChatId(), telegramMessage);
@@ -143,7 +168,7 @@ public class TelegramBotServices {
                 if (isCommandToShort(command, 3, update))
                     break;
                 log.info("Add account requested.");
-                String telegramMessage = accountService.addAccount(command.get(1), new BigDecimal(MoneyFormat.format(command.get(2))), 1);
+                String telegramMessage = accountService.addAccount(command.get(1), new BigDecimal(MoneyFormat.format(command.get(2))), ownerId);
                 sendReply(update.getMessage().getChatId(), telegramMessage);
                 break;
             }
@@ -201,7 +226,30 @@ public class TelegramBotServices {
         }
     }
 
-    public void audioCommand(Update update){
+    private void handleStart(List<String> command, Long chatId){
+        if (command.size() < 2) {
+            log.info("Plain /start received from chatId {}.", chatId);
+            sendReply(chatId, "👋 Welcome to Money Flow! To connect this chat to your account, open Money Flow and use the \"Link Telegram\" button.");
+            return;
+        }
+
+        UUID inviteUuid;
+        try {
+            inviteUuid = UUID.fromString(command.get(1));
+        } catch (IllegalArgumentException e) {
+            log.info("Invalid invite uuid received from chatId {}.", chatId);
+            sendReply(chatId, "🚨 Invalid invite link. Generate a new one from Money Flow.");
+            return;
+        }
+
+        if (ownerService.linkTelegramChat(inviteUuid, chatId)) {
+            sendReply(chatId, "✅ Your Telegram is now linked to your Money Flow account!");
+        } else {
+            sendReply(chatId, "🚨 This invite link is invalid or expired. Generate a new one from Money Flow.");
+        }
+    }
+
+    public void audioCommand(Update update, Integer ownerId){
         log.info("Voice message received from chatId: {}", update.getMessage().getChatId());
         Voice voiceAudio = update.getMessage().getVoice();
         String fileId = voiceAudio.getFileId();
@@ -255,7 +303,7 @@ public class TelegramBotServices {
 
             Response openAiResponse = client.responses().create(params);
 
-            proccessTranscriptedMessage(openAiResponse, update);
+            proccessTranscriptedMessage(openAiResponse, update, ownerId);
 
 
         } catch (Exception e){
@@ -264,7 +312,7 @@ public class TelegramBotServices {
         }
     }
 
-    private void proccessTranscriptedMessage(Response openAiResponse, Update update){
+    private void proccessTranscriptedMessage(Response openAiResponse, Update update, Integer ownerId){
         String response = openAiResponse.output().stream().flatMap(item -> item.asMessage().content().stream())
                 .map(content -> content.asOutputText().text())
                 .findFirst()
@@ -289,11 +337,11 @@ public class TelegramBotServices {
                 transactionDTO.getAmount(), transactionDTO.getAccountId());
 
         if (OperationTypeEnum.EXPENSE.equals(transactionDTO.getOperationType())) {
-            transactionsService.registerExpense(1, transactionDTO.getCategory(), transactionDTO.getAccountId(), transactionDTO.getAmount(), transactionDTO.getDescription());
+            transactionsService.registerExpense(ownerId, transactionDTO.getCategory(), transactionDTO.getAccountId(), transactionDTO.getAmount(), transactionDTO.getDescription());
             log.info("Voice expense registered successfully");
             this.sendReply(update.getMessage().getChatId(), "✅ Voice expense saved successfully!");
         } else if (OperationTypeEnum.INCOME.equals(transactionDTO.getOperationType())) {
-            transactionsService.registerIncome(1, transactionDTO.getCategory(), transactionDTO.getAccountId(), transactionDTO.getAmount(), transactionDTO.getDescription());
+            transactionsService.registerIncome(ownerId, transactionDTO.getCategory(), transactionDTO.getAccountId(), transactionDTO.getAmount(), transactionDTO.getDescription());
             log.info("Voice income registered successfully");
             this.sendReply(update.getMessage().getChatId(), "✅ Voice income saved successfully!");
         } 

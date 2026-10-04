@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { Dashboard } from '@/pages/Dashboard'
 import { Accounts } from '@/pages/Accounts'
+import { Settings } from '@/pages/Settings'
 import { Login } from '@/pages/Login'
 import { Register } from '@/pages/Register'
 import { useAuth } from '@/hooks/useAuth'
@@ -41,6 +42,7 @@ export default function App() {
         {view === 'accounts' && <Accounts />}
         {view === 'reports' && <Placeholder title="Relatórios" />}
         {view === 'recurring' && <Placeholder title="Recorrentes" />}
+        {view === 'settings' && <Settings />}
       </div>
     </CurrencyProvider>
   )
