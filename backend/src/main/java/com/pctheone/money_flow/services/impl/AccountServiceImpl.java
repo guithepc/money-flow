@@ -6,8 +6,9 @@ import com.pctheone.money_flow.repositories.AccountRepository;
 import com.pctheone.money_flow.services.AccountService;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -26,10 +27,15 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public List<AccountDTO> listAllAccounts() {
-
-        List<AccountEntity> accountEntities = accountRepository.findAll(Sort.by(Sort.Direction.ASC, "accountId"));
-
+    public List<AccountDTO> listAllAccounts(Integer ownerId) {
+        List<AccountEntity> accountEntities = accountRepository.findByOwnerOwnerIdOrderByAccountIdAsc(ownerId);
         return accountEntities.stream().map(accountEntity -> new AccountDTO(accountEntity.getAccountId(), accountEntity.getDescription(), accountEntity.getBalance())).toList();
+    }
+
+    @Override
+    public void validateAccountOwnership(Integer accountId, Integer ownerId) {
+        if (!accountRepository.existsByAccountIdAndOwnerOwnerId(accountId, ownerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account does not belong to the authenticated user");
+        }
     }
 }

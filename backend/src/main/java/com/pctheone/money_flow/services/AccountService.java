@@ -7,5 +7,6 @@ import java.util.List;
 
 public interface AccountService {
     String addAccount(String description, BigDecimal balance, int ownerId);
-    List<AccountDTO> listAllAccounts();
+    List<AccountDTO> listAllAccounts(Integer ownerId);
+    void validateAccountOwnership(Integer accountId, Integer ownerId);
 }

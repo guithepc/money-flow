@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
-import java.util.Optional;
+import java.util.List;
 
 public interface AccountRepository extends JpaRepository<AccountEntity, Integer> {
 
@@ -24,5 +24,7 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Integer>
     @Query("INSERT INTO AccountEntity (balance, description, owner) values (:balance, :description, :owner)")
     void addAccount(@Param("balance") BigDecimal balance, @Param("description") String description, @Param("owner") Integer ownerId);
 
+    List<AccountEntity> findByOwnerOwnerIdOrderByAccountIdAsc(Integer ownerId);
 
+    boolean existsByAccountIdAndOwnerOwnerId(Integer accountId, Integer ownerId);
 }

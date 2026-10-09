@@ -176,7 +176,7 @@ public class TelegramBotServices {
                 if (isCommandToShort(command, 1, update))
                     break;
                 log.info("Accounts requested.");
-                List<AccountDTO> accountDTOList = accountService.listAllAccounts();
+                List<AccountDTO> accountDTOList = accountService.listAllAccounts(ownerId);
                 log.info("Accounts in database:  {}", accountDTOList.size());
                 StringBuilder telegramMessage = new StringBuilder("🏦 Your accounts:\n");
                 for (AccountDTO accountDTO : accountDTOList){
@@ -196,7 +196,7 @@ public class TelegramBotServices {
                 if (isCommandToShort(command, 1, update))
                     break;
                 log.info("Transactions requested.");
-                List<TransactionDTO> transactionDTOS = transactionsService.listAllTransactions(LocalDate.now().minusDays(7), LocalDate.now(), null).reversed();
+                List<TransactionDTO> transactionDTOS = transactionsService.listAllTransactions(LocalDate.now().minusDays(7), LocalDate.now(), null, ownerId).reversed();
                 log.info("Last transactions:  {}", transactionDTOS.size());
                 StringBuilder telegramMessage = new StringBuilder("⚡️Last transactions:\n");
 
@@ -216,7 +216,7 @@ public class TelegramBotServices {
                 if (isCommandToShort(command, 2, update))
                     break;
                 log.info("Transaction deletion requested");
-                String response = transactionsService.deleteTransaction(Integer.valueOf(command.get(1)));
+                String response = transactionsService.deleteTransaction(Integer.valueOf(command.get(1)), ownerId);
                 sendReply(update.getMessage().getChatId(), response);
                 break;
             }
@@ -295,7 +295,7 @@ public class TelegramBotServices {
             log.info("Whisper transcription result: {}", transcription);
 
             String template = new String(voiceParserPrompt.getInputStream().readAllBytes());
-            String prompt = String.format(template, this.listCategories(), this.listAccounts());
+            String prompt = String.format(template, this.listCategories(), this.listAccounts(ownerId));
 
             log.info("Sending transcription to GPT for parsing");
             ResponseCreateParams params =
@@ -386,8 +386,8 @@ public class TelegramBotServices {
         return false;
     }
 
-    private StringBuilder listAccounts(){
-        List<AccountDTO> accountDTOList = accountService.listAllAccounts();
+    private StringBuilder listAccounts(Integer ownerId){
+        List<AccountDTO> accountDTOList = accountService.listAllAccounts(ownerId);
         StringBuilder accountListText = new StringBuilder();
         for (AccountDTO accountDTO : accountDTOList){
             accountListText.append("ID: ")
