@@ -11,8 +11,9 @@ import type { View } from '@/lib/types'
 
 function Placeholder({ title }: { title: string }) {
   return (
-    <main className="flex flex-1 items-center justify-center px-8 py-8">
+    <main className="bg-page-grid flex flex-1 flex-col items-center justify-center gap-2 px-10 py-9">
       <p className="text-sm text-fg-muted">{title} — em breve.</p>
+      <p className="font-mono text-xs text-fg-subtle">Essa seção ainda está sendo construída.</p>
     </main>
   )
 }
@@ -41,7 +42,6 @@ export default function App() {
         {view === 'dashboard' && <Dashboard />}
         {view === 'accounts' && <Accounts />}
         {view === 'reports' && <Placeholder title="Relatórios" />}
-        {view === 'recurring' && <Placeholder title="Recorrentes" />}
         {view === 'settings' && <Settings />}
       </div>
     </CurrencyProvider>

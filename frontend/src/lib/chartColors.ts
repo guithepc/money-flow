@@ -3,28 +3,30 @@
 
 /** Papéis semânticos — batem com --color-data / --color-negative / --color-brand. */
 export const CHART = {
-  income: '#3fcf5f', // --color-data (verde)
-  expense: '#f0616d', // --color-negative (vermelho)
-  brand: '#eab308', // --color-brand (âmbar)
-  grid: '#242a26', // --color-edge
-  axis: '#9ba5a0', // --color-fg-muted
-  surface: '#141816', // --color-surface (tooltip bg)
+  income: '#3DDC84', // --color-data (verde)
+  expense: '#FF7A6B', // --color-negative (coral)
+  brand: '#E2FF2E', // --color-brand (lime)
+  grid: 'rgba(255,255,255,0.06)',
+  axis: 'rgba(255,255,255,0.45)',
+  surface: '#1D212B', // --color-surface-raised (tooltip bg)
+  edge: 'rgba(255,255,255,0.12)', // --color-edge
 } as const
 
 /**
- * Sequência de cores pro donut de categorias. Deriva dos tokens principais +
- * tons intermediários, alternando quente/frio pra distinguir fatias no escuro.
+ * Sequência de cores pro donut de categorias. A última é reservada pra
+ * "Outros" (agrupamento da cauda).
  */
 export const CATEGORY_PALETTE = [
-  '#3fcf5f', // verde
-  '#eab308', // âmbar
-  '#f0616d', // vermelho
-  '#34b851', // verde forte
-  '#f6a623', // laranja
-  '#7ee8fa', // ciano
-  '#b79df6', // lilás
-  '#9ba5a0', // cinza (overflow/"outros")
+  '#E2FF2E', // lime
+  '#3DDC84', // verde
+  '#7C83FF', // índigo claro
+  '#FF7A6B', // coral
+  '#FFC24B', // âmbar
+  '#5FD4F4', // ciano
+  '#C9A7FF', // lilás
 ] as const
+
+export const OTHERS_COLOR = 'rgba(255,255,255,0.35)'
 
 /** Cor da fatia por índice, com wrap-around. */
 export function categoryColor(index: number): string {
