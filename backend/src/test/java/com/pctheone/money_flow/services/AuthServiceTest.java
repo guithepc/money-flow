@@ -36,7 +36,11 @@ public class AuthServiceTest {
     void authenticateSuccessfully(){
         String hash = new BCryptPasswordEncoder().encode("coxinha123");
 
-        OwnerEntity ownerEntity = new OwnerEntity(1, "G", "g@gmail.com", null, hash);
+        OwnerEntity ownerEntity = new OwnerEntity();
+        ownerEntity.setOwnerId(1);
+        ownerEntity.setName("G");
+        ownerEntity.setEmail("g@gmail.com");
+        ownerEntity.setPasswordHash(hash);
         Mockito.when(ownerRepository.findByEmail(ArgumentMatchers.any())).thenReturn(Optional.of(ownerEntity));
 
         AuthService service = new AuthService(new BCryptPasswordEncoder(), ownerRepository);
@@ -50,7 +54,11 @@ public class AuthServiceTest {
     void authenticateWithWrongPassword(){
         String hash = new BCryptPasswordEncoder().encode("coxinha123");
 
-        OwnerEntity ownerEntity = new OwnerEntity(1, "G", "g@gmail.com", null, hash);
+        OwnerEntity ownerEntity = new OwnerEntity();
+        ownerEntity.setOwnerId(1);
+        ownerEntity.setName("G");
+        ownerEntity.setEmail("g@gmail.com");
+        ownerEntity.setPasswordHash(hash);
         Mockito.when(ownerRepository.findByEmail(ArgumentMatchers.any())).thenReturn(Optional.of(ownerEntity));
 
         AuthService service = new AuthService(new BCryptPasswordEncoder(), ownerRepository);
