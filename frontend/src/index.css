@@ -1,33 +1,39 @@
 @import "tailwindcss";
 
 @theme {
-  /* Surfaces */
-  --color-background: #0a0c0b;
-  --color-surface: #141816;
-  --color-surface-raised: #1b201d;
-  --color-edge: #242a26;
+  /* Superfícies — paleta "Tinta" */
+  --color-background: #0b0d12;
+  --color-surface: #151820;
+  --color-surface-raised: #1d212b;
+  --color-edge: rgba(255, 255, 255, 0.12);
+  --color-grid: rgba(255, 255, 255, 0.045);
 
-  /* Brand accent (amber) — identidade / sparkle / eyebrows */
-  --color-brand: #eab308;
-  --color-brand-soft: #3a2f0a;
+  /* Acento (lime) — CTA, item ativo, linha do saldo, eyebrows. Texto sobre lime é sempre preto. */
+  --color-brand: #e2ff2e;
+  --color-brand-soft: rgba(226, 255, 46, 0.1);
+  --color-indigo: #252a86;
+  --color-paper: #fbfaf6;
+  --color-ink: #0b0e3a;
 
-  /* Data accent (green) — KPIs / barras / positivo */
-  --color-data: #3fcf5f;
-  --color-data-strong: #34b851;
+  /* Semânticas — entrada / gasto */
+  --color-data: #3ddc84;
+  --color-data-strong: #2fc172;
+  --color-negative: #ff7a6b;
 
-  /* Negative (red) — gastos / deltas pra baixo */
-  --color-negative: #f0616d;
+  /* Texto */
+  --color-fg: #ffffff;
+  --color-fg-muted: rgba(255, 255, 255, 0.62);
+  --color-fg-subtle: rgba(255, 255, 255, 0.4);
 
-  /* Text */
-  --color-fg: #f5f7f6;
-  --color-fg-muted: #9ba5a0;
+  /* Tipografia */
+  --font-display: "Plus Jakarta Sans Variable", system-ui, sans-serif;
+  --font-sans: "Space Grotesk Variable", system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, monospace;
+  /* Aliases temporários até migrar todos os usos (removidos na limpeza final). */
+  --font-serif: var(--font-display);
+  --font-rounded: var(--font-display);
 
-  /* Typography — sistema estilo ngrok */
-  --font-serif: "Fraunces Variable", Georgia, serif;
-  --font-sans: "Inter Variable", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
-  /* Arredondada — valores monetários (KPIs, saldo, totais) */
-  --font-rounded: "Nunito Variable", "Inter Variable", system-ui, sans-serif;
+  --radius-none: 0px;
 }
 
 html {
@@ -54,11 +60,58 @@ body {
   }
 }
 
-/* Eyebrow mono maiúsculo com tracking — assinatura ngrok */
-.eyebrow {
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  font-size: 0.72rem;
-  font-weight: 500;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@layer components {
+  /* Eyebrow mono maiúsculo com quadradinho lime à esquerda */
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 400;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--color-brand);
+  }
+
+  .eyebrow::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    flex-shrink: 0;
+    background-color: currentColor;
+  }
+
+  /* Label mono sem o quadradinho — KPIs, cabeçalhos de dia, metadados */
+  .label-mono {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  /* Grid de 80px da área de conteúdo, esmaecendo para a esquerda */
+  .bg-page-grid {
+    background-image:
+      linear-gradient(to right, var(--color-background) 0%, transparent 70%),
+      linear-gradient(var(--color-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--color-grid) 1px, transparent 1px);
+    background-size:
+      100% 100%,
+      80px 80px,
+      80px 80px;
+    background-attachment: local;
+  }
 }
