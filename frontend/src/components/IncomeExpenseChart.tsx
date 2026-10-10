@@ -86,7 +86,7 @@ export function IncomeExpenseChart({ data = [], loading = false }: IncomeExpense
       {data.length === 0 ? (
         <WaitingBackend loading={loading} height="min-h-56 flex-1" />
       ) : (
-        <div className="h-[264px]">
+        <div className="min-h-[264px] flex-1">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 8, right: 0, bottom: 0, left: 0 }} barSize={28} barGap={6}>
               <CartesianGrid stroke={CHART.grid} strokeDasharray="3 4" vertical={false} />

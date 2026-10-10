@@ -42,7 +42,7 @@ function tickLabel(iso: string, long: boolean): string {
   const d = new Date(iso + 'T00:00:00')
   return long
     ? d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
-    : d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')
+    : d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').replace(' de ', ' ')
 }
 
 export function BalanceHistoryChart({ data = [], loading = false, range, currentBalance }: BalanceHistoryChartProps) {
@@ -50,6 +50,11 @@ export function BalanceHistoryChart({ data = [], loading = false, range, current
   const filled = useMemo(() => fillDailyGaps(data, range, currentBalance), [data, range, currentBalance])
   const periodNet = useMemo(() => data.reduce((sum, p) => sum + p.net, 0), [data])
   const longRange = filled.length > 62
+  // Períodos longos: um tick por mês (dia 1), evitando meses repetidos no eixo.
+  const monthTicks = useMemo(
+    () => (longRange ? filled.filter((p) => p.date.endsWith('-01')).map((p) => p.date) : undefined),
+    [filled, longRange],
+  )
   const lastIndex = filled.length - 1
 
   return (
@@ -86,8 +91,9 @@ export function BalanceHistoryChart({ data = [], loading = false, range, current
                 tick={AXIS_TICK}
                 tickLine={false}
                 axisLine={false}
+                ticks={monthTicks}
                 minTickGap={32}
-                interval="preserveStartEnd"
+                interval={longRange ? 0 : 'preserveStartEnd'}
                 tickFormatter={(v: string) => tickLabel(v, longRange)}
               />
               <YAxis
