@@ -2,7 +2,6 @@ import {
   LayoutGrid,
   Wallet,
   BarChart3,
-  Repeat,
   Settings,
   LogOut,
   TrendingUp,
@@ -14,7 +13,6 @@ const NAV: { icon: typeof LayoutGrid; label: string; view: View }[] = [
   { icon: LayoutGrid, label: 'Dashboard', view: 'dashboard' },
   { icon: Wallet, label: 'Contas', view: 'accounts' },
   { icon: BarChart3, label: 'Relatórios', view: 'reports' },
-  { icon: Repeat, label: 'Recorrentes', view: 'recurring' },
 ]
 
 interface SidebarProps {

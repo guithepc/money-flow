@@ -42,7 +42,6 @@ export default function App() {
         {view === 'dashboard' && <Dashboard />}
         {view === 'accounts' && <Accounts />}
         {view === 'reports' && <Placeholder title="Relatórios" />}
-        {view === 'recurring' && <Placeholder title="Recorrentes" />}
         {view === 'settings' && <Settings />}
       </div>
     </CurrencyProvider>

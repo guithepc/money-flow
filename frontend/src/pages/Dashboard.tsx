@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowDownRight, ArrowUpRight, Eye, EyeOff, Repeat, Scale } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Eye, EyeOff, Scale } from 'lucide-react'
 import { AccountSwitcher } from '@/components/AccountSwitcher'
 import { KpiStrip } from '@/components/KpiStrip'
 import { CategoryDonut } from '@/components/CategoryDonut'
@@ -100,7 +100,6 @@ export function Dashboard() {
           items={[
             { label: 'Entrada', value: data?.totalIncome ?? 0, icon: ArrowUpRight, tone: 'data' },
             { label: 'Gasto', value: data?.totalSpent ?? 0, icon: ArrowDownRight, tone: 'negative' },
-            { label: 'Recorrente', value: data?.totalRecurring ?? 0, icon: Repeat, tone: 'neutral' },
             {
               label: 'Saldo do período',
               value: balance,

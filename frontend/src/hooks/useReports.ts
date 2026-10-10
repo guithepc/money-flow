@@ -5,7 +5,6 @@ import type { AmountAndCategory, DateRange, MonthlyIncomeExpense, TimeSeriesPoin
 export interface ReportsData {
   totalSpent: number
   totalIncome: number
-  totalRecurring: number
   balance: number
   ranking: AmountAndCategory[]
   monthlyIncomeExpense: MonthlyIncomeExpense[]
@@ -32,10 +31,9 @@ export function useReports(range: DateRange, accountId?: number): ReportsState {
   const load = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: null }))
     try {
-      const [spent, income, recurring, ranking, monthlyIncomeExpense] = await Promise.all([
+      const [spent, income, ranking, monthlyIncomeExpense] = await Promise.all([
         reportsApi.totalSpent(range, accountId),
         reportsApi.totalIncome(range, accountId),
-        reportsApi.totalRecurring(range, accountId),
         reportsApi.spentRankedByCategory(range, accountId),
         reportsApi.incomeExpenseMonthly(range, accountId),
       ])
@@ -46,7 +44,6 @@ export function useReports(range: DateRange, accountId?: number): ReportsState {
         data: {
           totalSpent: spent.total,
           totalIncome: income.total,
-          totalRecurring: recurring.total,
           balance: income.total - spent.total,
           ranking,
           monthlyIncomeExpense,
