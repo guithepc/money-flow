@@ -29,9 +29,6 @@
   --font-display: "Plus Jakarta Sans Variable", system-ui, sans-serif;
   --font-sans: "Space Grotesk Variable", system-ui, sans-serif;
   --font-mono: "Space Mono", ui-monospace, monospace;
-  /* Aliases temporários até migrar todos os usos (removidos na limpeza final). */
-  --font-serif: var(--font-display);
-  --font-rounded: var(--font-display);
 
   --radius-none: 0px;
 }
