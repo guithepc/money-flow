@@ -46,7 +46,7 @@ function tickLabel(iso: string, long: boolean): string {
 }
 
 export function BalanceHistoryChart({ data = [], loading = false, range, currentBalance }: BalanceHistoryChartProps) {
-  const { format } = useCurrency()
+  const { format, valuesVisible } = useCurrency()
   const filled = useMemo(() => fillDailyGaps(data, range, currentBalance), [data, range, currentBalance])
   const periodNet = useMemo(() => data.reduce((sum, p) => sum + p.net, 0), [data])
   const longRange = filled.length > 62
@@ -73,7 +73,7 @@ export function BalanceHistoryChart({ data = [], loading = false, range, current
               periodNet < 0 ? 'text-negative' : 'text-data',
             )}
           >
-            {periodNet < 0 ? '−' : '+'}
+            {valuesVisible && (periodNet < 0 ? '−' : '+')}
             {format(Math.abs(periodNet))} no período
           </span>
         )}
@@ -84,7 +84,7 @@ export function BalanceHistoryChart({ data = [], loading = false, range, current
       ) : (
         <div className="min-h-44 flex-1">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={filled} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+            <AreaChart data={filled} margin={{ top: 8, right: 20, bottom: 0, left: 0 }}>
               <CartesianGrid stroke={CHART.grid} strokeDasharray="3 4" vertical={false} />
               <XAxis
                 dataKey="date"
