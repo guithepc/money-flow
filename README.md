@@ -1,8 +1,8 @@
 # Money Flow
 
-Personal finance tracker with two interfaces: a Telegram Bot for quick daily expense/income logging and a React Dashboard for visualization and analytics.
+Personal finance tracker with two interfaces: a Telegram Bot for quick daily expense/income logging (text commands or voice messages) and a React Dashboard for visualization and analytics.
 
-Built as a real tool I use daily to manage finances across currencies (EUR/BRL).
+Built as a real tool I use daily to manage finances across currencies (EUR/BRL), now multi-user: anyone can register on the dashboard and link their own Telegram chat.
 
 ![Dashboard](docs/dashboard.png)
 
@@ -21,36 +21,39 @@ Built as a real tool I use daily to manage finances across currencies (EUR/BRL).
                  │  Spring   │ │   React    │
                  │  Boot API │ │  Dashboard │
                  │  (8080)   │ │  (nginx)   │
-                 └─────┬─────┘ └────────────┘
-                       │
-                 ┌─────▼─────┐
-                 │ PostgreSQL│
-                 │    17     │
-                 └───────────┘
+                 └──┬─────┬──┘ └────────────┘
+                    │     │
+          ┌─────────▼─┐ ┌─▼──────────────┐
+          │ PostgreSQL│ │ OpenAI         │
+          │ 17+Flyway │ │ Whisper + GPT  │
+          └───────────┘ └────────────────┘
 
        ┌────────────┐
-       │  Telegram   │──webhook──▶ POST /api/integration/telegram-webhook
-       │  Bot API    │
+       │  Telegram  │──webhook──▶ POST /api/integration/telegram-webhook
+       │  Bot API   │            (X-Telegram-Bot-Api-Secret-Token)
        └────────────┘
 ```
 
 ## Tech Stack
 
 ### Backend
-- Java 25 + Spring Boot 3
-- Spring Security with JWT (stateless sessions)
-- Spring Data JPA (Hibernate) with `ddl-auto=validate`, schema managed manually via SQL
-- PostgreSQL 17 with custom ENUMs (`frequency`, `operation`) and `NUMERIC` for monetary values
+- Java 25 + Spring Boot 4
+- Spring Security with JWT (stateless sessions), every read and write scoped by the authenticated owner
+- Spring Data JPA (Hibernate) with `ddl-auto=validate`, schema managed by Flyway migrations
+- PostgreSQL 17 with custom ENUMs (`frequency`, `operation`, `category_type`, `currency`) and `NUMERIC` for monetary values
+- OpenAI Java SDK: Whisper for voice transcription, GPT for parsing the transcription into a transaction
+- `telegrambots-meta` for the Telegram webhook payloads
 
 ### Frontend
-- React + TypeScript + Vite
-- Recharts for balance history, income vs expense charts, category donut
-- Tailwind CSS
+- React 19 + TypeScript + Vite
+- Tailwind CSS 4 with the "Tinta" palette (dark, lime accent) and Space Grotesk / Plus Jakarta Sans / Space Mono
+- Recharts for balance history, income vs expense and category donut
+- lucide-react icons
 
 ### Infrastructure
 - Docker with multi-stage builds for both backend (Temurin JDK/JRE) and frontend (Node + nginx)
-- Docker Compose orchestrating backend, frontend, and PostgreSQL
-- Traefik v3 as reverse proxy with automatic Let's Encrypt TLS, Coraza WAF (OWASP CRS), rate limiting
+- Docker Compose orchestrating backend, frontend and PostgreSQL (internal network, DB not exposed)
+- Traefik v3 as reverse proxy with automatic Let's Encrypt TLS, Coraza WAF (OWASP CRS), rate limiting and security headers
 - Self-hosted on VPS
 
 ## Database Schema
@@ -59,53 +62,91 @@ Built as a real tool I use daily to manage finances across currencies (EUR/BRL).
 
 | Table | Purpose |
 |-------|---------|
-| `owner` | User accounts with email/password auth and optional Telegram linking |
-| `account` | Financial accounts (checking, savings, etc.) with running balance |
-| `category` | Transaction categories (global in v1) |
+| `owner` | User accounts with email/password auth, Telegram chat link and one-time invite (`invite_uuid` + expiration) |
+| `account` | Financial accounts (checking, savings, etc.) with running balance and currency (`BRL`/`EUR`/`USD`) |
+| `category` | Transaction categories, per user, typed `EXPENSE`/`INCOME`, unique per `(owner_id, description)` |
 | `recurring_payment` | Templates for recurring charges, amount can change over time |
 | `transactions` | Immutable financial event records |
 
 Key design decisions:
 - `NUMERIC` for all monetary values, `BigDecimal` in Java. Never floating point for money
+- Currency lives on the account. There are no exchange rates: amounts in different currencies are never summed together
 - `recurring_payment` and `transactions` both have `amount`. Not duplication. The template can change (e.g. gym price increases), the recorded event doesn't
 - `recurring_payment_id` in transactions is nullable. Ad-hoc transactions from Telegram don't come from recurring rules
-- Schema is version-controlled in `creation.sql` and validated by Hibernate at startup
+- Schema is version-controlled in `backend/src/main/resources/db/migration` (Flyway) and validated by Hibernate at startup. Existing databases adopt `V1__baseline.sql` through `baseline-on-migrate`
+
+| Migration | Change |
+|-----------|--------|
+| `V1__baseline.sql` | Original schema (owner, account, category, recurring_payment, transactions) |
+| `V2__category_per_owner.sql` | `category.owner_id` + `category.type`, merges duplicated descriptions |
+| `V3__account_currency.sql` | `currency` enum and `account.currency` (default `EUR`) |
 
 ## Telegram Bot
 
-Positional command interface for quick logging on the go:
+### Linking a chat
+1. Register on the dashboard and open **Configurações → Telegram**
+2. Generate an invite: the API returns a deep link `t.me/<bot>?start=<uuid>` valid for 1 minute
+3. Opening the link sends `/start <uuid>` and links that chat to the account. Unlinked chats are refused
+
+### Voice messages
+Send a voice note like *"gastei 25 reais no mercado com carne no Nubank"*. The audio is transcribed by Whisper and parsed by GPT using **your** categories and accounts, then registered as an expense or income.
+
+### Commands
+Positional interface for quick logging on the go:
 
 | Command | Example | Description |
 |---------|---------|-------------|
-| `/gasto` | `/gasto mercado carne 25,90 1` | Log an expense |
+| `/gasto` | `/gasto mercado carne 25,90 1` | Log an expense (category, description, amount, account id) |
 | `/entrada` | `/entrada salario salario 3500 1` | Log income |
-| `/categorias` | `/categorias` | List all categories |
-| `/add-categoria` | `/add-categoria transporte` | Create a category |
-| `/add-conta` | `/add-conta poupanca 1000` | Create an account |
+| `/categorias` | `/categorias` | List your categories |
+| `/add-categoria` | `/add-categoria freela entrada` | Create a category (type `gasto`/`entrada`, default `gasto`) |
+| `/add-conta` | `/add-conta nubank 1000 BRL` | Create an account (currency `BRL`/`EUR`/`USD`, default `EUR`) |
 | `/contas` | `/contas` | List accounts with balances |
+| `/transacoes` | `/transacoes` | Transactions from the last 7 days |
+| `/deletar-transacao` | `/deletar-transacao 42` | Delete a transaction by id |
 
 Values use Brazilian/Portuguese format: comma as decimal separator (`25,90`), period as thousands separator (`1.000,50`).
 
 ## Dashboard
 
-Web interface for financial analytics:
+Web interface for financial analytics (pt-BR):
 
-- Account switcher with individual balances
-- KPI cards for total spent, total income, recurring payments
-- Category breakdown with donut chart
-- Balance history as daily line chart
-- Income vs Expense monthly comparison bar chart
-- Recent transactions with filterable date range picker
-- Currency display selector (BRL / EUR / USD)
+- Split-screen login and register
+- **Dashboard**
+  - Accumulated balance with account switcher (all accounts or one)
+  - Balance history line chart for the selected period
+  - KPI strip: income, expenses and period balance
+  - Spending by category (donut + ranked list)
+  - Monthly income vs expense comparison
+  - Recent transactions grouped by day
+  - Period picker (week, 30 days, month, year or custom range), currency display selector (BRL / EUR / USD) and a toggle to hide values
+- **Contas**: total balance and list of accounts
+- **Configurações**: generate the Telegram invite link
 
 ## API Endpoints
+
+All endpoints except `/api/auth/*` and the Telegram webhook require `Authorization: Bearer <jwt>`. The owner always comes from the token, never from the request.
 
 ### Auth
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| POST | `/api/auth/register` | Create a user and receive JWT |
 | POST | `/api/auth/login` | Authenticate and receive JWT |
 
+### Owner
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/owner/telegram-invite` | Generate a one-time Telegram deep link |
+
+### Accounts
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/accounts` | List your accounts (with currency) |
+| POST | `/api/accounts` | Create an account (`description`, `balance`, `currency`) |
+
 ### Transactions
+Every query takes `startDate` / `endDate` and an optional `accountId`.
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/transactions` | List transactions by date range |
@@ -117,17 +158,21 @@ Web interface for financial analytics:
 | GET | `/api/transactions/income-expense-monthly` | Monthly income vs expense |
 | GET | `/api/transactions/history-balance` | Daily balance history |
 
-### Accounts
+### Integration
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/accounts` | List all accounts |
+| POST | `/api/integration/telegram-webhook` | Telegram updates, validated by `X-Telegram-Bot-Api-Secret-Token` |
 
 ## Roadmap
 
-- [ ] Multi-user Telegram bot with deep link onboarding
-- [ ] Webhook security (`X-Telegram-Bot-Api-Secret-Token` validation)
-- [ ] Per-user categories
+- [x] Multi-user Telegram bot with deep link onboarding
+- [x] Webhook security (`X-Telegram-Bot-Api-Secret-Token` validation)
+- [x] Owner isolation on every read
+- [x] Voice messages via Whisper transcription + GPT parsing
+- [x] Dashboard visual refactor (Tinta palette)
+- [x] Flyway migrations, per-user categories and per-account currency (#5)
+- [ ] Bot robustness: error handling, idempotency, inline buttons, `_` command names (#6)
+- [ ] Guided Telegram onboarding: language, accounts with balance, base categories (#7)
+- [ ] Per-account currency in bot replies and dashboard currency filter (#8)
 - [ ] Transfer between accounts (origin/destination)
-- [ ] Multi-currency accounts (EUR, BRL, USD) with exchange rates
-- [ ] Voice messages via Whisper transcription + NLP parsing
-- [ ] `/help` command and onboarding flow
+- [ ] Exchange rates / consolidated net worth
