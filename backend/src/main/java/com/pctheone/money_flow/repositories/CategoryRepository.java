@@ -2,14 +2,14 @@ package com.pctheone.money_flow.repositories;
 
 import com.pctheone.money_flow.entities.CategoryEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+import java.util.Optional;
 
 public interface CategoryRepository extends JpaRepository<CategoryEntity, Integer> {
-    CategoryEntity findByDescription(String categoryDescription);
+    Optional<CategoryEntity> findByOwnerOwnerIdAndDescription(Integer ownerId, String description);
 
-    @Modifying
-    @Query("INSERT INTO CategoryEntity (description) values (:description)")
-    void createCategory(@Param("description") String description);
+    List<CategoryEntity> findByOwnerOwnerIdOrderByCategoryIdAsc(Integer ownerId);
+
+    boolean existsByCategoryIdAndOwnerOwnerId(Integer categoryId, Integer ownerId);
 }

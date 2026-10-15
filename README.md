@@ -39,8 +39,8 @@ Built as a real tool I use daily to manage finances across currencies (EUR/BRL).
 ### Backend
 - Java 25 + Spring Boot 3
 - Spring Security with JWT (stateless sessions)
-- Spring Data JPA (Hibernate) with `ddl-auto=validate`, schema managed manually via SQL
-- PostgreSQL 17 with custom ENUMs (`frequency`, `operation`) and `NUMERIC` for monetary values
+- Spring Data JPA (Hibernate) with `ddl-auto=validate`, schema managed by Flyway migrations
+- PostgreSQL 17 with custom ENUMs (`frequency`, `operation`, `category_type`, `currency`) and `NUMERIC` for monetary values
 
 ### Frontend
 - React + TypeScript + Vite
@@ -60,8 +60,8 @@ Built as a real tool I use daily to manage finances across currencies (EUR/BRL).
 | Table | Purpose |
 |-------|---------|
 | `owner` | User accounts with email/password auth and optional Telegram linking |
-| `account` | Financial accounts (checking, savings, etc.) with running balance |
-| `category` | Transaction categories (global in v1) |
+| `account` | Financial accounts (checking, savings, etc.) with running balance and currency (`BRL`/`EUR`/`USD`) |
+| `category` | Transaction categories, per user, typed `EXPENSE`/`INCOME` |
 | `recurring_payment` | Templates for recurring charges, amount can change over time |
 | `transactions` | Immutable financial event records |
 
@@ -69,7 +69,7 @@ Key design decisions:
 - `NUMERIC` for all monetary values, `BigDecimal` in Java. Never floating point for money
 - `recurring_payment` and `transactions` both have `amount`. Not duplication. The template can change (e.g. gym price increases), the recorded event doesn't
 - `recurring_payment_id` in transactions is nullable. Ad-hoc transactions from Telegram don't come from recurring rules
-- Schema is version-controlled in `creation.sql` and validated by Hibernate at startup
+- Schema is version-controlled in `backend/src/main/resources/db/migration` (Flyway) and validated by Hibernate at startup
 
 ## Telegram Bot
 
@@ -80,8 +80,8 @@ Positional command interface for quick logging on the go:
 | `/gasto` | `/gasto mercado carne 25,90 1` | Log an expense |
 | `/entrada` | `/entrada salario salario 3500 1` | Log income |
 | `/categorias` | `/categorias` | List all categories |
-| `/add-categoria` | `/add-categoria transporte` | Create a category |
-| `/add-conta` | `/add-conta poupanca 1000` | Create an account |
+| `/add-categoria` | `/add-categoria freela entrada` | Create a category (type `gasto`/`entrada`, default `gasto`) |
+| `/add-conta` | `/add-conta nubank 1000 BRL` | Create an account (currency `BRL`/`EUR`/`USD`, default `EUR`) |
 | `/contas` | `/contas` | List accounts with balances |
 
 Values use Brazilian/Portuguese format: comma as decimal separator (`25,90`), period as thousands separator (`1.000,50`).

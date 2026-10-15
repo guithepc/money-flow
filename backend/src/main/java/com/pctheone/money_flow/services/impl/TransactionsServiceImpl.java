@@ -10,6 +10,7 @@ import com.pctheone.money_flow.repositories.AccountRepository;
 import com.pctheone.money_flow.repositories.CategoryRepository;
 import com.pctheone.money_flow.repositories.TransactionsRepository;
 import com.pctheone.money_flow.services.AccountService;
+import com.pctheone.money_flow.services.CategoryService;
 import com.pctheone.money_flow.services.TransactionsService;
 import com.pctheone.money_flow.utils.DateUtils;
 import com.pctheone.money_flow.utils.MoneyFormat;
@@ -32,6 +33,9 @@ public class TransactionsServiceImpl implements TransactionsService {
     CategoryRepository categoryRepository;
 
     @Autowired
+    CategoryService categoryService;
+
+    @Autowired
     TransactionsRepository transactionsRepository;
 
     @Autowired
@@ -45,8 +49,7 @@ public class TransactionsServiceImpl implements TransactionsService {
 
         DateUtils.validateTimeRange(startTime, endTime);
 
-        Optional<CategoryEntity> optionalCategory = categoryRepository.findById(categoryId);
-        if (optionalCategory.isEmpty())
+        if (!categoryRepository.existsByCategoryIdAndOwnerOwnerId(categoryId, ownerId))
             throw new CategoryNotFoundException("Category doesn't exist");
 
         return transactionsRepository.totalSpentByCategoryByTime(startTime, endTime, categoryId, ownerId);
@@ -105,10 +108,7 @@ public class TransactionsServiceImpl implements TransactionsService {
     public TransactionRegistrationResultDTO registerExpense(Integer ownerId, String categoryDescription, Integer accountId, String amount, String description) {
         accountService.validateAccountOwnership(accountId, ownerId);
 
-        char firstChar = categoryDescription.charAt(0);
-        String categoryDescriptionFormatted = String.valueOf(firstChar).toUpperCase() + categoryDescription.substring(1);
-
-        Optional<CategoryEntity> category = Optional.ofNullable(categoryRepository.findByDescription(categoryDescriptionFormatted));
+        Optional<CategoryEntity> category = categoryService.findByDescription(categoryDescription, ownerId);
 
         if (category.isEmpty())
             throw new CategoryNotFoundException("No category found for this description");
@@ -127,10 +127,7 @@ public class TransactionsServiceImpl implements TransactionsService {
     public TransactionRegistrationResultDTO registerIncome(Integer ownerId, String categoryDescription, Integer accountId, String amount, String description) {
         accountService.validateAccountOwnership(accountId, ownerId);
 
-        char firstChar = categoryDescription.charAt(0);
-        String categoryDescriptionFormatted = String.valueOf(firstChar).toUpperCase() + categoryDescription.substring(1);
-
-        Optional<CategoryEntity> category = Optional.ofNullable(categoryRepository.findByDescription(categoryDescriptionFormatted));
+        Optional<CategoryEntity> category = categoryService.findByDescription(categoryDescription, ownerId);
 
         if (category.isEmpty())
             throw new CategoryNotFoundException("No category found for this description");

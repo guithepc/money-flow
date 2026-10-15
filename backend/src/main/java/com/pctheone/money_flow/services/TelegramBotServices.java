@@ -3,6 +3,8 @@ package com.pctheone.money_flow.services;
 import com.openai.models.audio.transcriptions.TranscriptionCreateParams;
 import com.pctheone.money_flow.dto.*;
 import com.pctheone.money_flow.entities.OwnerEntity;
+import com.pctheone.money_flow.enums.CategoryTypeEnum;
+import com.pctheone.money_flow.enums.CurrencyEnum;
 import com.pctheone.money_flow.enums.OperationTypeEnum;
 import com.pctheone.money_flow.repositories.OwnerRepository;
 import com.pctheone.money_flow.utils.MoneyFormat;
@@ -142,7 +144,7 @@ public class TelegramBotServices {
                 if (isCommandToShort(command, 1, update))
                     break;
                 log.info("Categories requested.");
-                List<CategoryDTO> categoryDTOList = categoryService.listAllCategories();
+                List<CategoryDTO> categoryDTOList = categoryService.listAllCategories(ownerId);
                 log.info("Categories in database:  {}", categoryDTOList.size());
                 StringBuilder telegramMessage = new StringBuilder("📈 Your categories:\n");
                 for (CategoryDTO categoryDTO : categoryDTOList){
@@ -160,7 +162,12 @@ public class TelegramBotServices {
                 if (isCommandToShort(command, 2, update))
                     break;
                 log.info("Add category requested.");
-                String telegramMessage = categoryService.addCategory(command.get(1));
+                Optional<CategoryTypeEnum> categoryType = parseCategoryType(command);
+                if (categoryType.isEmpty()) {
+                    sendReply(update.getMessage().getChatId(), "🚨 Invalid category type. Use: /add-categoria <name> [gasto|entrada]");
+                    break;
+                }
+                String telegramMessage = categoryService.addCategory(command.get(1), categoryType.get(), ownerId);
                 sendReply(update.getMessage().getChatId(), telegramMessage);
                 break;
             }
@@ -168,8 +175,13 @@ public class TelegramBotServices {
                 if (isCommandToShort(command, 3, update))
                     break;
                 log.info("Add account requested.");
-                String telegramMessage = accountService.addAccount(command.get(1), new BigDecimal(MoneyFormat.format(command.get(2))), ownerId);
-                sendReply(update.getMessage().getChatId(), telegramMessage);
+                Optional<CurrencyEnum> currency = parseCurrency(command);
+                if (currency.isEmpty()) {
+                    sendReply(update.getMessage().getChatId(), "🚨 Invalid currency. Use: /add-conta <name> <balance> [BRL|EUR|USD]");
+                    break;
+                }
+                AccountDTO account = accountService.addAccount(command.get(1), new BigDecimal(MoneyFormat.format(command.get(2))), currency.get(), ownerId);
+                sendReply(update.getMessage().getChatId(), "Account added: " + account.getDescription() + " (" + account.getCurrency() + ")");
                 break;
             }
             case "/contas":{
@@ -295,7 +307,7 @@ public class TelegramBotServices {
             log.info("Whisper transcription result: {}", transcription);
 
             String template = new String(voiceParserPrompt.getInputStream().readAllBytes());
-            String prompt = String.format(template, this.listCategories(), this.listAccounts(ownerId));
+            String prompt = String.format(template, this.listCategories(ownerId), this.listAccounts(ownerId));
 
             log.info("Sending transcription to GPT for parsing");
             ResponseCreateParams params =
@@ -386,6 +398,28 @@ public class TelegramBotServices {
         return false;
     }
 
+    //---- Optional 3rd token, defaults to EXPENSE.
+    private Optional<CategoryTypeEnum> parseCategoryType(List<String> command){
+        if (command.size() < 3)
+            return Optional.of(CategoryTypeEnum.EXPENSE);
+        return switch (command.get(2).toLowerCase()) {
+            case "gasto", "expense" -> Optional.of(CategoryTypeEnum.EXPENSE);
+            case "entrada", "income" -> Optional.of(CategoryTypeEnum.INCOME);
+            default -> Optional.empty();
+        };
+    }
+
+    //---- Optional 4th token, defaults to EUR.
+    private Optional<CurrencyEnum> parseCurrency(List<String> command){
+        if (command.size() < 4)
+            return Optional.of(CurrencyEnum.EUR);
+        try {
+            return Optional.of(CurrencyEnum.valueOf(command.get(3).toUpperCase()));
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
+    }
+
     private StringBuilder listAccounts(Integer ownerId){
         List<AccountDTO> accountDTOList = accountService.listAllAccounts(ownerId);
         StringBuilder accountListText = new StringBuilder();
@@ -401,8 +435,8 @@ public class TelegramBotServices {
         return accountListText;
     }
 
-    private StringBuilder listCategories(){
-        List<CategoryDTO> categoryDTOList = categoryService.listAllCategories();
+    private StringBuilder listCategories(Integer ownerId){
+        List<CategoryDTO> categoryDTOList = categoryService.listAllCategories(ownerId);
         StringBuilder categoryListText = new StringBuilder();
         for (CategoryDTO categoryDTO : categoryDTOList){
             categoryListText.append("ID: ")

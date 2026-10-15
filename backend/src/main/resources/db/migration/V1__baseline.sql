@@ -4,7 +4,9 @@ CREATE TABLE owner (
     password_hash CHAR(60) NOT NULL,
 	email varchar (255) NOT NULL,
     CONSTRAINT owner_email_key UNIQUE (email),
-    telegram_chat_id BIGINT UNIQUE
+    telegram_chat_id BIGINT UNIQUE,
+    invite_expiration TIMESTAMP,
+    invite_uuid UUID
 );
 
 CREATE TABLE account (
