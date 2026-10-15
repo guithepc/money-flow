@@ -20,8 +20,4 @@ public interface TransactionsService {
     List<DailyBalanceDTO> dailyBalance(LocalDate startTime, LocalDate endTime, Integer accountId, CurrencyEnum currency, Integer ownerId);
     String deleteTransaction(Integer id, Integer ownerId);
 
-    default List<TransactionDTO> listAllTransactions(LocalDate startTime, LocalDate endTime, Integer accountId, Integer ownerId) {
-        return listAllTransactions(startTime, endTime, accountId, null, ownerId);
-    }
-
 }

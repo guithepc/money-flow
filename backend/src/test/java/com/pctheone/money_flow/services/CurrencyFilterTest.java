@@ -130,6 +130,10 @@ public class CurrencyFilterTest {
         Assertions.assertTrue(transactionsService.listAllTransactions(start, end, null, CurrencyEnum.BRL, otherOwnerId).isEmpty());
         Assertions.assertThrows(ResponseStatusException.class,
                 () -> transactionsService.totalSpentByTime(start, end, brlA, CurrencyEnum.BRL, otherOwnerId));
+        Assertions.assertThrows(ResponseStatusException.class,
+                () -> transactionsService.listAllTransactions(start, end, brlA, null, otherOwnerId));
+        Assertions.assertThrows(ResponseStatusException.class,
+                () -> transactionsService.totalIncomeByTime(start, end, Integer.MAX_VALUE, CurrencyEnum.BRL, ownerId));
     }
 
     @Test

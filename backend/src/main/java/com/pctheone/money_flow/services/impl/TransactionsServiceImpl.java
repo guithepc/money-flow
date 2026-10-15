@@ -64,10 +64,10 @@ public class TransactionsServiceImpl implements TransactionsService {
 
     private Scope resolveScope(Integer accountId, CurrencyEnum currency, Integer ownerId) {
         if (accountId != null) {
-            accountService.validateAccountOwnership(accountId, ownerId);
+            AccountEntity account = accountRepository.findByAccountIdAndOwnerOwnerId(accountId, ownerId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Account does not belong to the authenticated user"));
             if (currency == null) return Scope.ACCOUNT;
-            CurrencyEnum accountCurrency = accountRepository.findById(accountId).map(AccountEntity::getCurrency).orElse(null);
-            return currency.equals(accountCurrency) ? Scope.ACCOUNT : Scope.NONE;
+            return currency.equals(account.getCurrency()) ? Scope.ACCOUNT : Scope.NONE;
         }
         return currency == null ? Scope.ALL : Scope.CURRENCY;
     }

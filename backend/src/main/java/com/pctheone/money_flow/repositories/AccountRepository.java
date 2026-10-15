@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 public interface AccountRepository extends JpaRepository<AccountEntity, Integer> {
 
@@ -23,4 +24,6 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Integer>
     List<AccountEntity> findByOwnerOwnerIdOrderByAccountIdAsc(Integer ownerId);
 
     boolean existsByAccountIdAndOwnerOwnerId(Integer accountId, Integer ownerId);
+
+    Optional<AccountEntity> findByAccountIdAndOwnerOwnerId(Integer accountId, Integer ownerId);
 }
