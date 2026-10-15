@@ -5,13 +5,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-/** Moedas de exibição suportadas no dashboard. */
+/** Moedas suportadas (espelha o enum `currency` do backend). */
 export type Currency = 'BRL' | 'EUR' | 'USD'
 
 export const CURRENCIES: { code: Currency; label: string; symbol: string }[] = [
   { code: 'BRL', label: 'Real', symbol: 'R$' },
   { code: 'EUR', label: 'Euro', symbol: '€' },
-  { code: 'USD', label: 'Dólar', symbol: 'USD' },
+  { code: 'USD', label: 'Dólar', symbol: 'US$' },
 ]
 
 const numberFmt = new Intl.NumberFormat('pt-BR', {
@@ -20,22 +20,17 @@ const numberFmt = new Intl.NumberFormat('pt-BR', {
 })
 
 /**
- * Formata um valor com a moeda escolhida. Só muda a disposição do símbolo
- * (não converte câmbio): BRL = `R$` à esquerda; EUR = `€` à direita;
- * USD = `USD` à direita.
+ * Formata um valor na moeda da conta — não converte câmbio. Mesma regra das
+ * respostas do bot (`MoneyFormat.format` no backend): símbolo à esquerda +
+ * número em notação pt-BR; o sinal vem antes do símbolo.
+ * `R$ 1.250,90` · `€ 681,03` · `US$ 10,00` · `-R$ 12,00`
  */
 export function formatCurrency(value: number | string, currency: Currency = 'BRL'): string {
   const n = typeof value === 'string' ? Number(value) : value
-  const num = numberFmt.format(Number.isFinite(n) ? n : 0)
-  switch (currency) {
-    case 'EUR':
-      return `${num} €`
-    case 'USD':
-      return `${num} USD`
-    case 'BRL':
-    default:
-      return `R$ ${num}`
-  }
+  const safe = Number.isFinite(n) ? n : 0
+  const symbol = CURRENCIES.find((c) => c.code === currency)?.symbol ?? currency
+  const sign = safe < 0 && numberFmt.format(Math.abs(safe)) !== '0,00' ? '-' : ''
+  return `${sign}${symbol} ${numberFmt.format(Math.abs(safe))}`
 }
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)

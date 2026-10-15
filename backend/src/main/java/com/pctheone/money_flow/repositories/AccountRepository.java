@@ -8,19 +8,22 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 public interface AccountRepository extends JpaRepository<AccountEntity, Integer> {
 
-    @Modifying
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE AccountEntity SET balance = balance - :amount WHERE accountId = :accountId")
     void decrementBalance(@Param("accountId") Integer accountId, @Param("amount") BigDecimal amount);
 
 
-    @Modifying
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE AccountEntity SET balance = balance + :amount WHERE accountId = :accountId")
     void incrementBalance(@Param("accountId") Integer accountId, @Param("amount") BigDecimal amount);
 
     List<AccountEntity> findByOwnerOwnerIdOrderByAccountIdAsc(Integer ownerId);
 
     boolean existsByAccountIdAndOwnerOwnerId(Integer accountId, Integer ownerId);
+
+    Optional<AccountEntity> findByAccountIdAndOwnerOwnerId(Integer accountId, Integer ownerId);
 }

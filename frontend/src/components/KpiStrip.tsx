@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, type Currency } from '@/lib/utils'
 import { useCurrency } from '@/contexts/CurrencyContext'
 
 type Tone = 'data' | 'negative' | 'neutral'
@@ -9,6 +9,8 @@ export interface KpiItem {
   value: number
   icon: LucideIcon
   tone?: Tone
+  /** Moeda do valor; padrão = moeda selecionada no filtro. */
+  currency?: Currency
 }
 
 interface KpiStripProps {
@@ -54,7 +56,7 @@ export function KpiStrip({ items, loading = false }: KpiStripProps) {
 
   return (
     <section className="relative flex flex-col border border-edge bg-surface/60 sm:flex-row">
-      {items.map(({ label, value, icon: Icon, tone = 'neutral' }, i) => (
+      {items.map(({ label, value, icon: Icon, tone = 'neutral', currency }, i) => (
         <div
           key={label}
           className={cn(
@@ -77,7 +79,7 @@ export function KpiStrip({ items, loading = false }: KpiStripProps) {
                 toneText[tone],
               )}
             >
-              {format(value)}
+              {format(value, currency)}
             </span>
           )}
         </div>
