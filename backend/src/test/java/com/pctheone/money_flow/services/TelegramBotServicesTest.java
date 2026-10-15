@@ -4,9 +4,12 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
 import com.pctheone.money_flow.dto.AccountDTO;
+import com.pctheone.money_flow.dto.TransactionDTO;
+import com.pctheone.money_flow.dto.TransactionRegistrationResultDTO;
 import com.pctheone.money_flow.entities.OwnerEntity;
 import com.pctheone.money_flow.enums.CategoryTypeEnum;
 import com.pctheone.money_flow.enums.CurrencyEnum;
+import com.pctheone.money_flow.enums.OperationTypeEnum;
 import com.pctheone.money_flow.exceptions.CategoryNotFoundException;
 import com.pctheone.money_flow.repositories.OwnerRepository;
 import com.pctheone.money_flow.services.telegram.TelegramApiClient;
@@ -411,6 +414,46 @@ public class TelegramBotServicesTest {
             Assertions.assertTrue(reply.contains("/deletar_transacao"));
             Assertions.assertFalse(reply.contains("/add-"));
         }
+    }
+
+    //---- Currency-formatted replies (#8)
+
+    @Test
+    void expenseAndIncomeConfirmationsUseAccountCurrency() {
+        Mockito.when(transactionsService.registerExpense(OWNER_ID, "mercado", 1, "30", "feira"))
+                .thenReturn(new TransactionRegistrationResultDTO(new BigDecimal("30"), new BigDecimal("470"), CurrencyEnum.BRL, "Nubank", "Mercado"));
+        Mockito.when(transactionsService.registerIncome(OWNER_ID, "salario", 2, "1.000", "freela"))
+                .thenReturn(new TransactionRegistrationResultDTO(new BigDecimal("1000"), new BigDecimal("1681.03"), CurrencyEnum.EUR, "Revolut", "Salario"));
+
+        service.telegramRouter(textUpdate("/gasto mercado feira 30 1"));
+        service.telegramRouter(textUpdate("/entrada salario freela 1.000 2"));
+
+        Mockito.verify(telegramApiClient).sendMessage(CHAT_ID, "📉 R$ 30,00 · Mercado · Nubank — balance R$ 470,00");
+        Mockito.verify(telegramApiClient).sendMessage(CHAT_ID, "📈 € 1.000,00 · Salario · Revolut — balance € 1.681,03");
+    }
+
+    @Test
+    void accountsAndTransactionsListUseEachAccountCurrency() {
+        Mockito.when(accountService.listAllAccounts(OWNER_ID)).thenReturn(List.of(
+                new AccountDTO(1, "Nubank", new BigDecimal("470"), CurrencyEnum.BRL),
+                new AccountDTO(2, "Revolut", new BigDecimal("681.03"), CurrencyEnum.EUR)));
+        Mockito.when(transactionsService.listAllTransactions(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.isNull(), ArgumentMatchers.isNull(), ArgumentMatchers.eq(OWNER_ID)))
+                .thenReturn(new ArrayList<>(List.of(
+                        new TransactionDTO(10, "feira", new BigDecimal("30"), java.time.LocalDate.now(), "Mercado", OperationTypeEnum.EXPENSE, CurrencyEnum.BRL),
+                        new TransactionDTO(11, "us store", new BigDecimal("10"), java.time.LocalDate.now(), "Mercado", OperationTypeEnum.EXPENSE, CurrencyEnum.USD))));
+
+        service.telegramRouter(textUpdate("/contas"));
+        service.telegramRouter(textUpdate("/transacoes"));
+
+        ArgumentCaptor<String> replies = ArgumentCaptor.forClass(String.class);
+        Mockito.verify(telegramApiClient, Mockito.times(2)).sendMessage(ArgumentMatchers.eq(CHAT_ID), replies.capture());
+        String accounts = replies.getAllValues().get(0);
+        Assertions.assertTrue(accounts.contains("ID: 1 - Nubank | R$ 470,00"), accounts);
+        Assertions.assertTrue(accounts.contains("ID: 2 - Revolut | € 681,03"), accounts);
+        String transactions = replies.getAllValues().get(1);
+        Assertions.assertTrue(transactions.contains("ID: 10 - feira - R$ 30,00"), transactions);
+        Assertions.assertTrue(transactions.contains("ID: 11 - us store - US$ 10,00"), transactions);
+        Assertions.assertFalse(transactions.contains("€"), transactions);
     }
 
     //---- Helpers
