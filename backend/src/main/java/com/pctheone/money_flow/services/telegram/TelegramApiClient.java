@@ -6,6 +6,7 @@ import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import com.pctheone.money_flow.utils.Json;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -35,7 +36,7 @@ public class TelegramApiClient {
     @Value("${telegram.timeout}")
     private int telegramTimeout;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = Json.MAPPER;
 
     private HttpClient httpClient;
 

@@ -9,11 +9,13 @@ import com.pctheone.money_flow.enums.LanguageEnum;
 import com.pctheone.money_flow.enums.OnboardingStepEnum;
 import com.pctheone.money_flow.enums.OperationTypeEnum;
 import com.pctheone.money_flow.exceptions.CategoryNotFoundException;
+import com.pctheone.money_flow.exceptions.DuplicateAccountNameException;
 import com.pctheone.money_flow.exceptions.InvalidMoneyFormatException;
 import com.pctheone.money_flow.exceptions.TelegramUserInputException;
 import com.pctheone.money_flow.repositories.OwnerRepository;
 import com.pctheone.money_flow.services.telegram.BotMessages;
 import com.pctheone.money_flow.services.telegram.CategoryCallbackHandler;
+import com.pctheone.money_flow.services.telegram.OpenAITextClient;
 import com.pctheone.money_flow.services.telegram.TelegramApiClient;
 import com.pctheone.money_flow.services.telegram.TelegramBotCommands;
 import com.pctheone.money_flow.services.telegram.TelegramCallbackHandler;
@@ -21,12 +23,12 @@ import com.pctheone.money_flow.services.telegram.TelegramCallbackRegistry;
 import com.pctheone.money_flow.services.telegram.TelegramProcessedUpdateService;
 import com.pctheone.money_flow.services.telegram.VoiceTranscriptionService;
 import com.pctheone.money_flow.utils.BotMessageFormat;
+import com.pctheone.money_flow.utils.Json;
 import com.pctheone.money_flow.utils.MoneyFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -36,7 +38,6 @@ import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -47,9 +48,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-import com.openai.client.OpenAIClient;
-import com.openai.models.responses.Response;
-import com.openai.models.responses.ResponseCreateParams;
 @Service
 public class TelegramBotServices {
 
@@ -66,8 +64,6 @@ public class TelegramBotServices {
     static final String VOICE_ERROR_MESSAGE = "error.voice";
     static final String NOT_LINKED_MESSAGE = "error.notLinked";
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
     @Value("classpath:prompts/voice-parser.txt")
     Resource voiceParserPrompt;
 
@@ -80,9 +76,8 @@ public class TelegramBotServices {
     @Autowired
     TelegramCallbackRegistry callbackRegistry;
 
-    @Lazy
     @Autowired
-    OpenAIClient openAIClient;
+    OpenAITextClient openAITextClient;
 
     @Autowired
     VoiceTranscriptionService voiceTranscriptionService;
@@ -267,14 +262,8 @@ public class TelegramBotServices {
                     sendReply(chatId, messages.get(language, "category.invalidType"));
                     return false;
                 }
-                Optional<CategoryEntity> existing = categoryService.findByDescription(command.get(1), ownerId);
-                if (existing.isPresent()) {
-                    sendReply(chatId, messages.get(language, "category.exists", existing.get().getDescription()));
-                    return false;
-                }
-                categoryService.addCategory(command.get(1), categoryType.get(), ownerId);
-                String created = categoryService.findByDescription(command.get(1), ownerId).map(CategoryEntity::getDescription).orElse(command.get(1));
-                sendReply(chatId, messages.get(language, "category.created", created));
+                CategoryCreationResultDTO result = categoryService.addCategory(command.get(1), categoryType.get(), ownerId);
+                sendReply(chatId, categoryCreationReply(result, categoryType.get(), language));
                 return false;
             }
             case "/nova_conta", "/add-conta":{
@@ -386,14 +375,7 @@ public class TelegramBotServices {
             String prompt = String.format(template, this.listCategories(ownerId), this.listAccounts(ownerId));
 
             log.info("Sending transcription to GPT for parsing");
-            ResponseCreateParams params =
-                ResponseCreateParams.builder().model("gpt-4o-mini").instructions(prompt).input(transcription).build();
-
-            Response openAiResponse = openAIClient.responses().create(params);
-            String response = openAiResponse.output().stream().flatMap(item -> item.asMessage().content().stream())
-                    .map(content -> content.asOutputText().text())
-                    .findFirst()
-                    .orElse("");
+            String response = openAITextClient.complete(prompt, transcription).orElse("{\"error\": \"NOT_UNDERSTOOD\"}");
 
             return proccessTranscriptedMessage(response, chatId, ownerId, language);
         } catch (Exception e){
@@ -408,7 +390,7 @@ public class TelegramBotServices {
     boolean proccessTranscriptedMessage(String response, Long chatId, Integer ownerId, LanguageEnum language){
         log.info("GPT parser response: {}", response);
 
-        JsonNode node = OBJECT_MAPPER.readTree(response);
+        JsonNode node = Json.MAPPER.readTree(response);
         if (node.hasNonNull("error")) {
             String category = node.hasNonNull("category") ? node.get("category").asString().trim() : "";
             if ("CATEGORY_NOT_FOUND".equals(node.get("error").asString()) && !category.isEmpty()) {
@@ -420,7 +402,7 @@ public class TelegramBotServices {
             return false;
         }
 
-        OpenAITransactionDTO transactionDTO = OBJECT_MAPPER.treeToValue(node, OpenAITransactionDTO.class);
+        OpenAITransactionDTO transactionDTO = Json.MAPPER.treeToValue(node, OpenAITransactionDTO.class);
         log.info("Parsed transaction - operation: {}, category: {}, description: {}, amount: {}, accountId: {}",
                 transactionDTO.getOperationType(), transactionDTO.getCategory(), transactionDTO.getDescription(),
                 transactionDTO.getAmount(), transactionDTO.getAccountId());
@@ -455,6 +437,16 @@ public class TelegramBotServices {
         log.info("Voice {} registered successfully", operationType);
         sendReply(chatId, BotMessageFormat.transactionConfirmation(messages, language, operationType, result));
         return true;
+    }
+
+    //---- Created / already exists / name taken by a category of the other type.
+    private String categoryCreationReply(CategoryCreationResultDTO result, CategoryTypeEnum requestedType, LanguageEnum language){
+        CategoryEntity category = result.getCategory();
+        if (result.isCreated())
+            return messages.get(language, "category.created", category.getDescription());
+        if (category.getType() != requestedType)
+            return messages.get(language, "category.nameTakenByOtherType", category.getDescription(), messages.get(language, "category.type." + category.getType().name()));
+        return messages.get(language, "category.exists", category.getDescription());
     }
 
     private static CategoryTypeEnum operationTypeOf(JsonNode node){
@@ -514,6 +506,7 @@ public class TelegramBotServices {
     private void handleError(Long chatId, LanguageEnum language, Exception e, String fallbackMessageKey){
         String message = switch (e) {
             case TelegramUserInputException userInput -> messages.get(language, userInput.getMessageKey(), userInput.getArgs());
+            case DuplicateAccountNameException duplicate -> messages.get(language, "account.duplicate", duplicate.getName());
             case CategoryNotFoundException ignored -> messages.get(language, CATEGORY_NOT_FOUND_MESSAGE);
             case InvalidMoneyFormatException ignored -> messages.get(language, INVALID_AMOUNT_MESSAGE);
             case NumberFormatException ignored -> messages.get(language, INVALID_AMOUNT_MESSAGE);

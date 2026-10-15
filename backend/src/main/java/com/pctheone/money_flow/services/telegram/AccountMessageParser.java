@@ -1,20 +1,16 @@
 package com.pctheone.money_flow.services.telegram;
 
-import com.openai.client.OpenAIClient;
-import com.openai.models.responses.Response;
-import com.openai.models.responses.ResponseCreateParams;
 import com.pctheone.money_flow.enums.CurrencyEnum;
 import com.pctheone.money_flow.utils.AmountParser;
 import com.pctheone.money_flow.utils.CurrencyParser;
+import com.pctheone.money_flow.utils.Json;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -36,11 +32,9 @@ public class AccountMessageParser {
     @Value("classpath:prompts/account-parser.txt")
     Resource accountParserPrompt;
 
-    @Lazy
     @Autowired
-    OpenAIClient openAIClient;
+    OpenAITextClient openAITextClient;
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final int MAX_NAME_LENGTH = 255;
 
     //---- Never throws: a GPT/parsing failure just means nothing was understood.
@@ -63,24 +57,13 @@ public class AccountMessageParser {
         String prompt = accountParserPrompt.getContentAsString(StandardCharsets.UTF_8);
 
         log.info("Sending account message to GPT for parsing");
-        ResponseCreateParams params = ResponseCreateParams.builder()
-                .model("gpt-4o-mini")
-                .instructions(prompt)
-                .input(text)
-                .build();
-        Response response = openAIClient.responses().create(params);
-
-        String json = response.output().stream()
-                .flatMap(item -> item.asMessage().content().stream())
-                .map(content -> content.asOutputText().text())
-                .findFirst()
-                .orElse("{}");
+        String json = openAITextClient.complete(prompt, text).orElse("{}");
         log.info("GPT account parser response: {}", json);
         return fromJson(json);
     }
 
     static ParsedAccount fromJson(String json) {
-        JsonNode node = OBJECT_MAPPER.readTree(json);
+        JsonNode node = Json.MAPPER.readTree(json);
         String name = textOrNull(node, "name");
         String currencyText = textOrNull(node, "currency");
         String amountText = textOrNull(node, "amount");

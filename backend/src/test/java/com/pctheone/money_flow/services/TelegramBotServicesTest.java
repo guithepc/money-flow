@@ -2,8 +2,8 @@ package com.pctheone.money_flow.services;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.openai.client.OpenAIClient;
 import com.pctheone.money_flow.dto.AccountDTO;
+import com.pctheone.money_flow.dto.CategoryCreationResultDTO;
 import com.pctheone.money_flow.dto.DeletedTransactionDTO;
 import com.pctheone.money_flow.dto.TelegramInlineButtonDTO;
 import com.pctheone.money_flow.dto.TransactionDTO;
@@ -16,8 +16,10 @@ import com.pctheone.money_flow.enums.LanguageEnum;
 import com.pctheone.money_flow.enums.OnboardingStepEnum;
 import com.pctheone.money_flow.enums.OperationTypeEnum;
 import com.pctheone.money_flow.exceptions.CategoryNotFoundException;
+import com.pctheone.money_flow.exceptions.DuplicateAccountNameException;
 import com.pctheone.money_flow.repositories.OwnerRepository;
 import com.pctheone.money_flow.services.telegram.BotMessages;
+import com.pctheone.money_flow.services.telegram.OpenAITextClient;
 import com.pctheone.money_flow.services.telegram.TelegramApiClient;
 import com.pctheone.money_flow.services.telegram.TelegramCallbackHandler;
 import com.pctheone.money_flow.services.telegram.TelegramCallbackRegistry;
@@ -57,7 +59,7 @@ public class TelegramBotServicesTest {
     CategoryService categoryService;
     AccountService accountService;
     OwnerRepository ownerRepository;
-    OpenAIClient openAIClient;
+    OpenAITextClient openAITextClient;
     OwnerService ownerService;
     OnboardingService onboardingService;
     VoiceTranscriptionService voiceTranscriptionService;
@@ -74,7 +76,7 @@ public class TelegramBotServicesTest {
         categoryService = Mockito.mock(CategoryService.class);
         accountService = Mockito.mock(AccountService.class);
         ownerRepository = Mockito.mock(OwnerRepository.class);
-        openAIClient = Mockito.mock(OpenAIClient.class);
+        openAITextClient = Mockito.mock(OpenAITextClient.class);
         ownerService = Mockito.mock(OwnerService.class);
         onboardingService = Mockito.mock(OnboardingService.class);
         voiceTranscriptionService = Mockito.mock(VoiceTranscriptionService.class);
@@ -98,7 +100,7 @@ public class TelegramBotServicesTest {
         service.categoryService = categoryService;
         service.accountService = accountService;
         service.ownerRepository = ownerRepository;
-        service.openAIClient = openAIClient;
+        service.openAITextClient = openAITextClient;
         service.ownerService = ownerService;
         service.onboardingService = onboardingService;
         service.voiceTranscriptionService = voiceTranscriptionService;
@@ -274,7 +276,7 @@ public class TelegramBotServicesTest {
 
         assertSingleReply(pt(TelegramBotServices.VOICE_ERROR_MESSAGE));
         Assertions.assertFalse(Thread.currentThread().isInterrupted());
-        Mockito.verifyNoInteractions(openAIClient);
+        Mockito.verifyNoInteractions(openAITextClient);
     }
 
     //---- Idempotency
@@ -313,7 +315,7 @@ public class TelegramBotServicesTest {
     @Test
     void sameUpdateDeliveredTwiceIsProcessedOnce() {
         Mockito.when(processedUpdateService.markAsProcessed(ArgumentMatchers.anyLong())).thenReturn(true, false);
-        Mockito.when(categoryService.addCategory("food", CategoryTypeEnum.EXPENSE, OWNER_ID)).thenReturn("Category Food created!");
+        Mockito.when(categoryService.addCategory("food", CategoryTypeEnum.EXPENSE, OWNER_ID)).thenReturn(categoryResult("Food", CategoryTypeEnum.EXPENSE, true));
         Update update = textUpdate("/nova_categoria food");
 
         service.telegramRouter(update);
@@ -376,7 +378,7 @@ public class TelegramBotServicesTest {
 
     @Test
     void newCategoryCommandAndAliasBehaveTheSame() {
-        Mockito.when(categoryService.addCategory(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn("ok");
+        Mockito.when(categoryService.addCategory(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(categoryResult("Salario", CategoryTypeEnum.INCOME, true));
 
         service.telegramRouter(textUpdate("/nova_categoria salario entrada"));
         service.telegramRouter(textUpdate("/add-categoria salario entrada"));
@@ -579,15 +581,28 @@ public class TelegramBotServicesTest {
     }
 
     @Test
-    void existingCategoryIsReported() {
-        CategoryEntity mercado = new CategoryEntity();
-        mercado.setDescription("Mercado");
-        Mockito.when(categoryService.findByDescription("mercado", OWNER_ID)).thenReturn(Optional.of(mercado));
+    void newCategoryRepliesWithTheRealOutcome() {
+        Mockito.when(categoryService.addCategory("academia", CategoryTypeEnum.EXPENSE, OWNER_ID)).thenReturn(categoryResult("Academia", CategoryTypeEnum.EXPENSE, true));
+        Mockito.when(categoryService.addCategory("mercado", CategoryTypeEnum.EXPENSE, OWNER_ID)).thenReturn(categoryResult("Mercado", CategoryTypeEnum.EXPENSE, false));
+        Mockito.when(categoryService.addCategory("salario", CategoryTypeEnum.EXPENSE, OWNER_ID)).thenReturn(categoryResult("Salario", CategoryTypeEnum.INCOME, false));
 
+        service.telegramRouter(textUpdate("/nova_categoria academia"));
         service.telegramRouter(textUpdate("/nova_categoria mercado"));
+        service.telegramRouter(textUpdate("/nova_categoria salario"));
 
-        assertSingleReply(pt("category.exists", "Mercado"));
-        Mockito.verify(categoryService, Mockito.never()).addCategory(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+        Mockito.verify(telegramApiClient).sendMessage(CHAT_ID, pt("category.created", "Academia"));
+        Mockito.verify(telegramApiClient).sendMessage(CHAT_ID, pt("category.exists", "Mercado"));
+        Mockito.verify(telegramApiClient).sendMessage(CHAT_ID, "🚨 O nome Salario já é usado por uma categoria de entrada. Escolha outro nome.");
+    }
+
+    @Test
+    void duplicateAccountNameOnNewAccountIsFriendly() {
+        Mockito.when(accountService.addAccount("nubank", new BigDecimal("10"), CurrencyEnum.BRL, OWNER_ID))
+                .thenThrow(new DuplicateAccountNameException("nubank"));
+
+        service.telegramRouter(textUpdate("/nova_conta nubank 10 BRL"));
+
+        assertSingleReply(pt("account.duplicate", "nubank"));
     }
 
     //---- Voice parser (#7): category type and "create it?"
@@ -662,6 +677,13 @@ public class TelegramBotServicesTest {
     }
 
     //---- Helpers
+
+    private static CategoryCreationResultDTO categoryResult(String description, CategoryTypeEnum type, boolean created) {
+        CategoryEntity category = new CategoryEntity();
+        category.setDescription(description);
+        category.setType(type);
+        return new CategoryCreationResultDTO(category, created);
+    }
 
     private OwnerEntity owner() {
         return ownerRepository.findByTelegramChatId(CHAT_ID).orElseThrow();
