@@ -1,5 +1,7 @@
 package com.pctheone.money_flow.services;
 
+import com.pctheone.money_flow.services.telegram.TelegramBotCommands;
+
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pctheone.money_flow.dto.AccountDTO;
@@ -31,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
+import org.mockito.InOrder;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
@@ -431,6 +434,52 @@ public class TelegramBotServicesTest {
             Assertions.assertTrue(reply.contains("/deletar_transacao"));
             Assertions.assertFalse(reply.contains("/add-"));
         }
+    }
+
+    @Test
+    void helpPutsEachCommandNextToItsDescription() {
+        String pt = TelegramBotCommands.helpText("pt");
+        String en = TelegramBotCommands.helpText("en");
+
+        for (String line : List.of("/gasto — Registrar um gasto", "/entrada — Registrar uma entrada", "/contas — ",
+                "/nova_conta — ", "/categorias — ", "/nova_categoria — ", "/transacoes — ", "/deletar_transacao — ",
+                "/cancelar — ", "/ajuda — Mostrar esta lista", "Ex.: /gasto mercado carne 25,90 1"))
+            Assertions.assertTrue(pt.contains(line), line);
+        for (String line : List.of("/gasto — Register an expense", "/entrada — Register an income", "/help — Show this list",
+                "e.g. /gasto groceries meat 25,90 1"))
+            Assertions.assertTrue(en.contains(line), line);
+        //---- English help has no Portuguese descriptions or argument names left.
+        for (String portuguese : List.of("Registrar", "<categoria>", "descrição", "Ex.:"))
+            Assertions.assertFalse(en.contains(portuguese), portuguese);
+        //---- Every command in the Telegram menu shows up in the help.
+        for (var command : TelegramBotCommands.portuguese())
+            Assertions.assertTrue(pt.contains("/" + command.getCommand() + " — "), command.getCommand());
+        for (var command : TelegramBotCommands.english())
+            Assertions.assertTrue(en.contains("/" + command.getCommand() + " — "), command.getCommand());
+    }
+
+    @Test
+    void helpFollowsTheLanguageChosenInOnboarding() {
+        OwnerEntity english = new OwnerEntity();
+        english.setOwnerId(OWNER_ID);
+        english.setOnboardingStep(OnboardingStepEnum.DONE);
+        english.setLanguage("en");
+        Mockito.when(ownerRepository.findByTelegramChatId(CHAT_ID)).thenReturn(Optional.of(english));
+
+        service.telegramRouter(textUpdate("/ajuda", "pt-br"));
+
+        Mockito.verify(telegramApiClient).sendMessage(CHAT_ID, TelegramBotCommands.helpText("en"));
+    }
+
+    @Test
+    void unlinkedChatGetsHelpAndLinkInstructions() {
+        Mockito.when(ownerRepository.findByTelegramChatId(CHAT_ID)).thenReturn(Optional.empty());
+
+        service.telegramRouter(textUpdate("/help", "en"));
+
+        InOrder order = Mockito.inOrder(telegramApiClient);
+        order.verify(telegramApiClient).sendMessage(CHAT_ID, TelegramBotCommands.helpText("en"));
+        order.verify(telegramApiClient).sendMessage(CHAT_ID, messages.get(LanguageEnum.EN, TelegramBotServices.NOT_LINKED_MESSAGE));
     }
 
     //---- Currency-formatted replies (#8)
