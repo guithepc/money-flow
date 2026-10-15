@@ -205,10 +205,10 @@ public class TransactionsServiceImpl implements TransactionsService {
 
     @Override
     @Transactional
-    public String deleteTransaction(Integer id, Integer ownerId) {
+    public Optional<DeletedTransactionDTO> deleteTransaction(Integer id, Integer ownerId) {
         Optional<TransactionsEntity> transactionsEntity = transactionsRepository.findById(id);
         if (transactionsEntity.isEmpty()){
-            return "No transactions found for this id: " + id;
+            return Optional.empty();
         }
         TransactionsEntity transactions = transactionsEntity.get();
 
@@ -224,7 +224,7 @@ public class TransactionsServiceImpl implements TransactionsService {
 
         transactionsRepository.deleteById(id);
 
-        return "Transaction deleted " + transactions.getDescription() + " - " + transactions.getAmount();
+        return Optional.of(new DeletedTransactionDTO(transactions.getDescription(), transactions.getAmount(), transactions.getAccount().getCurrency()));
     }
 
 }

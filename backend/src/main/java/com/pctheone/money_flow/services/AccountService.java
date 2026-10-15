@@ -10,4 +10,5 @@ public interface AccountService {
     AccountDTO addAccount(String description, BigDecimal balance, CurrencyEnum currency, int ownerId);
     List<AccountDTO> listAllAccounts(Integer ownerId);
     void validateAccountOwnership(Integer accountId, Integer ownerId);
+    boolean existsByDescription(String description, Integer ownerId);
 }

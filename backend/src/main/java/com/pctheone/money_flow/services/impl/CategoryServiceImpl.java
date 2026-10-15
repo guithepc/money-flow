@@ -1,8 +1,10 @@
 package com.pctheone.money_flow.services.impl;
 
+import com.pctheone.money_flow.dto.CategoryCreationResultDTO;
 import com.pctheone.money_flow.dto.CategoryDTO;
 import com.pctheone.money_flow.entities.CategoryEntity;
 import com.pctheone.money_flow.enums.CategoryTypeEnum;
+import com.pctheone.money_flow.enums.LanguageEnum;
 import com.pctheone.money_flow.repositories.CategoryRepository;
 import com.pctheone.money_flow.repositories.OwnerRepository;
 import com.pctheone.money_flow.services.CategoryService;
@@ -20,6 +22,19 @@ public class CategoryServiceImpl implements CategoryService {
 
     private static Logger log = LoggerFactory.getLogger(CategoryServiceImpl.class);
 
+    private record BaseCategory(String pt, String en, CategoryTypeEnum type) {
+    }
+
+    //---- Created for every new user when they pick a language during onboarding.
+    static final List<BaseCategory> BASE_CATEGORIES = List.of(
+            new BaseCategory("Mercado", "Groceries", CategoryTypeEnum.EXPENSE),
+            new BaseCategory("Restaurantes", "Eating out", CategoryTypeEnum.EXPENSE),
+            new BaseCategory("Transporte", "Transport", CategoryTypeEnum.EXPENSE),
+            new BaseCategory("Casa", "Home", CategoryTypeEnum.EXPENSE),
+            new BaseCategory("Salário", "Salary", CategoryTypeEnum.INCOME),
+            new BaseCategory("Renda extra", "Side income", CategoryTypeEnum.INCOME)
+    );
+
     @Autowired
     CategoryRepository categoryRepository;
 
@@ -36,24 +51,35 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional
-    public String addCategory(String categoryDescription, CategoryTypeEnum type, Integer ownerId) {
-        String categoryDescriptionFormatted = formatDescription(categoryDescription);
-        if (categoryRepository.findByOwnerOwnerIdAndDescription(ownerId, categoryDescriptionFormatted).isPresent()){
-            log.info("Category already exists.");
-            return "Category already exists.";
-        }
-        CategoryEntity categoryEntity = new CategoryEntity();
-        categoryEntity.setDescription(categoryDescriptionFormatted);
-        categoryEntity.setType(type);
-        categoryEntity.setOwner(ownerRepository.getReferenceById(ownerId));
-        categoryRepository.save(categoryEntity);
-        log.info("Category " + categoryDescriptionFormatted + " created!");
-        return "Category " + categoryDescriptionFormatted + " created!";
+    //---- INSERT ... ON CONFLICT DO NOTHING: a double click or a concurrent request never fails nor duplicates,
+    //---- and only the call that actually inserted gets created = true.
+    public CategoryCreationResultDTO addCategory(String categoryDescription, CategoryTypeEnum type, Integer ownerId) {
+        String categoryDescriptionFormatted = formatDescription(categoryDescription.trim());
+        boolean created = categoryRepository.insertIfAbsent(ownerId, categoryDescriptionFormatted, type.name()) == 1;
+        CategoryEntity category = categoryRepository.findByOwnerOwnerIdAndDescription(ownerId, categoryDescriptionFormatted)
+                .orElseThrow(() -> new IllegalStateException("Category missing right after insert: " + categoryDescriptionFormatted));
+        if (created)
+            log.info("Category {} ({}) created for owner {}", categoryDescriptionFormatted, type, ownerId);
+        else
+            log.info("Category {} already exists for owner {} with type {}", categoryDescriptionFormatted, ownerId, category.getType());
+        return new CategoryCreationResultDTO(category, created);
     }
 
     @Override
     public Optional<CategoryEntity> findByDescription(String categoryDescription, Integer ownerId) {
         return categoryRepository.findByOwnerOwnerIdAndDescription(ownerId, formatDescription(categoryDescription));
+    }
+
+    //---- Idempotent (ON CONFLICT DO NOTHING): running it twice, or with a category the user already has, never duplicates.
+    @Override
+    @Transactional
+    public void seedBaseCategories(Integer ownerId, LanguageEnum language) {
+        int inserted = 0;
+        for (BaseCategory category : BASE_CATEGORIES) {
+            String description = language == LanguageEnum.PT ? category.pt() : category.en();
+            inserted += categoryRepository.insertIfAbsent(ownerId, description, category.type().name());
+        }
+        log.info("Seeded {} base categories ({}) for owner {}", inserted, language.code(), ownerId);
     }
 
     private String formatDescription(String categoryDescription) {

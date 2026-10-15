@@ -1,9 +1,11 @@
 package com.pctheone.money_flow.services;
 
 import com.pctheone.money_flow.dto.AccountDTO;
+import com.pctheone.money_flow.dto.CategoryCreationResultDTO;
 import com.pctheone.money_flow.dto.CategoryDTO;
 import com.pctheone.money_flow.entities.CategoryEntity;
 import com.pctheone.money_flow.entities.OwnerEntity;
+import com.pctheone.money_flow.enums.OnboardingStepEnum;
 import com.pctheone.money_flow.enums.CategoryTypeEnum;
 import com.pctheone.money_flow.enums.CurrencyEnum;
 import com.pctheone.money_flow.exceptions.CategoryNotFoundException;
@@ -87,8 +89,10 @@ public class CategoryIsolationTest {
 
     @Test
     void sameDescriptionCanExistForDifferentOwners(){
-        Assertions.assertEquals("Category Secret created!", categoryService.addCategory("secret", CategoryTypeEnum.INCOME, ownerA));
-        Assertions.assertEquals("Category already exists.", categoryService.addCategory("secret", CategoryTypeEnum.EXPENSE, ownerB));
+        Assertions.assertTrue(categoryService.addCategory("secret", CategoryTypeEnum.INCOME, ownerA).isCreated());
+        CategoryCreationResultDTO again = categoryService.addCategory("secret", CategoryTypeEnum.INCOME, ownerB);
+        Assertions.assertFalse(again.isCreated());
+        Assertions.assertEquals(CategoryTypeEnum.EXPENSE, again.getCategory().getType());
 
         CategoryEntity ofA = categoryService.findByDescription("secret", ownerA).orElseThrow();
         CategoryEntity ofB = categoryService.findByDescription("secret", ownerB).orElseThrow();
@@ -98,7 +102,7 @@ public class CategoryIsolationTest {
 
     private Integer createOwner(String prefix){
         String email = prefix + "-" + UUID.randomUUID() + "@isolation.test";
-        OwnerEntity owner = ownerRepository.save(new OwnerEntity(null, prefix, email, null, "x".repeat(60), null, null));
+        OwnerEntity owner = ownerRepository.save(new OwnerEntity(null, prefix, email, null, "x".repeat(60), null, null, null, OnboardingStepEnum.DONE, null));
         return owner.getOwnerId();
     }
 }

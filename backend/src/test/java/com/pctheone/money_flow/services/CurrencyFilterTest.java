@@ -2,6 +2,7 @@ package com.pctheone.money_flow.services;
 
 import com.pctheone.money_flow.dto.*;
 import com.pctheone.money_flow.entities.OwnerEntity;
+import com.pctheone.money_flow.enums.OnboardingStepEnum;
 import com.pctheone.money_flow.enums.CategoryTypeEnum;
 import com.pctheone.money_flow.enums.CurrencyEnum;
 import com.pctheone.money_flow.repositories.OwnerRepository;
@@ -158,7 +159,7 @@ public class CurrencyFilterTest {
 
     private Integer createOwner(String prefix){
         String email = prefix + "-" + UUID.randomUUID() + "@currency.test";
-        OwnerEntity owner = ownerRepository.save(new OwnerEntity(null, prefix, email, null, "x".repeat(60), null, null));
+        OwnerEntity owner = ownerRepository.save(new OwnerEntity(null, prefix, email, null, "x".repeat(60), null, null, null, OnboardingStepEnum.DONE, null));
         return owner.getOwnerId();
     }
 }

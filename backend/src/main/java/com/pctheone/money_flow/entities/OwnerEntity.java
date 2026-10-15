@@ -1,5 +1,6 @@
 package com.pctheone.money_flow.entities;
 
+import com.pctheone.money_flow.enums.OnboardingStepEnum;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -42,4 +43,18 @@ public class OwnerEntity {
     @Column(name = "invite_uuid")
     @JdbcTypeCode(SqlTypes.UUID)
     private UUID inviteUuid;
+
+    //---- "pt" / "en". Null for owners that never went through onboarding.
+    @Column(length = 2)
+    private String language;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "onboarding_step", nullable = false, columnDefinition = "onboarding_step")
+    private OnboardingStepEnum onboardingStep = OnboardingStepEnum.LANGUAGE;
+
+    //---- JSON of OnboardingAccountDraftDTO while an account is being created during onboarding.
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "onboarding_draft", columnDefinition = "jsonb")
+    private String onboardingDraft;
 }

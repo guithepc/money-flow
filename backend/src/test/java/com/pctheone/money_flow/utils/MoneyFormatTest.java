@@ -2,7 +2,9 @@ package com.pctheone.money_flow.utils;
 
 import com.pctheone.money_flow.dto.TransactionRegistrationResultDTO;
 import com.pctheone.money_flow.enums.CurrencyEnum;
+import com.pctheone.money_flow.enums.LanguageEnum;
 import com.pctheone.money_flow.enums.OperationTypeEnum;
+import com.pctheone.money_flow.services.telegram.BotMessages;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -41,12 +43,15 @@ public class MoneyFormatTest {
     void transactionConfirmationUsesAccountCurrency(){
         TransactionRegistrationResultDTO result = new TransactionRegistrationResultDTO(
                 new BigDecimal("30"), new BigDecimal("470"), CurrencyEnum.BRL, "Nubank", "Mercado");
+        BotMessages messages = new BotMessages();
         Assertions.assertEquals("📉 R$ 30,00 · Mercado · Nubank — balance R$ 470,00",
-                BotMessageFormat.transactionConfirmation(OperationTypeEnum.EXPENSE, result));
+                BotMessageFormat.transactionConfirmation(messages, LanguageEnum.EN, OperationTypeEnum.EXPENSE, result));
+        Assertions.assertEquals("📉 R$ 30,00 · Mercado · Nubank — saldo R$ 470,00",
+                BotMessageFormat.transactionConfirmation(messages, LanguageEnum.PT, OperationTypeEnum.EXPENSE, result));
 
         TransactionRegistrationResultDTO income = new TransactionRegistrationResultDTO(
                 new BigDecimal("100"), new BigDecimal("1100"), CurrencyEnum.EUR, "Revolut", "Salario");
         Assertions.assertEquals("📈 € 100,00 · Salario · Revolut — balance € 1.100,00",
-                BotMessageFormat.transactionConfirmation(OperationTypeEnum.INCOME, income));
+                BotMessageFormat.transactionConfirmation(messages, LanguageEnum.EN, OperationTypeEnum.INCOME, income));
     }
 }

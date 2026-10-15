@@ -20,6 +20,9 @@ public class OwnerServiceImpl implements OwnerService {
 
     private static final Logger log = LoggerFactory.getLogger(OwnerServiceImpl.class);
 
+    //---- Long enough to switch to the phone and open Telegram.
+    static final int INVITE_TTL_MINUTES = 15;
+
     @Value("${telegram.bot-username:}")
     private String telegramBotUsername;
 
@@ -46,7 +49,7 @@ public class OwnerServiceImpl implements OwnerService {
 
         UUID inviteUuid = UUID.randomUUID();
         owner.setInviteUuid(inviteUuid);
-        owner.setInviteExpireDate(LocalDateTime.now().plusMinutes(1));
+        owner.setInviteExpireDate(LocalDateTime.now().plusMinutes(INVITE_TTL_MINUTES));
         ownerRepository.save(owner);
 
         log.info("Telegram invite generated for owner {}", ownerId);

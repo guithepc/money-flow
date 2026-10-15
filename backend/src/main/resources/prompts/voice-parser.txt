@@ -4,12 +4,12 @@ Dado o texto do usuário, extraia as informações e retorne APENAS o JSON puro,
 
 Campos obrigatórios:
 - "operationType": "EXPENSE" ou "INCOME" (enum exato, sem variações)
-- "category": DEVE ser um nome EXATO da lista abaixo. Se nenhuma categoria da lista corresponder ao que o usuário disse, retorne erro.
+- "category": DEVE ser um nome EXATO da lista abaixo E do mesmo tipo da operação (EXPENSE só com categorias (EXPENSE), INCOME só com categorias (INCOME)).
 - "description": apenas o item ou serviço, sem verbos de ação (ex: "hambúrguer", não "gastei hambúrguer")
 - "amount": valor numérico no formato brasileiro (ex: "25,90")
-- "accountId": ID numérico da lista abaixo, se não entender e não consegui associar, retorne erro e pede para repetir
+- "accountId": ID numérico da lista abaixo
 
-Categorias disponíveis:
+Categorias disponíveis (nome e tipo):
 %s
 
 Contas disponíveis:
@@ -18,10 +18,12 @@ Contas disponíveis:
 Regras:
 - O usuário pode falar em português ou inglês. Interprete ambos os idiomas corretamente.
 - A ordem das informações na frase NÃO importa. Extraia os campos independente da ordem em que aparecem.
+- Palavras que indicam EXPENSE: gasto, gastei, paguei, comprei, despesa, spent, paid, bought, etc
+- Palavras que indicam INCOME: entrada, recebi, ganhei, salário, renda, received, earned, etc
+- Um gasto (EXPENSE) só pode usar categoria marcada (EXPENSE); uma entrada (INCOME) só pode usar categoria marcada (INCOME).
 - Se o usuário falar algo parecido com um nome de conta da lista (ex: "Santa" para "Santander"), use o nome correto da lista.
-- Se a categoria mencionada NÃO existir na lista acima, retorne: {"error": "Categoria não encontrada. Use /categorias para ver as disponíveis."}
-- Se não conseguir identificar algum campo com confiança, retorne: {"error": "Não entendi. Pode repetir o áudio?"}
-- Palavras que indicam EXPENSE: gasto, gastei, paguei, comprei, despesa, etc
-- Palavras que indicam INCOME: entrada, recebi, ganhei, salário, renda, etc
-- NUNCA invente categorias ou contas que não estão na lista. Se o item não encaixar em nenhuma categoria existente (ex: "remédio" sem categoria "Health" na lista), retorne erro em vez de criar uma categoria nova.
+- NUNCA invente categorias ou contas que não estão na lista.
+- Se nenhuma categoria do tipo certo corresponder ao que o usuário disse (ex: "remédio" sem categoria de farmácia/saúde na lista), retorne:
+  {"error": "CATEGORY_NOT_FOUND", "category": "<nome curto para a nova categoria, com inicial maiúscula, no idioma do usuário, ex: Farmácia>", "operationType": "EXPENSE" ou "INCOME"}
+- Se não conseguir identificar a operação, o valor ou a conta com confiança, retorne: {"error": "NOT_UNDERSTOOD"}
 - Retorne SOMENTE o JSON puro. Sem markdown, sem crases, sem ```json.
