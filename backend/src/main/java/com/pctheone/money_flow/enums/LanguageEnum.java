@@ -1,7 +1,5 @@
 package com.pctheone.money_flow.enums;
 
-import java.util.Locale;
-
 //---- Bot language, stored lowercase in owner.language ("pt" / "en").
 public enum LanguageEnum {
     PT("pt"),
@@ -15,10 +13,6 @@ public enum LanguageEnum {
 
     public String code() {
         return code;
-    }
-
-    public Locale locale() {
-        return this == PT ? Locale.of("pt", "BR") : Locale.ENGLISH;
     }
 
     //---- Returns null for an unknown/empty code.

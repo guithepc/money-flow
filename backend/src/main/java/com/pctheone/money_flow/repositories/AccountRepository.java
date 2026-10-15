@@ -26,4 +26,6 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Integer>
     boolean existsByAccountIdAndOwnerOwnerId(Integer accountId, Integer ownerId);
 
     Optional<AccountEntity> findByAccountIdAndOwnerOwnerId(Integer accountId, Integer ownerId);
+
+    boolean existsByOwnerOwnerIdAndDescriptionIgnoreCase(Integer ownerId, String description);
 }

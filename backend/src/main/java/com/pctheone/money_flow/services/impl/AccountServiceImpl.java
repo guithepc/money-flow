@@ -48,6 +48,12 @@ public class AccountServiceImpl implements AccountService {
         }
     }
 
+    //---- Case-insensitive: "nubank" and "Nubank" are the same account for the user.
+    @Override
+    public boolean existsByDescription(String description, Integer ownerId) {
+        return accountRepository.existsByOwnerOwnerIdAndDescriptionIgnoreCase(ownerId, description.trim());
+    }
+
     private AccountDTO toDTO(AccountEntity accountEntity) {
         return new AccountDTO(accountEntity.getAccountId(), accountEntity.getDescription(), accountEntity.getBalance(), accountEntity.getCurrency());
     }
