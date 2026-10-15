@@ -15,6 +15,7 @@ import com.pctheone.money_flow.services.telegram.TelegramBotCommands;
 import com.pctheone.money_flow.services.telegram.TelegramCallbackHandler;
 import com.pctheone.money_flow.services.telegram.TelegramCallbackRegistry;
 import com.pctheone.money_flow.services.telegram.TelegramProcessedUpdateService;
+import com.pctheone.money_flow.utils.BotMessageFormat;
 import com.pctheone.money_flow.utils.MoneyFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -176,7 +177,7 @@ public class TelegramBotServices {
                 log.info("Expense being registered.");
                 TransactionRegistrationResultDTO expense = withAccountErrors(() -> transactionsService.registerExpense(ownerId, command.get(1), parseId(command.getLast(), INVALID_ACCOUNT_MESSAGE), parseTransactionAmount(command.get(command.size() - 2)), transactionDescription(command)));
                 log.info("Expense registered successfully, amount:  {} -  Actual balance: {}", expense.getAmount(), expense.getNewBalance());
-                String telegramMessage = "📉 Expense registered successfully. \n💰 Actual balance: €" + expense.getNewBalance().toString();
+                String telegramMessage = BotMessageFormat.transactionConfirmation(OperationTypeEnum.EXPENSE, expense);
                 sendReply(update.getMessage().getChatId(), telegramMessage);
                 break;
             }
@@ -186,7 +187,7 @@ public class TelegramBotServices {
                 log.info("Income being registered.");
                 TransactionRegistrationResultDTO income = withAccountErrors(() -> transactionsService.registerIncome(ownerId, command.get(1), parseId(command.getLast(), INVALID_ACCOUNT_MESSAGE), parseTransactionAmount(command.get(command.size() - 2)), transactionDescription(command)));
                 log.info("Income registered successfully, amount:  {} -  Actual balance: {}", income.getAmount(), income.getNewBalance());
-                String telegramMessage = "📈 Income registered successfully. \n💰 Actual balance: €" + income.getNewBalance().toString();
+                String telegramMessage = BotMessageFormat.transactionConfirmation(OperationTypeEnum.INCOME, income);
                 sendReply(update.getMessage().getChatId(), telegramMessage);
                 break;
             }
@@ -242,14 +243,7 @@ public class TelegramBotServices {
                 log.info("Accounts in database:  {}", accountDTOList.size());
                 StringBuilder telegramMessage = new StringBuilder("🏦 Your accounts:\n");
                 for (AccountDTO accountDTO : accountDTOList){
-                    telegramMessage
-                            .append("ID: ")
-                            .append(accountDTO.getAccountId())
-                            .append(" - ")
-                            .append(accountDTO.getDescription())
-                            .append(" | ")
-                            .append(accountDTO.getAmount())
-                            .append("\n");
+                    telegramMessage.append(BotMessageFormat.accountLine(accountDTO)).append("\n");
                 }
                 sendReply(update.getMessage().getChatId(), telegramMessage.toString());
                 break;
@@ -263,13 +257,7 @@ public class TelegramBotServices {
                 StringBuilder telegramMessage = new StringBuilder("⚡️Last transactions:\n");
 
                 for (TransactionDTO transactionDTO : transactionDTOS){
-                    telegramMessage.append("ID: ")
-                            .append(transactionDTO.getId())
-                            .append(" - ")
-                            .append(transactionDTO.getDescription())
-                            .append(" - ")
-                            .append(transactionDTO.getAmount())
-                            .append("\n");
+                    telegramMessage.append(BotMessageFormat.transactionLine(transactionDTO)).append("\n");
                 }
                 sendReply(update.getMessage().getChatId(), telegramMessage.toString());
                 break;
@@ -396,13 +384,13 @@ public class TelegramBotServices {
                 transactionDTO.getAmount(), transactionDTO.getAccountId());
 
         if (OperationTypeEnum.EXPENSE.equals(transactionDTO.getOperationType())) {
-            transactionsService.registerExpense(ownerId, transactionDTO.getCategory(), transactionDTO.getAccountId(), transactionDTO.getAmount(), transactionDTO.getDescription());
+            TransactionRegistrationResultDTO expense = transactionsService.registerExpense(ownerId, transactionDTO.getCategory(), transactionDTO.getAccountId(), transactionDTO.getAmount(), transactionDTO.getDescription());
             log.info("Voice expense registered successfully");
-            this.sendReply(update.getMessage().getChatId(), "✅ Voice expense saved successfully!");
+            this.sendReply(update.getMessage().getChatId(), BotMessageFormat.transactionConfirmation(OperationTypeEnum.EXPENSE, expense));
         } else if (OperationTypeEnum.INCOME.equals(transactionDTO.getOperationType())) {
-            transactionsService.registerIncome(ownerId, transactionDTO.getCategory(), transactionDTO.getAccountId(), transactionDTO.getAmount(), transactionDTO.getDescription());
+            TransactionRegistrationResultDTO income = transactionsService.registerIncome(ownerId, transactionDTO.getCategory(), transactionDTO.getAccountId(), transactionDTO.getAmount(), transactionDTO.getDescription());
             log.info("Voice income registered successfully");
-            this.sendReply(update.getMessage().getChatId(), "✅ Voice income saved successfully!");
+            this.sendReply(update.getMessage().getChatId(), BotMessageFormat.transactionConfirmation(OperationTypeEnum.INCOME, income));
         } 
     }
 

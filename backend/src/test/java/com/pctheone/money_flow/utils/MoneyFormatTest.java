@@ -1,5 +1,8 @@
 package com.pctheone.money_flow.utils;
 
+import com.pctheone.money_flow.dto.TransactionRegistrationResultDTO;
+import com.pctheone.money_flow.enums.CurrencyEnum;
+import com.pctheone.money_flow.enums.OperationTypeEnum;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -23,5 +26,27 @@ public class MoneyFormatTest {
         for (String amount : List.of("25.90", "1.25", "12.3456", "1e5", "1E5", "12a", "", ",5", "25,", "25,999", "1,250.90", "+5", "1.250.9"))
             Assertions.assertTrue(MoneyFormat.parseBrazilian(amount).isEmpty(), amount);
         Assertions.assertTrue(MoneyFormat.parseBrazilian(null).isEmpty());
+    }
+
+    @Test
+    void formatsWithAccountCurrencySymbol(){
+        Assertions.assertEquals("R$ 1.250,90", MoneyFormat.format(new BigDecimal("1250.9"), CurrencyEnum.BRL));
+        Assertions.assertEquals("€ 681,03", MoneyFormat.format(new BigDecimal("681.03"), CurrencyEnum.EUR));
+        Assertions.assertEquals("US$ 10,00", MoneyFormat.format(new BigDecimal("10"), CurrencyEnum.USD));
+        Assertions.assertEquals("-R$ 12,00", MoneyFormat.format(new BigDecimal("-12"), CurrencyEnum.BRL));
+        Assertions.assertEquals("R$ 0,01", MoneyFormat.format(new BigDecimal("0.005"), CurrencyEnum.BRL));
+    }
+
+    @Test
+    void transactionConfirmationUsesAccountCurrency(){
+        TransactionRegistrationResultDTO result = new TransactionRegistrationResultDTO(
+                new BigDecimal("30"), new BigDecimal("470"), CurrencyEnum.BRL, "Nubank", "Mercado");
+        Assertions.assertEquals("📉 R$ 30,00 · Mercado · Nubank — balance R$ 470,00",
+                BotMessageFormat.transactionConfirmation(OperationTypeEnum.EXPENSE, result));
+
+        TransactionRegistrationResultDTO income = new TransactionRegistrationResultDTO(
+                new BigDecimal("100"), new BigDecimal("1100"), CurrencyEnum.EUR, "Revolut", "Salario");
+        Assertions.assertEquals("📈 € 100,00 · Salario · Revolut — balance € 1.100,00",
+                BotMessageFormat.transactionConfirmation(OperationTypeEnum.INCOME, income));
     }
 }
