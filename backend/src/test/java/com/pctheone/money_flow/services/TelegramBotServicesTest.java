@@ -29,6 +29,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 public class TelegramBotServicesTest {
@@ -47,6 +48,7 @@ public class TelegramBotServicesTest {
     AccountService accountService;
     OwnerRepository ownerRepository;
     OpenAIClient openAIClient;
+    OwnerService ownerService;
     RecordingHandler handler;
 
     int nextUpdateId = 1;
@@ -60,6 +62,7 @@ public class TelegramBotServicesTest {
         accountService = Mockito.mock(AccountService.class);
         ownerRepository = Mockito.mock(OwnerRepository.class);
         openAIClient = Mockito.mock(OpenAIClient.class);
+        ownerService = Mockito.mock(OwnerService.class);
 
         Mockito.when(processedUpdateService.markAsProcessed(ArgumentMatchers.anyLong())).thenReturn(true);
         OwnerEntity owner = new OwnerEntity();
@@ -80,6 +83,7 @@ public class TelegramBotServicesTest {
         service.accountService = accountService;
         service.ownerRepository = ownerRepository;
         service.openAIClient = openAIClient;
+        service.ownerService = ownerService;
     }
 
     //---- Error handling
@@ -120,13 +124,112 @@ public class TelegramBotServicesTest {
 
     @Test
     void accountOfAnotherOwnerRepliesInvalidAccount() {
-        Mockito.doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "Account does not belong to the authenticated user"))
-                .when(accountService).validateAccountOwnership(99, OWNER_ID);
+        Mockito.when(transactionsService.registerExpense(OWNER_ID, "mercado", 99, "25", "carne"))
+                .thenThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "Account does not belong to the authenticated user"));
 
         service.telegramRouter(textUpdate("/gasto mercado carne 25 99"));
 
         assertSingleReply(TelegramBotServices.INVALID_ACCOUNT_MESSAGE);
+        Mockito.verify(accountService, Mockito.never()).validateAccountOwnership(ArgumentMatchers.any(), ArgumentMatchers.any());
+    }
+
+    @Test
+    void ambiguousPeriodDecimalIsRejectedWithFormatHint() {
+        service.telegramRouter(textUpdate("/gasto mercado carne 25.90 1"));
+
+        assertSingleReply(TelegramBotServices.INVALID_AMOUNT_MESSAGE);
+        Assertions.assertTrue(TelegramBotServices.INVALID_AMOUNT_MESSAGE.contains("25,90"));
         Mockito.verifyNoInteractions(transactionsService);
+    }
+
+    @Test
+    void malformedTransactionAmountsAreRejected() {
+        for (String amount : List.of("1e5", "12a", "-5", "1.25", "25,999", ",5")) {
+            service.telegramRouter(textUpdate("/gasto mercado carne " + amount + " 1"));
+        }
+
+        Mockito.verify(telegramApiClient, Mockito.times(6)).sendMessage(CHAT_ID, TelegramBotServices.INVALID_AMOUNT_MESSAGE);
+        Mockito.verifyNoInteractions(transactionsService);
+    }
+
+    @Test
+    void zeroTransactionAmountIsRejected() {
+        service.telegramRouter(textUpdate("/entrada salario maio 0,00 1"));
+
+        assertSingleReply(TelegramBotServices.ZERO_AMOUNT_MESSAGE);
+        Mockito.verifyNoInteractions(transactionsService);
+    }
+
+    @Test
+    void brazilianAmountsAreAccepted() {
+        for (String amount : List.of("1.250,90", "1250,90", "1250", "25,9")) {
+            service.telegramRouter(textUpdate("/gasto mercado carne " + amount + " 1"));
+            Mockito.verify(transactionsService).registerExpense(OWNER_ID, "mercado", 1, amount, "carne");
+        }
+    }
+
+    @Test
+    void multiWordDescriptionIsJoined() {
+        service.telegramRouter(textUpdate("/gasto mercado carne moida   de primeira 25,90 1"));
+
+        Mockito.verify(transactionsService).registerExpense(OWNER_ID, "mercado", 1, "25,90", "carne moida de primeira");
+    }
+
+    @Test
+    void newAccountAcceptsNegativeAndZeroBalance() {
+        Mockito.when(accountService.addAccount(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.anyInt()))
+                .thenReturn(new AccountDTO(1, "Card", BigDecimal.ZERO, CurrencyEnum.BRL));
+
+        service.telegramRouter(textUpdate("/nova_conta Card -1.500,50 BRL"));
+        service.telegramRouter(textUpdate("/add-conta Empty 0 BRL"));
+
+        Mockito.verify(accountService).addAccount("Card", new BigDecimal("-1500.50"), CurrencyEnum.BRL, OWNER_ID);
+        Mockito.verify(accountService).addAccount("Empty", new BigDecimal("0"), CurrencyEnum.BRL, OWNER_ID);
+    }
+
+    @Test
+    void forbiddenFromNonAccountCommandRepliesNotAllowed() {
+        Mockito.when(transactionsService.deleteTransaction(5, OWNER_ID))
+                .thenThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "Transaction does not belong to the authenticated user"));
+
+        service.telegramRouter(textUpdate("/deletar_transacao 5"));
+
+        assertSingleReply(TelegramBotServices.NOT_ALLOWED_MESSAGE);
+    }
+
+    @Test
+    void otherResponseStatusRepliesGenericMessage() {
+        Mockito.when(categoryService.listAllCategories(OWNER_ID))
+                .thenThrow(new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "boom"));
+
+        service.telegramRouter(textUpdate("/categorias"));
+
+        assertSingleReply(TelegramBotServices.GENERIC_ERROR_MESSAGE);
+    }
+
+    @Test
+    void serviceUnavailableOnTransactionIsNotMappedToInvalidAccount() {
+        Mockito.when(transactionsService.registerExpense(OWNER_ID, "mercado", 1, "25", "carne"))
+                .thenThrow(new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "down"));
+
+        service.telegramRouter(textUpdate("/gasto mercado carne 25 1"));
+
+        assertSingleReply(TelegramBotServices.GENERIC_ERROR_MESSAGE);
+    }
+
+    //---- /start
+
+    @Test
+    void startToleratesBotSuffixCaseAndExtraSpaces() {
+        UUID invite = UUID.randomUUID();
+        Mockito.when(ownerService.linkTelegramChat(invite, CHAT_ID)).thenReturn(true);
+
+        service.telegramRouter(textUpdate("/start@MoneyFlowBot " + invite));
+        service.telegramRouter(textUpdate("/START " + invite));
+        service.telegramRouter(textUpdate("  /start    " + invite + "  "));
+
+        Mockito.verify(ownerService, Mockito.times(3)).linkTelegramChat(invite, CHAT_ID);
+        Mockito.verifyNoInteractions(ownerRepository);
     }
 
     @Test
@@ -157,6 +260,27 @@ public class TelegramBotServicesTest {
     }
 
     //---- Idempotency
+
+    @Test
+    void claimFailureRepliesGenericMessage() {
+        Mockito.when(processedUpdateService.markAsProcessed(ArgumentMatchers.anyLong())).thenThrow(new IllegalStateException("db down"));
+
+        Assertions.assertDoesNotThrow(() -> service.telegramRouter(textUpdate("/categorias")));
+
+        assertSingleReply(TelegramBotServices.GENERIC_ERROR_MESSAGE);
+        Mockito.verifyNoInteractions(categoryService);
+    }
+
+    @Test
+    void claimFailureOnCallbackRepliesAndAnswers() {
+        Mockito.when(processedUpdateService.markAsProcessed(ArgumentMatchers.anyLong())).thenThrow(new IllegalStateException("db down"));
+
+        service.telegramRouter(callbackUpdate("cb-9", "test:x"));
+
+        assertSingleReply(TelegramBotServices.GENERIC_ERROR_MESSAGE);
+        Mockito.verify(telegramApiClient).answerCallbackQuery("cb-9", null);
+        Assertions.assertTrue(handler.received.isEmpty());
+    }
 
     @Test
     void duplicateUpdateIsSkipped() {

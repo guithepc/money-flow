@@ -96,11 +96,11 @@ Positional interface for quick logging on the go. The command menu is registered
 
 | Command | Example | Description |
 |---------|---------|-------------|
-| `/gasto` | `/gasto mercado carne 25,90 1` | Log an expense (category, description, amount, account id) |
-| `/entrada` | `/entrada salario salario 3500 1` | Log income |
+| `/gasto` | `/gasto mercado carne moida 25,90 1` | Log an expense: `<category> <description...> <amount> <account id>` (description can have several words) |
+| `/entrada` | `/entrada salario salario de maio 3.500,00 1` | Log income, same format as `/gasto` |
 | `/categorias` | `/categorias` | List your categories |
 | `/nova_categoria` | `/nova_categoria freela entrada` | Create a category (type `gasto`/`entrada`, default `gasto`) |
-| `/nova_conta` | `/nova_conta nubank 1000 BRL` | Create an account (currency `BRL`/`EUR`/`USD`, default `EUR`) |
+| `/nova_conta` | `/nova_conta nubank 1000 BRL` | Create an account (currency `BRL`/`EUR`/`USD`, default `EUR`; the balance may be negative, e.g. `-1.500,00` for a credit card) |
 | `/contas` | `/contas` | List accounts with balances |
 | `/transacoes` | `/transacoes` | Transactions from the last 7 days |
 | `/deletar_transacao` | `/deletar_transacao 42` | Delete a transaction by id |
@@ -108,7 +108,7 @@ Positional interface for quick logging on the go. The command menu is registered
 
 The old hyphenated names (`/add-categoria`, `/add-conta`, `/deletar-transacao`) still work as aliases for now.
 
-Values use Brazilian/Portuguese format: comma as decimal separator (`25,90`), period as thousands separator (`1.000,50`).
+Values use Brazilian/Portuguese format: comma as decimal separator (`25,90`), period only as thousands separator (`1.000,50`). `25.90` is rejected as ambiguous, and transaction amounts must be greater than zero.
 
 ### Reliability
 - The webhook always answers `200`, so Telegram never retries an update because of a processing error; the user gets a friendly reply instead (unknown category, invalid amount, invalid account, generic failure)

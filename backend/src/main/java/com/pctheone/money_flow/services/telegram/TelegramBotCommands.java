@@ -15,9 +15,9 @@ public final class TelegramBotCommands {
     }
 
     private static final List<Entry> ENTRIES = List.of(
-            new Entry("gasto", "/gasto <categoria> <descrição> <valor> <id_conta>",
+            new Entry("gasto", "/gasto <categoria> <descrição...> <valor> <id_conta>",
                     "Registrar um gasto", "Register an expense"),
-            new Entry("entrada", "/entrada <categoria> <descrição> <valor> <id_conta>",
+            new Entry("entrada", "/entrada <categoria> <descrição...> <valor> <id_conta>",
                     "Registrar uma entrada", "Register an income"),
             new Entry("contas", "/contas",
                     "Listar suas contas", "List your accounts"),

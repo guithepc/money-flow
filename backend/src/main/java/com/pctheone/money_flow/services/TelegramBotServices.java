@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.io.Resource;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
@@ -38,6 +39,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 import com.openai.client.OpenAIClient;
 import com.openai.models.responses.Response;
@@ -48,7 +50,8 @@ public class TelegramBotServices {
     private static final Logger log = LoggerFactory.getLogger(TelegramBotServices.class);
 
     static final String CATEGORY_NOT_FOUND_MESSAGE = "🚨 Category not found. Use /categorias to see your categories or /nova_categoria to create one.";
-    static final String INVALID_AMOUNT_MESSAGE = "🚨 Invalid amount. Use only numbers, e.g. 25 or 25,50.";
+    static final String INVALID_AMOUNT_MESSAGE = "🚨 Invalid amount. Use comma for decimals and period for thousands, e.g. 25,90 or 1.250,90.";
+    static final String ZERO_AMOUNT_MESSAGE = "🚨 Amount must be greater than zero, e.g. 25,90.";
     static final String INVALID_ACCOUNT_MESSAGE = "🚨 Invalid account. Use /contas to see your account IDs.";
     static final String INVALID_TRANSACTION_MESSAGE = "🚨 Invalid transaction id. Use /transacoes to see your transaction IDs.";
     static final String NOT_ALLOWED_MESSAGE = "🚨 Not found or it doesn't belong to you.";
@@ -88,27 +91,47 @@ public class TelegramBotServices {
     OwnerService ownerService;
 
     public void telegramRouter(Update update){
-        if (update.getUpdateId() != null && !processedUpdateService.markAsProcessed(update.getUpdateId())) {
-            log.info("Duplicate update {} skipped.", update.getUpdateId());
-            return;
-        }
-
-        if (update.hasCallbackQuery()) {
-            handleCallbackQuery(update.getCallbackQuery());
-            return;
-        }
-
-        if (!update.hasMessage()) {
-            log.info("No message in update.");
-            return;
-        }
-
-        Long chatId = update.getMessage().getChatId();
         try {
+            //---- Claimed before processing: a retried update never registers twice, but a failure after the claim is not retried.
+            if (update.getUpdateId() != null && !processedUpdateService.markAsProcessed(update.getUpdateId())) {
+                log.info("Duplicate update {} skipped.", update.getUpdateId());
+                return;
+            }
+
+            if (update.hasCallbackQuery()) {
+                handleCallbackQuery(update.getCallbackQuery());
+                return;
+            }
+
+            if (!update.hasMessage()) {
+                log.info("No message in update.");
+                return;
+            }
+
             routeMessage(update);
         } catch (Exception e) {
+            Long chatId = chatIdOf(update);
+            if (chatId == null) {
+                log.error("Failed to process Telegram update {}: {}", update.getUpdateId(), e.getMessage(), e);
+                return;
+            }
             handleError(chatId, e, GENERIC_ERROR_MESSAGE);
+            //---- handleCallbackQuery answers by itself; reaching here means it never ran (e.g. the claim failed).
+            if (update.hasCallbackQuery())
+                telegramApiClient.answerCallbackQuery(update.getCallbackQuery().getId(), null);
         }
+    }
+
+    private static Long chatIdOf(Update update){
+        if (update.hasMessage())
+            return update.getMessage().getChatId();
+        if (update.hasCallbackQuery())
+            return callbackChatId(update.getCallbackQuery());
+        return null;
+    }
+
+    private static Long callbackChatId(CallbackQuery callbackQuery){
+        return callbackQuery.getMessage() != null ? callbackQuery.getMessage().getChatId() : callbackQuery.getFrom().getId();
     }
 
     //---- Sends a message with inline buttons. Each inner list is a row; clicks are routed by TelegramCallbackRegistry.
@@ -119,10 +142,11 @@ public class TelegramBotServices {
     private void routeMessage(Update update){
         Long chatId = update.getMessage().getChatId();
         String text = update.getMessage().getText();
+        List<String> command = text == null || text.isBlank() ? List.of() : Arrays.asList(text.trim().split("\\s+"));
 
         //---- /start <uuid> onboarding runs before owner resolution.
-        if (text != null && "/start".equals(text.split(" ")[0])) {
-            handleStart(Arrays.asList(text.split(" ")), chatId);
+        if (!command.isEmpty() && "/start".equals(normalizeCommand(command.getFirst()))) {
+            handleStart(command, chatId);
             return;
         }
 
@@ -139,22 +163,18 @@ public class TelegramBotServices {
             return;
         }
 
-        //---- /gasto mercado carne 25 1
-        if (text == null || text.isBlank()) {
+        //---- /gasto mercado carne moida 25,90 1
+        if (command.isEmpty()) {
             log.info("No text in message.");
             return;
         }
-
-        String message = text;
-
-        List<String> command = Arrays.asList(message.trim().split("\\s+"));
 
         switch (normalizeCommand(command.getFirst())){
             case "/gasto":{
                 if (isCommandToShort(command, 5, update))
                     break;
                 log.info("Expense being registered.");
-                TransactionRegistrationResultDTO expense = transactionsService.registerExpense(ownerId, command.get(1), parseAccountId(command.getLast(), ownerId), parseAmount(command.get(3)), command.get(2));
+                TransactionRegistrationResultDTO expense = withAccountErrors(() -> transactionsService.registerExpense(ownerId, command.get(1), parseId(command.getLast(), INVALID_ACCOUNT_MESSAGE), parseTransactionAmount(command.get(command.size() - 2)), transactionDescription(command)));
                 log.info("Expense registered successfully, amount:  {} -  Actual balance: {}", expense.getAmount(), expense.getNewBalance());
                 String telegramMessage = "📉 Expense registered successfully. \n💰 Actual balance: €" + expense.getNewBalance().toString();
                 sendReply(update.getMessage().getChatId(), telegramMessage);
@@ -164,7 +184,7 @@ public class TelegramBotServices {
                 if (isCommandToShort(command, 5, update))
                     break;
                 log.info("Income being registered.");
-                TransactionRegistrationResultDTO income = transactionsService.registerIncome(ownerId, command.get(1), parseAccountId(command.getLast(), ownerId), parseAmount(command.get(3)), command.get(2));
+                TransactionRegistrationResultDTO income = withAccountErrors(() -> transactionsService.registerIncome(ownerId, command.get(1), parseId(command.getLast(), INVALID_ACCOUNT_MESSAGE), parseTransactionAmount(command.get(command.size() - 2)), transactionDescription(command)));
                 log.info("Income registered successfully, amount:  {} -  Actual balance: {}", income.getAmount(), income.getNewBalance());
                 String telegramMessage = "📈 Income registered successfully. \n💰 Actual balance: €" + income.getNewBalance().toString();
                 sendReply(update.getMessage().getChatId(), telegramMessage);
@@ -210,7 +230,7 @@ public class TelegramBotServices {
                     sendReply(update.getMessage().getChatId(), "🚨 Invalid currency. Use: /nova_conta <name> <balance> [BRL|EUR|USD]");
                     break;
                 }
-                AccountDTO account = accountService.addAccount(command.get(1), new BigDecimal(MoneyFormat.format(parseAmount(command.get(2)))), currency.get(), ownerId);
+                AccountDTO account = accountService.addAccount(command.get(1), parseBalance(command.get(2)), currency.get(), ownerId);
                 sendReply(update.getMessage().getChatId(), "Account added: " + account.getDescription() + " (" + account.getCurrency() + ")");
                 break;
             }
@@ -393,7 +413,7 @@ public class TelegramBotServices {
     //---- Callback data is "<prefix>:<payload>", dispatched to the TelegramCallbackHandler registered for the prefix.
     private void handleCallbackQuery(CallbackQuery callbackQuery){
         String answerText = null;
-        Long chatId = callbackQuery.getMessage() != null ? callbackQuery.getMessage().getChatId() : callbackQuery.getFrom().getId();
+        Long chatId = callbackChatId(callbackQuery);
         try {
             Optional<OwnerEntity> owner = ownerRepository.findByTelegramChatId(chatId);
             if (owner.isEmpty()) {
@@ -426,7 +446,8 @@ public class TelegramBotServices {
             case CategoryNotFoundException ignored -> CATEGORY_NOT_FOUND_MESSAGE;
             case InvalidMoneyFormatException ignored -> INVALID_AMOUNT_MESSAGE;
             case NumberFormatException ignored -> INVALID_AMOUNT_MESSAGE;
-            case ResponseStatusException ignored -> NOT_ALLOWED_MESSAGE;
+            case ResponseStatusException status when status.getStatusCode().isSameCodeAs(HttpStatus.FORBIDDEN)
+                    || status.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND) -> NOT_ALLOWED_MESSAGE;
             default -> null;
         };
         if (message == null) {
@@ -436,11 +457,8 @@ public class TelegramBotServices {
             log.info("Telegram request from chatId {} rejected: {}", chatId, e.getMessage());
         }
 
-        try {
-            sendReply(chatId, message);
-        } catch (Exception replyError) {
-            log.error("Failed to send error reply to chatId {}: {}", chatId, replyError.getMessage(), replyError);
-        }
+        //---- TelegramApiClient logs and swallows its own failures, so this never throws.
+        sendReply(chatId, message);
     }
 
     //---- "/gasto@MoneyFlowBot" -> "/gasto" (Telegram appends the bot username in groups).
@@ -457,27 +475,37 @@ public class TelegramBotServices {
         }
     }
 
-    private Integer parseAccountId(String token, Integer ownerId){
-        Integer accountId = parseId(token, INVALID_ACCOUNT_MESSAGE);
+    //---- The services check account ownership; a FORBIDDEN/NOT_FOUND from them means the account id is wrong.
+    private <T> T withAccountErrors(Supplier<T> transactionCall){
         try {
-            accountService.validateAccountOwnership(accountId, ownerId);
+            return transactionCall.get();
         } catch (ResponseStatusException e) {
-            throw new TelegramUserInputException(INVALID_ACCOUNT_MESSAGE);
+            if (e.getStatusCode().isSameCodeAs(HttpStatus.FORBIDDEN) || e.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND))
+                throw new TelegramUserInputException(INVALID_ACCOUNT_MESSAGE);
+            throw e;
         }
-        return accountId;
     }
 
-    //---- Validates the amount and returns it untouched (services parse it with MoneyFormat).
-    private String parseAmount(String token){
-        BigDecimal amount;
-        try {
-            amount = new BigDecimal(MoneyFormat.format(token));
-        } catch (NumberFormatException e) {
+    //---- Words between the category (index 1) and the amount (size - 2).
+    private static String transactionDescription(List<String> command){
+        return String.join(" ", command.subList(2, command.size() - 2));
+    }
+
+    //---- Transaction amounts: Brazilian format, positive. Returned untouched (services parse it with MoneyFormat).
+    private String parseTransactionAmount(String token){
+        if (token.startsWith("-"))
             throw new TelegramUserInputException(INVALID_AMOUNT_MESSAGE);
-        }
-        if (amount.signum() < 0)
-            throw new TelegramUserInputException(INVALID_AMOUNT_MESSAGE);
+        BigDecimal amount = MoneyFormat.parseBrazilian(token)
+                .orElseThrow(() -> new TelegramUserInputException(INVALID_AMOUNT_MESSAGE));
+        if (amount.signum() == 0)
+            throw new TelegramUserInputException(ZERO_AMOUNT_MESSAGE);
         return token;
+    }
+
+    //---- Starting balances may be zero or negative (credit card, overdraft).
+    private BigDecimal parseBalance(String token){
+        return MoneyFormat.parseBrazilian(token)
+                .orElseThrow(() -> new TelegramUserInputException(INVALID_AMOUNT_MESSAGE));
     }
 
 
