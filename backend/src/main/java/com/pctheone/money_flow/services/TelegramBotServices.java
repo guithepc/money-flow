@@ -1,20 +1,25 @@
 package com.pctheone.money_flow.services;
 
-import com.openai.models.audio.transcriptions.TranscriptionCreateParams;
 import com.pctheone.money_flow.dto.*;
+import com.pctheone.money_flow.entities.CategoryEntity;
 import com.pctheone.money_flow.entities.OwnerEntity;
 import com.pctheone.money_flow.enums.CategoryTypeEnum;
 import com.pctheone.money_flow.enums.CurrencyEnum;
+import com.pctheone.money_flow.enums.LanguageEnum;
+import com.pctheone.money_flow.enums.OnboardingStepEnum;
 import com.pctheone.money_flow.enums.OperationTypeEnum;
 import com.pctheone.money_flow.exceptions.CategoryNotFoundException;
 import com.pctheone.money_flow.exceptions.InvalidMoneyFormatException;
 import com.pctheone.money_flow.exceptions.TelegramUserInputException;
 import com.pctheone.money_flow.repositories.OwnerRepository;
+import com.pctheone.money_flow.services.telegram.BotMessages;
+import com.pctheone.money_flow.services.telegram.CategoryCallbackHandler;
 import com.pctheone.money_flow.services.telegram.TelegramApiClient;
 import com.pctheone.money_flow.services.telegram.TelegramBotCommands;
 import com.pctheone.money_flow.services.telegram.TelegramCallbackHandler;
 import com.pctheone.money_flow.services.telegram.TelegramCallbackRegistry;
 import com.pctheone.money_flow.services.telegram.TelegramProcessedUpdateService;
+import com.pctheone.money_flow.services.telegram.VoiceTranscriptionService;
 import com.pctheone.money_flow.utils.BotMessageFormat;
 import com.pctheone.money_flow.utils.MoneyFormat;
 import org.slf4j.Logger;
@@ -27,14 +32,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.Voice;
+import org.telegram.telegrambots.meta.api.objects.User;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
@@ -50,15 +55,18 @@ public class TelegramBotServices {
 
     private static final Logger log = LoggerFactory.getLogger(TelegramBotServices.class);
 
-    static final String CATEGORY_NOT_FOUND_MESSAGE = "🚨 Category not found. Use /categorias to see your categories or /nova_categoria to create one.";
-    static final String INVALID_AMOUNT_MESSAGE = "🚨 Invalid amount. Use comma for decimals and period for thousands, e.g. 25,90 or 1.250,90.";
-    static final String ZERO_AMOUNT_MESSAGE = "🚨 Amount must be greater than zero, e.g. 25,90.";
-    static final String INVALID_ACCOUNT_MESSAGE = "🚨 Invalid account. Use /contas to see your account IDs.";
-    static final String INVALID_TRANSACTION_MESSAGE = "🚨 Invalid transaction id. Use /transacoes to see your transaction IDs.";
-    static final String NOT_ALLOWED_MESSAGE = "🚨 Not found or it doesn't belong to you.";
-    static final String GENERIC_ERROR_MESSAGE = "🚨 Something went wrong processing your request. Please try again.";
-    static final String VOICE_ERROR_MESSAGE = "🚨 Couldn't process your voice message. Please try again.";
-    static final String NOT_LINKED_MESSAGE = "👋 Your Telegram isn't linked yet. Register at Money Flow and use the \"Link Telegram\" button to connect your account.";
+    //---- Message keys in messages/bot_*.properties.
+    static final String CATEGORY_NOT_FOUND_MESSAGE = "error.categoryNotFound";
+    static final String INVALID_AMOUNT_MESSAGE = "error.invalidAmount";
+    static final String ZERO_AMOUNT_MESSAGE = "error.zeroAmount";
+    static final String INVALID_ACCOUNT_MESSAGE = "error.invalidAccount";
+    static final String INVALID_TRANSACTION_MESSAGE = "error.invalidTransaction";
+    static final String NOT_ALLOWED_MESSAGE = "error.notAllowed";
+    static final String GENERIC_ERROR_MESSAGE = "error.generic";
+    static final String VOICE_ERROR_MESSAGE = "error.voice";
+    static final String NOT_LINKED_MESSAGE = "error.notLinked";
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Value("classpath:prompts/voice-parser.txt")
     Resource voiceParserPrompt;
@@ -77,6 +85,9 @@ public class TelegramBotServices {
     OpenAIClient openAIClient;
 
     @Autowired
+    VoiceTranscriptionService voiceTranscriptionService;
+
+    @Autowired
     TransactionsService transactionsService;
 
     @Autowired
@@ -90,6 +101,12 @@ public class TelegramBotServices {
 
     @Autowired
     OwnerService ownerService;
+
+    @Autowired
+    OnboardingService onboardingService;
+
+    @Autowired
+    BotMessages messages;
 
     public void telegramRouter(Update update){
         try {
@@ -116,7 +133,7 @@ public class TelegramBotServices {
                 log.error("Failed to process Telegram update {}: {}", update.getUpdateId(), e.getMessage(), e);
                 return;
             }
-            handleError(chatId, e, GENERIC_ERROR_MESSAGE);
+            handleError(chatId, languageOf(chatId, telegramLanguageOf(update)), e, GENERIC_ERROR_MESSAGE);
             //---- handleCallbackQuery answers by itself; reaching here means it never ran (e.g. the claim failed).
             if (update.hasCallbackQuery())
                 telegramApiClient.answerCallbackQuery(update.getCallbackQuery().getId(), null);
@@ -135,69 +152,101 @@ public class TelegramBotServices {
         return callbackQuery.getMessage() != null ? callbackQuery.getMessage().getChatId() : callbackQuery.getFrom().getId();
     }
 
+    private static String telegramLanguageOf(Update update){
+        User from = null;
+        if (update.hasMessage())
+            from = update.getMessage().getFrom();
+        else if (update.hasCallbackQuery())
+            from = update.getCallbackQuery().getFrom();
+        return from != null ? from.getLanguageCode() : null;
+    }
+
+    //---- Language for error replies: the owner's saved language, else the Telegram client's. Never throws.
+    private LanguageEnum languageOf(Long chatId, String telegramLanguageCode){
+        try {
+            return ownerRepository.findByTelegramChatId(chatId)
+                    .map(owner -> LanguageEnum.resolve(owner.getLanguage(), telegramLanguageCode))
+                    .orElse(LanguageEnum.fromTelegram(telegramLanguageCode));
+        } catch (Exception e) {
+            return LanguageEnum.fromTelegram(telegramLanguageCode);
+        }
+    }
+
     //---- Sends a message with inline buttons. Each inner list is a row; clicks are routed by TelegramCallbackRegistry.
     public void sendMessageWithInlineKeyboard(Long chatId, String text, List<List<TelegramInlineButtonDTO>> keyboard){
         telegramApiClient.sendMessageWithInlineKeyboard(chatId, text, keyboard);
     }
 
     private void routeMessage(Update update){
-        Long chatId = update.getMessage().getChatId();
-        String text = update.getMessage().getText();
+        Message message = update.getMessage();
+        Long chatId = message.getChatId();
+        String telegramLanguage = message.getFrom() != null ? message.getFrom().getLanguageCode() : null;
+        String text = message.getText();
         List<String> command = text == null || text.isBlank() ? List.of() : Arrays.asList(text.trim().split("\\s+"));
 
-        //---- /start <uuid> onboarding runs before owner resolution.
+        //---- /start <uuid> links the chat, so it runs before owner resolution.
         if (!command.isEmpty() && "/start".equals(normalizeCommand(command.getFirst()))) {
-            handleStart(command, chatId);
+            handleStart(command, chatId, telegramLanguage);
             return;
         }
 
         Optional<OwnerEntity> owner = ownerRepository.findByTelegramChatId(chatId);
         if (owner.isEmpty()) {
             log.info("Unlinked chatId {} tried to use the bot.", chatId);
-            sendReply(chatId, NOT_LINKED_MESSAGE);
+            sendReply(chatId, messages.get(LanguageEnum.fromTelegram(telegramLanguage), NOT_LINKED_MESSAGE));
             return;
         }
         Integer ownerId = owner.get().getOwnerId();
+        OnboardingStepEnum onboardingStep = owner.get().getOnboardingStep();
+        LanguageEnum language = LanguageEnum.resolve(owner.get().getLanguage(), telegramLanguage);
 
-        if (update.getMessage().getVoice() != null) {
-            audioCommand(update, ownerId);
-            return;
+        //---- While onboarding is not DONE, the onboarding flow gets the message first.
+        if (onboardingStep != OnboardingStepEnum.DONE) {
+            String voiceFileId = message.getVoice() != null ? message.getVoice().getFileId() : null;
+            if (onboardingService.handleMessage(ownerId, chatId, new OnboardingService.Input(text, voiceFileId, telegramLanguage)))
+                return;
         }
 
-        //---- /gasto mercado carne moida 25,90 1
-        if (command.isEmpty()) {
+        boolean transactionRegistered = false;
+        if (message.getVoice() != null) {
+            transactionRegistered = audioCommand(update, ownerId, language);
+        } else if (command.isEmpty()) {
             log.info("No text in message.");
-            return;
+        } else {
+            transactionRegistered = routeCommand(command, chatId, ownerId, language);
         }
 
+        //---- The first transaction during the onboarding tutorial finishes onboarding.
+        if (transactionRegistered && onboardingStep == OnboardingStepEnum.TUTORIAL)
+            onboardingService.completeTutorial(ownerId, chatId, telegramLanguage);
+    }
+
+    //---- /gasto mercado carne moida 25,90 1. Returns true when a transaction was registered.
+    private boolean routeCommand(List<String> command, Long chatId, Integer ownerId, LanguageEnum language){
         switch (normalizeCommand(command.getFirst())){
             case "/gasto":{
-                if (isCommandToShort(command, 5, update))
-                    break;
+                if (isCommandToShort(command, 5, chatId, language))
+                    return false;
                 log.info("Expense being registered.");
                 TransactionRegistrationResultDTO expense = withAccountErrors(() -> transactionsService.registerExpense(ownerId, command.get(1), parseId(command.getLast(), INVALID_ACCOUNT_MESSAGE), parseTransactionAmount(command.get(command.size() - 2)), transactionDescription(command)));
                 log.info("Expense registered successfully, amount:  {} -  Actual balance: {}", expense.getAmount(), expense.getNewBalance());
-                String telegramMessage = BotMessageFormat.transactionConfirmation(OperationTypeEnum.EXPENSE, expense);
-                sendReply(update.getMessage().getChatId(), telegramMessage);
-                break;
+                sendReply(chatId, BotMessageFormat.transactionConfirmation(messages, language, OperationTypeEnum.EXPENSE, expense));
+                return true;
             }
             case "/entrada":{
-                if (isCommandToShort(command, 5, update))
-                    break;
+                if (isCommandToShort(command, 5, chatId, language))
+                    return false;
                 log.info("Income being registered.");
                 TransactionRegistrationResultDTO income = withAccountErrors(() -> transactionsService.registerIncome(ownerId, command.get(1), parseId(command.getLast(), INVALID_ACCOUNT_MESSAGE), parseTransactionAmount(command.get(command.size() - 2)), transactionDescription(command)));
                 log.info("Income registered successfully, amount:  {} -  Actual balance: {}", income.getAmount(), income.getNewBalance());
-                String telegramMessage = BotMessageFormat.transactionConfirmation(OperationTypeEnum.INCOME, income);
-                sendReply(update.getMessage().getChatId(), telegramMessage);
-                break;
+                sendReply(chatId, BotMessageFormat.transactionConfirmation(messages, language, OperationTypeEnum.INCOME, income));
+                return true;
             }
             case "/categorias":{
-                if (isCommandToShort(command, 1, update))
-                    break;
                 log.info("Categories requested.");
                 List<CategoryDTO> categoryDTOList = categoryService.listAllCategories(ownerId);
                 log.info("Categories in database:  {}", categoryDTOList.size());
-                StringBuilder telegramMessage = new StringBuilder("📈 Your categories:\n");
+                StringBuilder telegramMessage = new StringBuilder(messages.get(language, "categories.header")).append("\n");
                 for (CategoryDTO categoryDTO : categoryDTOList){
                     telegramMessage
                             .append("ID: ")
@@ -206,85 +255,99 @@ public class TelegramBotServices {
                             .append(categoryDTO.getCategoryDescription())
                             .append("\n");
                 }
-                sendReply(update.getMessage().getChatId(), telegramMessage.toString());
-                break;
+                sendReply(chatId, telegramMessage.toString());
+                return false;
             }
             case "/nova_categoria", "/add-categoria":{
-                if (isCommandToShort(command, 2, update))
-                    break;
+                if (isCommandToShort(command, 2, chatId, language))
+                    return false;
                 log.info("Add category requested.");
                 Optional<CategoryTypeEnum> categoryType = parseCategoryType(command);
                 if (categoryType.isEmpty()) {
-                    sendReply(update.getMessage().getChatId(), "🚨 Invalid category type. Use: /nova_categoria <name> [gasto|entrada]");
-                    break;
+                    sendReply(chatId, messages.get(language, "category.invalidType"));
+                    return false;
                 }
-                String telegramMessage = categoryService.addCategory(command.get(1), categoryType.get(), ownerId);
-                sendReply(update.getMessage().getChatId(), telegramMessage);
-                break;
+                Optional<CategoryEntity> existing = categoryService.findByDescription(command.get(1), ownerId);
+                if (existing.isPresent()) {
+                    sendReply(chatId, messages.get(language, "category.exists", existing.get().getDescription()));
+                    return false;
+                }
+                categoryService.addCategory(command.get(1), categoryType.get(), ownerId);
+                String created = categoryService.findByDescription(command.get(1), ownerId).map(CategoryEntity::getDescription).orElse(command.get(1));
+                sendReply(chatId, messages.get(language, "category.created", created));
+                return false;
             }
             case "/nova_conta", "/add-conta":{
-                if (isCommandToShort(command, 3, update))
-                    break;
+                if (isCommandToShort(command, 3, chatId, language))
+                    return false;
                 log.info("Add account requested.");
                 Optional<CurrencyEnum> currency = parseCurrency(command);
                 if (currency.isEmpty()) {
-                    sendReply(update.getMessage().getChatId(), "🚨 Invalid currency. Use: /nova_conta <name> <balance> [BRL|EUR|USD]");
-                    break;
+                    sendReply(chatId, messages.get(language, "account.invalidCurrency"));
+                    return false;
                 }
                 AccountDTO account = accountService.addAccount(command.get(1), parseBalance(command.get(2)), currency.get(), ownerId);
-                sendReply(update.getMessage().getChatId(), "Account added: " + account.getDescription() + " (" + account.getCurrency() + ")");
-                break;
+                sendReply(chatId, messages.get(language, "account.added", account.getDescription(), MoneyFormat.format(account.getAmount(), account.getCurrency())));
+                return false;
             }
             case "/contas":{
-                if (isCommandToShort(command, 1, update))
-                    break;
                 log.info("Accounts requested.");
                 List<AccountDTO> accountDTOList = accountService.listAllAccounts(ownerId);
                 log.info("Accounts in database:  {}", accountDTOList.size());
-                StringBuilder telegramMessage = new StringBuilder("🏦 Your accounts:\n");
+                StringBuilder telegramMessage = new StringBuilder(messages.get(language, "accounts.header")).append("\n");
                 for (AccountDTO accountDTO : accountDTOList){
                     telegramMessage.append(BotMessageFormat.accountLine(accountDTO)).append("\n");
                 }
-                sendReply(update.getMessage().getChatId(), telegramMessage.toString());
-                break;
+                sendReply(chatId, telegramMessage.toString());
+                return false;
             }
             case "/transacoes":{
-                if (isCommandToShort(command, 1, update))
-                    break;
                 log.info("Transactions requested.");
                 List<TransactionDTO> transactionDTOS = transactionsService.listAllTransactions(LocalDate.now().minusDays(7), LocalDate.now(), null, null, ownerId).reversed();
                 log.info("Last transactions:  {}", transactionDTOS.size());
-                StringBuilder telegramMessage = new StringBuilder("⚡️Last transactions:\n");
+                StringBuilder telegramMessage = new StringBuilder(messages.get(language, "transactions.header")).append("\n");
 
                 for (TransactionDTO transactionDTO : transactionDTOS){
                     telegramMessage.append(BotMessageFormat.transactionLine(transactionDTO)).append("\n");
                 }
-                sendReply(update.getMessage().getChatId(), telegramMessage.toString());
-                break;
+                sendReply(chatId, telegramMessage.toString());
+                return false;
             }
             case "/deletar_transacao", "/deletar-transacao":{
-                if (isCommandToShort(command, 2, update))
-                    break;
+                if (isCommandToShort(command, 2, chatId, language))
+                    return false;
                 log.info("Transaction deletion requested");
-                String response = transactionsService.deleteTransaction(parseId(command.get(1), INVALID_TRANSACTION_MESSAGE), ownerId);
-                sendReply(update.getMessage().getChatId(), response);
-                break;
+                Integer transactionId = parseId(command.get(1), INVALID_TRANSACTION_MESSAGE);
+                Optional<DeletedTransactionDTO> deleted = transactionsService.deleteTransaction(transactionId, ownerId);
+                sendReply(chatId, deleted
+                        .map(transaction -> messages.get(language, "transaction.deleted", transaction.getDescription(), MoneyFormat.format(transaction.getAmount(), transaction.getCurrency())))
+                        .orElseGet(() -> messages.get(language, "transaction.notFound", String.valueOf(transactionId))));
+                return false;
             }
             case "/ajuda", "/help":{
-                String languageCode = update.getMessage().getFrom() != null ? update.getMessage().getFrom().getLanguageCode() : null;
-                sendReply(update.getMessage().getChatId(), TelegramBotCommands.helpText(languageCode));
-                break;
+                sendReply(chatId, TelegramBotCommands.helpText(language.code()));
+                return false;
+            }
+            case "/cancelar", "/cancel":{
+                sendReply(chatId, messages.get(language, "onboarding.nothingToCancel"));
+                return false;
             }
             default:
-                break;
-
+                return false;
         }
     }
 
-    private void handleStart(List<String> command, Long chatId){
+    private void handleStart(List<String> command, Long chatId, String telegramLanguage){
+        LanguageEnum language = LanguageEnum.fromTelegram(telegramLanguage);
         if (command.size() < 2) {
             log.info("Plain /start received from chatId {}.", chatId);
-            sendReply(chatId, "👋 Welcome to Money Flow! To connect this chat to your account, open Money Flow and use the \"Link Telegram\" button.");
+            //---- Linked but onboarding unfinished: /start repeats the current question.
+            Optional<OwnerEntity> owner = ownerRepository.findByTelegramChatId(chatId);
+            if (owner.isPresent() && owner.get().getOnboardingStep() != OnboardingStepEnum.DONE) {
+                onboardingService.resume(owner.get().getOwnerId(), chatId, telegramLanguage);
+                return;
+            }
+            sendReply(chatId, messages.get(owner.map(o -> LanguageEnum.resolve(o.getLanguage(), telegramLanguage)).orElse(language), "start.welcome"));
             return;
         }
 
@@ -293,42 +356,33 @@ public class TelegramBotServices {
             inviteUuid = UUID.fromString(command.get(1));
         } catch (IllegalArgumentException e) {
             log.info("Invalid invite uuid received from chatId {}.", chatId);
-            sendReply(chatId, "🚨 Invalid invite link. Generate a new one from Money Flow.");
+            sendReply(chatId, messages.get(language, "start.invalidInvite"));
             return;
         }
 
-        if (ownerService.linkTelegramChat(inviteUuid, chatId)) {
-            sendReply(chatId, "✅ Your Telegram is now linked to your Money Flow account!");
-        } else {
-            sendReply(chatId, "🚨 This invite link is invalid or expired. Generate a new one from Money Flow.");
+        if (!ownerService.linkTelegramChat(inviteUuid, chatId)) {
+            sendReply(chatId, messages.get(language, "start.expiredInvite"));
+            return;
         }
+
+        //---- Re-linking an owner that already finished onboarding does not restart it.
+        Optional<OwnerEntity> owner = ownerRepository.findByTelegramChatId(chatId);
+        LanguageEnum ownerLanguage = owner.map(o -> LanguageEnum.resolve(o.getLanguage(), telegramLanguage)).orElse(language);
+        sendReply(chatId, messages.get(ownerLanguage, "link.success"));
+        if (owner.isPresent() && owner.get().getOnboardingStep() != OnboardingStepEnum.DONE)
+            onboardingService.resume(owner.get().getOwnerId(), chatId, telegramLanguage);
     }
 
-    public void audioCommand(Update update, Integer ownerId){
+    //---- Returns true when a transaction was registered.
+    public boolean audioCommand(Update update, Integer ownerId, LanguageEnum language){
         Long chatId = update.getMessage().getChatId();
         log.info("Voice message received from chatId: {}", chatId);
-        Voice voiceAudio = update.getMessage().getVoice();
-        String fileId = voiceAudio.getFileId();
+        String fileId = update.getMessage().getVoice().getFileId();
 
-        Path tempFile = null;
         try{
-            byte[] audio = telegramApiClient.downloadFile(fileId);
+            String transcription = voiceTranscriptionService.transcribe(fileId);
 
-            tempFile = Files.createTempFile("voice_", ".ogg");
-
-            Files.write(tempFile, audio);
-
-            log.info("Sending audio to Whisper for transcription");
-            var result = openAIClient.audio().transcriptions().create(
-                    TranscriptionCreateParams.builder()
-                    .file(tempFile)
-                            .model("gpt-transcribe")
-                            .build());
-
-            String transcription = result.asTranscription().text();
-            log.info("Whisper transcription result: {}", transcription);
-
-            String template = new String(voiceParserPrompt.getInputStream().readAllBytes());
+            String template = new String(voiceParserPrompt.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             String prompt = String.format(template, this.listCategories(ownerId), this.listAccounts(ownerId));
 
             log.info("Sending transcription to GPT for parsing");
@@ -336,62 +390,88 @@ public class TelegramBotServices {
                 ResponseCreateParams.builder().model("gpt-4o-mini").instructions(prompt).input(transcription).build();
 
             Response openAiResponse = openAIClient.responses().create(params);
+            String response = openAiResponse.output().stream().flatMap(item -> item.asMessage().content().stream())
+                    .map(content -> content.asOutputText().text())
+                    .findFirst()
+                    .orElse("");
 
-            proccessTranscriptedMessage(openAiResponse, update, ownerId);
-
-
+            return proccessTranscriptedMessage(response, chatId, ownerId, language);
         } catch (Exception e){
             if (e instanceof InterruptedException)
                 Thread.currentThread().interrupt();
-            handleError(chatId, e, VOICE_ERROR_MESSAGE);
-        } finally {
-            deleteTempFile(tempFile);
+            handleError(chatId, language, e, VOICE_ERROR_MESSAGE);
+            return false;
         }
     }
 
-    private void deleteTempFile(Path tempFile){
-        if (tempFile == null)
-            return;
-        try {
-            Files.deleteIfExists(tempFile);
-        } catch (IOException e) {
-            log.error("Failed to delete temp voice file {}: {}", tempFile, e.getMessage());
-        }
-    }
-
-    private void proccessTranscriptedMessage(Response openAiResponse, Update update, Integer ownerId){
-        String response = openAiResponse.output().stream().flatMap(item -> item.asMessage().content().stream())
-                .map(content -> content.asOutputText().text())
-                .findFirst()
-                .orElse("");
-
+    //---- GPT returns the transaction, {"error": "CATEGORY_NOT_FOUND", "category": ..., "operationType": ...} or {"error": "NOT_UNDERSTOOD"}.
+    boolean proccessTranscriptedMessage(String response, Long chatId, Integer ownerId, LanguageEnum language){
         log.info("GPT parser response: {}", response);
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        if (response.contains("repetir")) {
-            log.info("GPT returned error response, notifying user");
-            this.sendReply(update.getMessage().getChatId(), "🚨 Voice command not recognized, send again.");
-            return;
-        } else if (response.contains("categoria")){
-            log.info("No category found, notifying user");
-            this.sendReply(update.getMessage().getChatId(), "🚨 Category not found, try with valid category");
-            return;
+        JsonNode node = OBJECT_MAPPER.readTree(response);
+        if (node.hasNonNull("error")) {
+            String category = node.hasNonNull("category") ? node.get("category").asString().trim() : "";
+            if ("CATEGORY_NOT_FOUND".equals(node.get("error").asString()) && !category.isEmpty()) {
+                offerCategoryCreation(chatId, language, category, operationTypeOf(node));
+                return false;
+            }
+            log.info("GPT could not parse the voice message, notifying user");
+            sendReply(chatId, messages.get(language, "voice.notRecognized"));
+            return false;
         }
 
-        OpenAITransactionDTO transactionDTO = objectMapper.readValue(response, OpenAITransactionDTO.class);
+        OpenAITransactionDTO transactionDTO = OBJECT_MAPPER.treeToValue(node, OpenAITransactionDTO.class);
         log.info("Parsed transaction - operation: {}, category: {}, description: {}, amount: {}, accountId: {}",
                 transactionDTO.getOperationType(), transactionDTO.getCategory(), transactionDTO.getDescription(),
                 transactionDTO.getAmount(), transactionDTO.getAccountId());
 
-        if (OperationTypeEnum.EXPENSE.equals(transactionDTO.getOperationType())) {
-            TransactionRegistrationResultDTO expense = transactionsService.registerExpense(ownerId, transactionDTO.getCategory(), transactionDTO.getAccountId(), transactionDTO.getAmount(), transactionDTO.getDescription());
-            log.info("Voice expense registered successfully");
-            this.sendReply(update.getMessage().getChatId(), BotMessageFormat.transactionConfirmation(OperationTypeEnum.EXPENSE, expense));
-        } else if (OperationTypeEnum.INCOME.equals(transactionDTO.getOperationType())) {
-            TransactionRegistrationResultDTO income = transactionsService.registerIncome(ownerId, transactionDTO.getCategory(), transactionDTO.getAccountId(), transactionDTO.getAmount(), transactionDTO.getDescription());
-            log.info("Voice income registered successfully");
-            this.sendReply(update.getMessage().getChatId(), BotMessageFormat.transactionConfirmation(OperationTypeEnum.INCOME, income));
-        } 
+        OperationTypeEnum operationType = transactionDTO.getOperationType();
+        if (operationType != OperationTypeEnum.EXPENSE && operationType != OperationTypeEnum.INCOME) {
+            sendReply(chatId, messages.get(language, "voice.notRecognized"));
+            return false;
+        }
+        CategoryTypeEnum expectedType = operationType == OperationTypeEnum.INCOME ? CategoryTypeEnum.INCOME : CategoryTypeEnum.EXPENSE;
+
+        Optional<CategoryEntity> category = transactionDTO.getCategory() == null || transactionDTO.getCategory().isBlank()
+                ? Optional.empty()
+                : categoryService.findByDescription(transactionDTO.getCategory(), ownerId);
+        if (category.isEmpty()) {
+            if (transactionDTO.getCategory() == null || transactionDTO.getCategory().isBlank()) {
+                sendReply(chatId, messages.get(language, "voice.notRecognized"));
+                return false;
+            }
+            offerCategoryCreation(chatId, language, transactionDTO.getCategory().trim(), expectedType);
+            return false;
+        }
+        if (category.get().getType() != expectedType) {
+            sendReply(chatId, messages.get(language, "voice.categoryTypeMismatch",
+                    category.get().getDescription(), messages.get(language, "category.type." + category.get().getType().name())));
+            return false;
+        }
+
+        TransactionRegistrationResultDTO result = operationType == OperationTypeEnum.EXPENSE
+                ? transactionsService.registerExpense(ownerId, transactionDTO.getCategory(), transactionDTO.getAccountId(), transactionDTO.getAmount(), transactionDTO.getDescription())
+                : transactionsService.registerIncome(ownerId, transactionDTO.getCategory(), transactionDTO.getAccountId(), transactionDTO.getAmount(), transactionDTO.getDescription());
+        log.info("Voice {} registered successfully", operationType);
+        sendReply(chatId, BotMessageFormat.transactionConfirmation(messages, language, operationType, result));
+        return true;
+    }
+
+    private static CategoryTypeEnum operationTypeOf(JsonNode node){
+        return node.hasNonNull("operationType") && "INCOME".equals(node.get("operationType").asString())
+                ? CategoryTypeEnum.INCOME : CategoryTypeEnum.EXPENSE;
+    }
+
+    //---- "Couldn't find 'Pharmacy'. Create it as expense? [Yes] [No]"
+    private void offerCategoryCreation(Long chatId, LanguageEnum language, String category, CategoryTypeEnum type){
+        log.info("Category '{}' not found, offering to create it", category);
+        String typeLabel = messages.get(language, "category.type." + type.name());
+        Optional<List<List<TelegramInlineButtonDTO>>> buttons = CategoryCallbackHandler.createButtons(category, type,
+                messages.get(language, "voice.createCategory.yes"), messages.get(language, "voice.createCategory.no"));
+        if (buttons.isPresent())
+            telegramApiClient.sendMessageWithInlineKeyboard(chatId, messages.get(language, "voice.categoryNotFound", category, typeLabel), buttons.get());
+        else
+            sendReply(chatId, messages.get(language, "voice.categoryNotFoundNoButtons", category));
     }
 
     private void sendReply(Long chatId, String text){
@@ -402,13 +482,16 @@ public class TelegramBotServices {
     private void handleCallbackQuery(CallbackQuery callbackQuery){
         String answerText = null;
         Long chatId = callbackChatId(callbackQuery);
+        String telegramLanguage = callbackQuery.getFrom() != null ? callbackQuery.getFrom().getLanguageCode() : null;
+        LanguageEnum language = LanguageEnum.fromTelegram(telegramLanguage);
         try {
             Optional<OwnerEntity> owner = ownerRepository.findByTelegramChatId(chatId);
             if (owner.isEmpty()) {
                 log.info("Unlinked chatId {} clicked an inline button.", chatId);
-                sendReply(chatId, NOT_LINKED_MESSAGE);
+                sendReply(chatId, messages.get(language, NOT_LINKED_MESSAGE));
                 return;
             }
+            language = LanguageEnum.resolve(owner.get().getLanguage(), telegramLanguage);
 
             String data = callbackQuery.getData();
             Optional<TelegramCallbackHandler> handler = callbackRegistry.find(data);
@@ -421,26 +504,26 @@ public class TelegramBotServices {
             answerText = handler.get().handle(new TelegramCallbackHandler.Context(
                     callbackQuery, chatId, owner.get().getOwnerId(), TelegramCallbackRegistry.payloadOf(data)));
         } catch (Exception e) {
-            handleError(chatId, e, GENERIC_ERROR_MESSAGE);
+            handleError(chatId, language, e, GENERIC_ERROR_MESSAGE);
         } finally {
             telegramApiClient.answerCallbackQuery(callbackQuery.getId(), answerText);
         }
     }
 
     //---- Never rethrows: the user always gets a reply and the webhook still answers 200.
-    private void handleError(Long chatId, Exception e, String fallbackMessage){
+    private void handleError(Long chatId, LanguageEnum language, Exception e, String fallbackMessageKey){
         String message = switch (e) {
-            case TelegramUserInputException userInput -> userInput.getMessage();
-            case CategoryNotFoundException ignored -> CATEGORY_NOT_FOUND_MESSAGE;
-            case InvalidMoneyFormatException ignored -> INVALID_AMOUNT_MESSAGE;
-            case NumberFormatException ignored -> INVALID_AMOUNT_MESSAGE;
+            case TelegramUserInputException userInput -> messages.get(language, userInput.getMessageKey(), userInput.getArgs());
+            case CategoryNotFoundException ignored -> messages.get(language, CATEGORY_NOT_FOUND_MESSAGE);
+            case InvalidMoneyFormatException ignored -> messages.get(language, INVALID_AMOUNT_MESSAGE);
+            case NumberFormatException ignored -> messages.get(language, INVALID_AMOUNT_MESSAGE);
             case ResponseStatusException status when status.getStatusCode().isSameCodeAs(HttpStatus.FORBIDDEN)
-                    || status.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND) -> NOT_ALLOWED_MESSAGE;
+                    || status.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND) -> messages.get(language, NOT_ALLOWED_MESSAGE);
             default -> null;
         };
         if (message == null) {
             log.error("Failed to process Telegram update from chatId {}: {}", chatId, e.getMessage(), e);
-            message = fallbackMessage;
+            message = messages.get(language, fallbackMessageKey);
         } else {
             log.info("Telegram request from chatId {} rejected: {}", chatId, e.getMessage());
         }
@@ -455,11 +538,11 @@ public class TelegramBotServices {
         return (at > 0 ? command.substring(0, at) : command).toLowerCase();
     }
 
-    private Integer parseId(String token, String errorMessage){
+    private Integer parseId(String token, String errorMessageKey){
         try {
             return Integer.valueOf(token);
         } catch (NumberFormatException e) {
-            throw new TelegramUserInputException(errorMessage);
+            throw new TelegramUserInputException(errorMessageKey);
         }
     }
 
@@ -497,10 +580,9 @@ public class TelegramBotServices {
     }
 
 
-    private boolean isCommandToShort(List<String> command, int expectedSize, Update update){
+    private boolean isCommandToShort(List<String> command, int expectedSize, Long chatId, LanguageEnum language){
         if (command.size() < expectedSize){
-            String errorMessage = "Message doesnt have right size. Expected size for command: " + expectedSize;
-            sendReply(update.getMessage().getChatId(), errorMessage);
+            sendReply(chatId, messages.get(language, "error.commandTooShort", normalizeCommand(command.getFirst())));
             return true;
         }
         return false;
@@ -543,6 +625,7 @@ public class TelegramBotServices {
         return accountListText;
     }
 
+    //---- "ID: 1 - Mercado (EXPENSE)": the type lets the parser match "gastei" only with expense categories.
     private StringBuilder listCategories(Integer ownerId){
         List<CategoryDTO> categoryDTOList = categoryService.listAllCategories(ownerId);
         StringBuilder categoryListText = new StringBuilder();
@@ -551,7 +634,9 @@ public class TelegramBotServices {
                     .append(categoryDTO.getCategoryId())
                     .append(" - ")
                     .append(categoryDTO.getCategoryDescription())
-                    .append("\n");
+                    .append(" (")
+                    .append(categoryDTO.getType())
+                    .append(")\n");
         }
         return categoryListText;
     }

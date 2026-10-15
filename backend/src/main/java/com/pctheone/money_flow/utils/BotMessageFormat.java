@@ -3,19 +3,22 @@ package com.pctheone.money_flow.utils;
 import com.pctheone.money_flow.dto.AccountDTO;
 import com.pctheone.money_flow.dto.TransactionDTO;
 import com.pctheone.money_flow.dto.TransactionRegistrationResultDTO;
+import com.pctheone.money_flow.enums.LanguageEnum;
 import com.pctheone.money_flow.enums.OperationTypeEnum;
+import com.pctheone.money_flow.services.telegram.BotMessages;
 
 //---- Telegram reply lines that show money. Every value is formatted with its own account's currency
 //---- (see MoneyFormat.format(BigDecimal, CurrencyEnum)); nothing here sums values across accounts.
 public class BotMessageFormat {
 
-    //---- "📉 R$ 30,00 · Mercado · Nubank — balance R$ 470,00" (📈 for income)
-    public static String transactionConfirmation(OperationTypeEnum operationType, TransactionRegistrationResultDTO result){
+    //---- EN "📉 R$ 30,00 · Mercado · Nubank — balance R$ 470,00" | PT "... — saldo R$ 470,00" (📈 for income)
+    public static String transactionConfirmation(BotMessages messages, LanguageEnum language, OperationTypeEnum operationType, TransactionRegistrationResultDTO result){
         String emoji = OperationTypeEnum.INCOME.equals(operationType) ? "📈" : "📉";
-        return emoji + " " + MoneyFormat.format(result.getAmount(), result.getCurrency())
-                + " · " + result.getCategoryDescription()
-                + " · " + result.getAccountDescription()
-                + " — balance " + MoneyFormat.format(result.getNewBalance(), result.getCurrency());
+        return messages.get(language, "transaction.registered", emoji,
+                MoneyFormat.format(result.getAmount(), result.getCurrency()),
+                result.getCategoryDescription(),
+                result.getAccountDescription(),
+                MoneyFormat.format(result.getNewBalance(), result.getCurrency()));
     }
 
     //---- "ID: 1 - Nubank | R$ 470,00"

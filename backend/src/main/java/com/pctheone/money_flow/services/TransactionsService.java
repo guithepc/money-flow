@@ -6,6 +6,7 @@ import com.pctheone.money_flow.enums.CurrencyEnum;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface TransactionsService {
     BigDecimal totalSpentByCategoryAndTime(LocalDate startTime, LocalDate endTime, Integer categoryId, Integer ownerId);
@@ -18,6 +19,7 @@ public interface TransactionsService {
     List<TransactionDTO> listAllTransactions(LocalDate startTime, LocalDate endTime, Integer accountId, CurrencyEnum currency, Integer ownerId);
     List<MonthlyIncomeExpenseDTO> monthlyIncomeExpense(LocalDate startTime, LocalDate endTime, Integer accountId, CurrencyEnum currency, Integer ownerId);
     List<DailyBalanceDTO> dailyBalance(LocalDate startTime, LocalDate endTime, Integer accountId, CurrencyEnum currency, Integer ownerId);
-    String deleteTransaction(Integer id, Integer ownerId);
+    //---- Empty when the transaction does not exist.
+    Optional<DeletedTransactionDTO> deleteTransaction(Integer id, Integer ownerId);
 
 }
