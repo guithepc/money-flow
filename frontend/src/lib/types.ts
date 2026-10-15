@@ -65,6 +65,13 @@ export interface MonthlyIncomeExpense {
 /** Seções navegáveis da sidebar. */
 export type View = 'dashboard' | 'accounts' | 'reports' | 'settings'
 
+/** OwnerProfileDTO { name: String, email: String, telegramLinked: boolean } */
+export interface OwnerProfile {
+  name: string
+  email: string
+  telegramLinked: boolean
+}
+
 /** TelegramInviteResponseDTO { link: String } — deep link para conectar o bot. */
 export interface TelegramInvite {
   link: string

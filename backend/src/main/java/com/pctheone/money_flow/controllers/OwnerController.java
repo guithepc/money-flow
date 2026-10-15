@@ -1,5 +1,6 @@
 package com.pctheone.money_flow.controllers;
 
+import com.pctheone.money_flow.dto.OwnerProfileDTO;
 import com.pctheone.money_flow.dto.TelegramInviteResponseDTO;
 import com.pctheone.money_flow.services.OwnerService;
 import org.slf4j.Logger;
@@ -7,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,6 +22,12 @@ public class OwnerController {
 
     @Autowired
     OwnerService ownerService;
+
+    @GetMapping("/me")
+    public ResponseEntity<OwnerProfileDTO> me(){
+        Integer ownerId = (Integer) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        return ResponseEntity.ok(ownerService.getProfile(ownerId));
+    }
 
     @PostMapping("/telegram-invite")
     public ResponseEntity<TelegramInviteResponseDTO> telegramInvite(){

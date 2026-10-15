@@ -1,11 +1,26 @@
-import { useState } from 'react'
-import { ArrowRight, Send, ExternalLink, Clock } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowRight, Send, ExternalLink, Clock, Check } from 'lucide-react'
 import { ownerApi } from '@/lib/api'
 
 export function Settings() {
+  // null = ainda carregando (ou falhou): nesse caso mostra o botão normal de vincular.
+  const [telegramLinked, setTelegramLinked] = useState<boolean | null>(null)
   const [link, setLink] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    ownerApi
+      .me()
+      .then((profile) => {
+        if (active) setTelegramLinked(profile.telegramLinked)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
 
   async function handleGenerate() {
     setLoading(true)
@@ -38,18 +53,31 @@ export function Settings() {
           <div className="flex flex-col gap-1">
             <h2 className="font-display text-2xl font-normal tracking-[-0.02em] text-fg">Telegram</h2>
             <p className="text-sm text-fg-muted">
-              Vincule o bot do Telegram para registrar transações por mensagem ou voz.
+              {telegramLinked
+                ? 'Seu Telegram está vinculado. Registre transações por mensagem ou voz no bot.'
+                : 'Vincule o bot do Telegram para registrar transações por mensagem ou voz.'}
             </p>
           </div>
         </div>
+
+        {telegramLinked && (
+          <span className="flex w-fit items-center gap-2 border border-data/40 bg-data/10 px-3 py-1.5 font-mono text-xs uppercase tracking-[0.04em] text-data">
+            <Check className="size-3.5" strokeWidth={2.2} />
+            Telegram vinculado
+          </span>
+        )}
 
         <button
           type="button"
           onClick={handleGenerate}
           disabled={loading}
-          className="flex w-fit items-center gap-2.5 bg-brand px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.04em] text-black transition-opacity duration-150 hover:opacity-90 disabled:opacity-50"
+          className={
+            telegramLinked
+              ? 'flex w-fit items-center gap-2.5 border border-edge px-5 py-3 text-sm font-semibold uppercase tracking-[0.04em] text-fg-muted transition-colors duration-150 hover:border-fg-subtle hover:text-fg disabled:opacity-50'
+              : 'flex w-fit items-center gap-2.5 bg-brand px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.04em] text-black transition-opacity duration-150 hover:opacity-90 disabled:opacity-50'
+          }
         >
-          {loading ? 'Gerando link…' : 'Vincular Telegram'}
+          {loading ? 'Gerando link…' : telegramLinked ? 'Vincular outro chat' : 'Vincular Telegram'}
           <ArrowRight className="size-4" strokeWidth={2.2} />
         </button>
 
