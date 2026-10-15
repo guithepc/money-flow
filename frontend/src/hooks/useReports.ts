@@ -40,13 +40,15 @@ export function useReports(
     const request = ++requestRef.current
     setState((s) => ({ ...s, loading: true, error: null }))
     try {
-      const [spent, income, ranking, monthlyIncomeExpense] = await Promise.all([
+      const [spent, income, ranking, monthlyIncomeExpense, balanceHistory] = await Promise.all([
         reportsApi.totalSpent(range, { accountId, currency }),
         reportsApi.totalIncome(range, { accountId, currency }),
         reportsApi.spentRankedByCategory(range, { accountId, currency }),
         reportsApi.incomeExpenseMonthly(range, { accountId, currency }),
+        reportsApi
+          .balanceHistory(range, { accountId, currency })
+          .catch(() => [] as TimeSeriesPoint[]),
       ])
-      const balanceHistory = await reportsApi.balanceHistory(range, { accountId, currency }).catch(() => [] as TimeSeriesPoint[])
       if (request !== requestRef.current) return
       setState({
         loading: false,

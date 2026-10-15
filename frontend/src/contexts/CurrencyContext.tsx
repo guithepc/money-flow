@@ -14,7 +14,8 @@ interface CurrencyContextValue {
   currencies: Currency[]
   /**
    * Moeda filtrada no dashboard. Não há câmbio: só contas dessa moeda entram
-   * em saldo, KPIs, gráficos e categorias. Padrão = moeda da primeira conta.
+   * em saldo, KPIs, gráficos e categorias. Padrão = última escolha salva (se o
+   * usuário ainda tiver conta nela) ou a moeda da primeira conta.
    */
   currency: Currency
   setCurrency: (c: Currency) => void
@@ -27,6 +28,16 @@ interface CurrencyContextValue {
 const CurrencyContext = createContext<CurrencyContextValue | null>(null)
 
 const VISIBILITY_KEY = 'money-flow:values-visible'
+const CURRENCY_KEY = 'money-flow:currency'
+
+function readStoredCurrency(): Currency | null {
+  try {
+    const stored = localStorage.getItem(CURRENCY_KEY)
+    return stored === 'BRL' || stored === 'EUR' || stored === 'USD' ? stored : null
+  } catch {
+    return null
+  }
+}
 
 function readVisibility(): boolean {
   try {
@@ -38,8 +49,9 @@ function readVisibility(): boolean {
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const { data: accountList, loading: accountsLoading, error: accountsError, refresh } = useAccounts()
-  // null = o usuário ainda não escolheu; cai na moeda da primeira conta.
-  const [chosen, setChosen] = useState<Currency | null>(null)
+  // Última escolha do usuário (localStorage). Só vale se ele ainda tiver conta
+  // nessa moeda; senão (ou sem escolha) cai na moeda da primeira conta.
+  const [chosen, setChosen] = useState<Currency | null>(readStoredCurrency)
   const [valuesVisible, setValuesVisible] = useState<boolean>(readVisibility)
 
   const currencies = useMemo<Currency[]>(() => {
@@ -51,7 +63,14 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   const currency: Currency =
     chosen && currencies.includes(chosen) ? chosen : (currencies[0] ?? 'BRL')
 
-  const setCurrency = useCallback((c: Currency) => setChosen(c), [])
+  const setCurrency = useCallback((c: Currency) => {
+    setChosen(c)
+    try {
+      localStorage.setItem(CURRENCY_KEY, c)
+    } catch {
+      // armazenamento indisponível — mantém só em memória
+    }
+  }, [])
 
   const toggleValuesVisible = useCallback(() => {
     setValuesVisible((prev) => {

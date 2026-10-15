@@ -26,12 +26,21 @@ export function Dashboard() {
     toggleValuesVisible,
     accounts,
     accountsLoading,
+    accountsError,
     refreshAccounts,
     currency,
     currencies,
   } = useCurrency()
   // Saldos frescos ao voltar pro dashboard (o bot pode ter registrado algo).
   useEffect(() => refreshAccounts(), [refreshAccounts])
+
+  // Trocar a moeda limpa a conta escolhida — voltar pra moeda anterior não
+  // ressuscita a seleção antiga.
+  const [prevCurrency, setPrevCurrency] = useState(currency)
+  if (prevCurrency !== currency) {
+    setPrevCurrency(currency)
+    setSelectedAccountId(null)
+  }
   // Sem câmbio: o dashboard só mostra (e só soma) as contas da moeda selecionada.
   const currencyAccounts = useMemo(
     () => accounts.filter((a) => a.currency === currency),
@@ -43,10 +52,14 @@ export function Dashboard() {
     : null
   const scope = { accountId: activeAccountId ?? undefined, currency }
 
-  // Só busca depois de conhecer as contas — a moeda padrão vem da primeira conta.
-  const ready = !accountsLoading
-  const { data, loading, error } = useReports(appliedRange, scope, ready)
+  // Só busca depois de conhecer as contas — a moeda padrão vem delas. Se as
+  // contas falharem, não chuta uma moeda: mostra o erro e o estado vazio.
+  const ready = !accountsLoading && !accountsError
+  const reports = useReports(appliedRange, scope, ready)
   const transactions = useTransactions(appliedRange, scope, ready)
+  const data = ready ? reports.data : null
+  const loading = ready && reports.loading
+  const error = accountsError ?? reports.error
   const balance = data?.balance ?? 0
 
   return (
@@ -137,7 +150,10 @@ export function Dashboard() {
           <CategoryDonut data={data?.ranking ?? []} loading={loading} />
           <IncomeExpenseChart data={data?.monthlyIncomeExpense ?? []} loading={loading} />
         </div>
-        <RecentTransactions data={transactions.data} loading={transactions.loading} />
+        <RecentTransactions
+          data={ready ? transactions.data : []}
+          loading={ready && transactions.loading}
+        />
       </section>
     </main>
   )

@@ -20,22 +20,30 @@ export function useAccounts(): UseAccounts {
     error: null,
   })
   const inFlight = useRef(false)
+  // Refresh pedido durante uma busca em andamento: roda mais uma vez quando ela terminar,
+  // pra não perder um saldo atualizado no meio do caminho.
+  const pending = useRef(false)
 
   const load = useCallback(async (silent: boolean) => {
-    if (inFlight.current) return
+    if (inFlight.current) {
+      pending.current = true
+      return
+    }
     inFlight.current = true
     if (!silent) setState((s) => ({ ...s, loading: true, error: null }))
     try {
       const accounts = await accountsApi.getAll()
       setState({ data: accounts, loading: false, error: null })
     } catch (err) {
-      setState((s) => ({
-        data: silent ? s.data : [],
-        loading: false,
-        error: err instanceof Error ? err.message : 'Erro ao carregar contas',
-      }))
+      const message = err instanceof Error ? err.message : 'Erro ao carregar contas'
+      // Refresh silencioso que falha mantém o que já estava na tela.
+      setState((s) => (silent ? s : { data: [], loading: false, error: message }))
     } finally {
       inFlight.current = false
+      if (pending.current) {
+        pending.current = false
+        void load(true)
+      }
     }
   }, [])
 
