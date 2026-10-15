@@ -6,12 +6,13 @@ import { CategoryDonut } from '@/components/CategoryDonut'
 import { BalanceHistoryChart } from '@/components/BalanceHistoryChart'
 import { IncomeExpenseChart } from '@/components/IncomeExpenseChart'
 import { RecentTransactions } from '@/components/RecentTransactions'
+import { EditTransactionDialog } from '@/components/EditTransactionDialog'
 import { PeriodPicker } from '@/components/PeriodPicker'
 import { CurrencySelector } from '@/components/CurrencySelector'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { useReports } from '@/hooks/useReports'
 import { useTransactions } from '@/hooks/useTransactions'
-import type { DateRange } from '@/lib/types'
+import type { DateRange, Transaction } from '@/lib/types'
 import { currentMonthRange } from '@/lib/utils'
 
 export function Dashboard() {
@@ -20,6 +21,9 @@ export function Dashboard() {
   const [appliedRange, setAppliedRange] = useState<DateRange>(draftRange)
   // null = "Todas as contas" (agregado). Ao selecionar, os hooks repassam accountId.
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
+  const [editing, setEditing] = useState<Transaction | null>(null)
+  // Incrementado depois de uma edição: refaz relatórios e lista com os valores novos.
+  const [reloadKey, setReloadKey] = useState(0)
 
   const {
     valuesVisible,
@@ -55,8 +59,8 @@ export function Dashboard() {
   // Só busca depois de conhecer as contas — a moeda padrão vem delas. Se as
   // contas falharem, não chuta uma moeda: mostra o erro e o estado vazio.
   const ready = !accountsLoading && !accountsError
-  const reports = useReports(appliedRange, scope, ready)
-  const transactions = useTransactions(appliedRange, scope, ready)
+  const reports = useReports(appliedRange, scope, ready, reloadKey)
+  const transactions = useTransactions(appliedRange, scope, ready, reloadKey)
   const data = ready ? reports.data : null
   const loading = ready && reports.loading
   const error = accountsError ?? reports.error
@@ -153,8 +157,22 @@ export function Dashboard() {
         <RecentTransactions
           data={ready ? transactions.data : []}
           loading={ready && transactions.loading}
+          onSelect={setEditing}
         />
       </section>
+
+      {editing && (
+        <EditTransactionDialog
+          transaction={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null)
+            setReloadKey((k) => k + 1)
+            // O saldo da conta mudou no backend.
+            refreshAccounts()
+          }}
+        />
+      )}
     </main>
   )
 }

@@ -2,6 +2,7 @@ import type {
   Account,
   Currency,
   AmountAndCategory,
+  Category,
   DateRange,
   MonthlyIncomeExpense,
   OwnerProfile,
@@ -9,6 +10,7 @@ import type {
   TimeSeriesPoint,
   TotalAmount,
   Transaction,
+  TransactionUpdate,
 } from './types'
 import { clearToken, getToken } from './auth'
 
@@ -57,6 +59,20 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   const url = new URL(`${BASE_URL}${path}`)
   const res = await fetch(url, {
     method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...authHeaders(),
+    },
+    body: JSON.stringify(body),
+  })
+  return handleResponse<T>(res, path)
+}
+
+async function put<T>(path: string, body: unknown): Promise<T> {
+  const url = new URL(`${BASE_URL}${path}`)
+  const res = await fetch(url, {
+    method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
@@ -123,6 +139,13 @@ export const reportsApi = {
 export const transactionsApi = {
   list: (range: DateRange, scope?: ReportScope) =>
     get<Transaction[]>('/transactions', reportParams(range, scope)),
+
+  /** Edita descrição, categoria e valor; o backend ajusta o saldo da conta pela diferença. */
+  update: (id: number, body: TransactionUpdate) => put<Transaction>(`/transactions/${id}`, body),
+}
+
+export const categoriesApi = {
+  list: () => get<Category[]>('/categories'),
 }
 
 export const accountsApi = {

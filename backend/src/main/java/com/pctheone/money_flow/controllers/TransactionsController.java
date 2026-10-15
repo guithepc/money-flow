@@ -82,6 +82,13 @@ public class TransactionsController {
         return ResponseEntity.ok(result);
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<TransactionDTO> updateTransaction(@PathVariable Integer id, @RequestBody TransactionUpdateRequestDTO request){
+        Integer ownerId = getOwnerId();
+        log.info("Transaction update requested: id={}, ownerId={}", id, ownerId);
+        return ResponseEntity.ok(transactionsService.updateTransaction(id, request, ownerId));
+    }
+
     @GetMapping
     public ResponseEntity<List<TransactionDTO>> listAllTransactions(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId, @RequestParam(required = false) CurrencyEnum currency){
         Integer ownerId = getOwnerId();

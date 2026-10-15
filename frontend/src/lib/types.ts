@@ -65,6 +65,23 @@ export interface MonthlyIncomeExpense {
 /** Seções navegáveis da sidebar. */
 export type View = 'dashboard' | 'accounts' | 'reports' | 'settings'
 
+/** category_type ENUM do backend. */
+export type CategoryType = 'EXPENSE' | 'INCOME'
+
+/** CategoryDTO { categoryDescription, categoryId, type } — `GET /api/categories`. */
+export interface Category {
+  categoryId: number
+  categoryDescription: string
+  type: CategoryType
+}
+
+/** TransactionUpdateRequestDTO — corpo do `PUT /api/transactions/{id}`. */
+export interface TransactionUpdate {
+  description: string
+  categoryId: number
+  amount: number
+}
+
 /** OwnerProfileDTO { name: String, email: String, telegramLinked: boolean } */
 export interface OwnerProfile {
   name: string

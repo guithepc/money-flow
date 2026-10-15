@@ -16,6 +16,8 @@ export function useTransactions(
   range: DateRange,
   scope: ReportScope,
   enabled = true,
+  /** Incrementar força uma nova busca (ex.: depois de editar uma transação). */
+  reloadKey = 0,
 ): TransactionsState {
   const [state, setState] = useState<TransactionsState>({
     data: [],
@@ -42,7 +44,9 @@ export function useTransactions(
         error: err instanceof Error ? err.message : 'Erro ao carregar transações',
       })
     }
-  }, [range.startDate, range.endDate, accountId, currency])
+    // reloadKey não é lido dentro do load: só força recriar o callback e buscar de novo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range.startDate, range.endDate, accountId, currency, reloadKey])
 
   useEffect(() => {
     if (enabled) void load()
