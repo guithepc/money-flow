@@ -68,6 +68,16 @@ public class TelegramWebhookControllerTest {
     }
 
     @Test
+    void emptyBodyReturns200() throws Exception {
+        mockMvc.perform(post(URL).header(SECRET_HEADER, "secret").contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+        mockMvc.perform(post(URL).header(SECRET_HEADER, "secret").contentType(MediaType.APPLICATION_JSON).content("   "))
+                .andExpect(status().isOk());
+
+        Mockito.verifyNoInteractions(telegramBotServices);
+    }
+
+    @Test
     void callbackQueryUpdateIsParsedAndRouted() throws Exception {
         String callbackUpdate = """
                 {"update_id": 2, "callback_query": {"id": "cb", "chat_instance": "ci", "data": "onb:x",

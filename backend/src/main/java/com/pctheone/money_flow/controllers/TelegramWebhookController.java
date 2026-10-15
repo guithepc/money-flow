@@ -36,6 +36,11 @@ public class TelegramWebhookController {
             return ResponseEntity.ok().build();
         }
 
+        if (body == null || body.isBlank()) {
+            log.warn("Empty Telegram webhook body ignored.");
+            return ResponseEntity.ok().build();
+        }
+
         try {
             Update update = UPDATE_MAPPER.readValue(body, Update.class);
             telegramBotServices.telegramRouter(update);
