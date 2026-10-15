@@ -1,6 +1,7 @@
 package com.pctheone.money_flow.controllers;
 
 import com.pctheone.money_flow.dto.*;
+import com.pctheone.money_flow.enums.CurrencyEnum;
 import com.pctheone.money_flow.services.TransactionsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,10 +40,10 @@ public class TransactionsController {
     }
 
     @GetMapping("/total-recurring-by-time")
-    public ResponseEntity<TotalAmountDTO> totalRecurringByTime(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId){
+    public ResponseEntity<TotalAmountDTO> totalRecurringByTime(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId, @RequestParam(required = false) CurrencyEnum currency){
         Integer ownerId = getOwnerId();
-        log.info("Total recurring by time requested: startDate={}, endDate={}, ownerId={}", startDate, endDate, ownerId);
-        BigDecimal result = transactionsService.totalRecurringByTime(startDate, endDate, accountId, ownerId);
+        log.info("Total recurring by time requested: startDate={}, endDate={}, accountId={}, currency={}, ownerId={}", startDate, endDate, accountId, currency, ownerId);
+        BigDecimal result = transactionsService.totalRecurringByTime(startDate, endDate, accountId, currency, ownerId);
         log.info("Total recurring by time processed - Amount: {}", result);
         TotalAmountDTO totalDto = new TotalAmountDTO(result);
 
@@ -50,10 +51,10 @@ public class TransactionsController {
     }
 
     @GetMapping("/total-income-by-time")
-    public ResponseEntity<TotalAmountDTO> totalIncomeByTime(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId){
+    public ResponseEntity<TotalAmountDTO> totalIncomeByTime(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId, @RequestParam(required = false) CurrencyEnum currency){
         Integer ownerId = getOwnerId();
-        log.info("Total income by time requested: startDate={}, endDate={}, ownerId={}", startDate, endDate, ownerId);
-        BigDecimal result = transactionsService.totalIncomeByTime(startDate, endDate, accountId, ownerId);
+        log.info("Total income by time requested: startDate={}, endDate={}, accountId={}, currency={}, ownerId={}", startDate, endDate, accountId, currency, ownerId);
+        BigDecimal result = transactionsService.totalIncomeByTime(startDate, endDate, accountId, currency, ownerId);
         log.info("Total income processed - Amount: {}", result);
         TotalAmountDTO totalDto = new TotalAmountDTO(result);
 
@@ -61,10 +62,10 @@ public class TransactionsController {
     }
 
     @GetMapping("/total-spent-by-time")
-    public ResponseEntity<TotalAmountDTO> totalSpentByTime(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId){
+    public ResponseEntity<TotalAmountDTO> totalSpentByTime(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId, @RequestParam(required = false) CurrencyEnum currency){
         Integer ownerId = getOwnerId();
-        log.info("Total Spent by time requested: startDate={}, endDate={}, ownerId={}", startDate, endDate, ownerId);
-        BigDecimal result = transactionsService.totalSpentByTime(startDate, endDate, accountId, ownerId);
+        log.info("Total Spent by time requested: startDate={}, endDate={}, accountId={}, currency={}, ownerId={}", startDate, endDate, accountId, currency, ownerId);
+        BigDecimal result = transactionsService.totalSpentByTime(startDate, endDate, accountId, currency, ownerId);
         log.info("Total Spent processed - Amount: {}", result);
         TotalAmountDTO totalDto = new TotalAmountDTO(result);
 
@@ -72,38 +73,38 @@ public class TransactionsController {
     }
 
     @GetMapping("/total-spent-ranked-by-category")
-    public ResponseEntity<List<AmountAndCategoryDTO>> totalSpentByCategoryRanked(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId){
+    public ResponseEntity<List<AmountAndCategoryDTO>> totalSpentByCategoryRanked(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId, @RequestParam(required = false) CurrencyEnum currency){
         Integer ownerId = getOwnerId();
-        log.info("Total spent ranked by category requested: startDate={}, endDate={}, ownerId={}", startDate, endDate, ownerId);
-        List<AmountAndCategoryDTO> result = transactionsService.totalSpentInMonthByCategoryDesc(startDate, endDate, accountId, ownerId);
+        log.info("Total spent ranked by category requested: startDate={}, endDate={}, accountId={}, currency={}, ownerId={}", startDate, endDate, accountId, currency, ownerId);
+        List<AmountAndCategoryDTO> result = transactionsService.totalSpentInMonthByCategoryDesc(startDate, endDate, accountId, currency, ownerId);
         log.info("Total spent ranked by category - Total spent ranked by category {}", result);
 
         return ResponseEntity.ok(result);
     }
 
     @GetMapping
-    public ResponseEntity<List<TransactionDTO>> listAllTransactions(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId){
+    public ResponseEntity<List<TransactionDTO>> listAllTransactions(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId, @RequestParam(required = false) CurrencyEnum currency){
         Integer ownerId = getOwnerId();
         log.info("All transactions requested by ownerId={}", ownerId);
-        List<TransactionDTO> result = transactionsService.listAllTransactions(startDate, endDate, accountId, ownerId);
+        List<TransactionDTO> result = transactionsService.listAllTransactions(startDate, endDate, accountId, currency, ownerId);
         log.info("All transactions list processed successfully");
         return ResponseEntity.ok(result);
     }
 
     @GetMapping("/income-expense-monthly")
-    public ResponseEntity<List<MonthlyIncomeExpenseDTO>> monthlyIncomeExpense(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId){
+    public ResponseEntity<List<MonthlyIncomeExpenseDTO>> monthlyIncomeExpense(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId, @RequestParam(required = false) CurrencyEnum currency){
         Integer ownerId = getOwnerId();
-        log.info("Monthly income expense requested: startDate={}, endDate={}, accountId={}, ownerId={}", startDate, endDate, accountId, ownerId);
-        List<MonthlyIncomeExpenseDTO> result = transactionsService.monthlyIncomeExpense(startDate, endDate, accountId, ownerId);
+        log.info("Monthly income expense requested: startDate={}, endDate={}, accountId={}, currency={}, ownerId={}", startDate, endDate, accountId, currency, ownerId);
+        List<MonthlyIncomeExpenseDTO> result = transactionsService.monthlyIncomeExpense(startDate, endDate, accountId, currency, ownerId);
         log.info("Monthly income expense responded");
         return ResponseEntity.ok(result);
     }
 
     @GetMapping("/history-balance")
-    public ResponseEntity<List<DailyBalanceDTO>> dailyBalance(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId){
+    public ResponseEntity<List<DailyBalanceDTO>> dailyBalance(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId, @RequestParam(required = false) CurrencyEnum currency){
         Integer ownerId = getOwnerId();
-        log.info("Daily balance requested: startDate={}, endDate={}, accountId={}, ownerId={}", startDate, endDate, accountId, ownerId);
-        List<DailyBalanceDTO> result = transactionsService.dailyBalance(startDate, endDate, accountId, ownerId);
+        log.info("Daily balance requested: startDate={}, endDate={}, accountId={}, currency={}, ownerId={}", startDate, endDate, accountId, currency, ownerId);
+        List<DailyBalanceDTO> result = transactionsService.dailyBalance(startDate, endDate, accountId, currency, ownerId);
         log.info("Daily balance responded.");
         return ResponseEntity.ok(result);
     }

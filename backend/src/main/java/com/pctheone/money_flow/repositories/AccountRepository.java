@@ -11,12 +11,12 @@ import java.util.List;
 
 public interface AccountRepository extends JpaRepository<AccountEntity, Integer> {
 
-    @Modifying
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE AccountEntity SET balance = balance - :amount WHERE accountId = :accountId")
     void decrementBalance(@Param("accountId") Integer accountId, @Param("amount") BigDecimal amount);
 
 
-    @Modifying
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE AccountEntity SET balance = balance + :amount WHERE accountId = :accountId")
     void incrementBalance(@Param("accountId") Integer accountId, @Param("amount") BigDecimal amount);
 

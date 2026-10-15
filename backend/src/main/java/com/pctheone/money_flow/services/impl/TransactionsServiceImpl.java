@@ -4,6 +4,7 @@ import com.pctheone.money_flow.dto.*;
 import com.pctheone.money_flow.entities.AccountEntity;
 import com.pctheone.money_flow.entities.CategoryEntity;
 import com.pctheone.money_flow.entities.TransactionsEntity;
+import com.pctheone.money_flow.enums.CurrencyEnum;
 import com.pctheone.money_flow.enums.OperationTypeEnum;
 import com.pctheone.money_flow.exceptions.CategoryNotFoundException;
 import com.pctheone.money_flow.repositories.AccountRepository;
@@ -56,51 +57,63 @@ public class TransactionsServiceImpl implements TransactionsService {
 
     }
 
-    @Override
-    public BigDecimal totalRecurringByTime(LocalDate startTime, LocalDate endTime, Integer accountId, Integer ownerId){
-        DateUtils.validateTimeRange(startTime, endTime);
-        if (accountId != null) accountService.validateAccountOwnership(accountId, ownerId);
-        if (accountId == null) {
-            return transactionsRepository.totalRecurringByTime(startTime, endTime, ownerId);
-        } else {
-            return transactionsRepository.totalRecurringByTimeByAccount(startTime, endTime, ownerId, accountId);
+    //---- Which transactions a report aggregates. Values in different currencies are never summed:
+    //---- ACCOUNT = one account (optionally checked against the currency filter), CURRENCY = all accounts in
+    //---- that currency, ALL = no filter (legacy behaviour), NONE = account doesn't match the currency filter.
+    private enum Scope { ALL, ACCOUNT, CURRENCY, NONE }
+
+    private Scope resolveScope(Integer accountId, CurrencyEnum currency, Integer ownerId) {
+        if (accountId != null) {
+            accountService.validateAccountOwnership(accountId, ownerId);
+            if (currency == null) return Scope.ACCOUNT;
+            CurrencyEnum accountCurrency = accountRepository.findById(accountId).map(AccountEntity::getCurrency).orElse(null);
+            return currency.equals(accountCurrency) ? Scope.ACCOUNT : Scope.NONE;
         }
+        return currency == null ? Scope.ALL : Scope.CURRENCY;
     }
 
     @Override
-    public BigDecimal totalIncomeByTime(LocalDate startTime, LocalDate endTime, Integer accountId, Integer ownerId) {
+    public BigDecimal totalRecurringByTime(LocalDate startTime, LocalDate endTime, Integer accountId, CurrencyEnum currency, Integer ownerId){
         DateUtils.validateTimeRange(startTime, endTime);
-        if (accountId != null) accountService.validateAccountOwnership(accountId, ownerId);
-        if (accountId == null){
-            return transactionsRepository.totalIncomeByTime(startTime, endTime, ownerId);
-        } else {
-            return transactionsRepository.totalIncomeByTimeByAccount(startTime, endTime, ownerId, accountId);
-        }
+        return switch (resolveScope(accountId, currency, ownerId)) {
+            case ALL -> transactionsRepository.totalRecurringByTime(startTime, endTime, ownerId);
+            case ACCOUNT -> transactionsRepository.totalRecurringByTimeByAccount(startTime, endTime, ownerId, accountId);
+            case CURRENCY -> transactionsRepository.totalRecurringByTimeByCurrency(startTime, endTime, ownerId, currency);
+            case NONE -> BigDecimal.ZERO;
+        };
     }
 
     @Override
-    public BigDecimal totalSpentByTime(LocalDate startTime, LocalDate endTime, Integer accountId, Integer ownerId) {
+    public BigDecimal totalIncomeByTime(LocalDate startTime, LocalDate endTime, Integer accountId, CurrencyEnum currency, Integer ownerId) {
         DateUtils.validateTimeRange(startTime, endTime);
-        if (accountId != null) accountService.validateAccountOwnership(accountId, ownerId);
-        if (accountId == null){
-            return transactionsRepository.totalSpentByTime(startTime, endTime, ownerId);
-        } else {
-            return transactionsRepository.totalSpentByTimeAndAccountId(startTime, endTime, ownerId, accountId);
-        }
+        return switch (resolveScope(accountId, currency, ownerId)) {
+            case ALL -> transactionsRepository.totalIncomeByTime(startTime, endTime, ownerId);
+            case ACCOUNT -> transactionsRepository.totalIncomeByTimeByAccount(startTime, endTime, ownerId, accountId);
+            case CURRENCY -> transactionsRepository.totalIncomeByTimeByCurrency(startTime, endTime, ownerId, currency);
+            case NONE -> BigDecimal.ZERO;
+        };
     }
 
     @Override
-    public List<AmountAndCategoryDTO> totalSpentInMonthByCategoryDesc(LocalDate startTime, LocalDate endTime, Integer accountId, Integer ownerId) {
-
+    public BigDecimal totalSpentByTime(LocalDate startTime, LocalDate endTime, Integer accountId, CurrencyEnum currency, Integer ownerId) {
         DateUtils.validateTimeRange(startTime, endTime);
-        if (accountId != null) accountService.validateAccountOwnership(accountId, ownerId);
-        if (accountId == null) {
-            return transactionsRepository.totalSpentInMonthByCategoryDesc(startTime, endTime, ownerId);
+        return switch (resolveScope(accountId, currency, ownerId)) {
+            case ALL -> transactionsRepository.totalSpentByTime(startTime, endTime, ownerId);
+            case ACCOUNT -> transactionsRepository.totalSpentByTimeAndAccountId(startTime, endTime, ownerId, accountId);
+            case CURRENCY -> transactionsRepository.totalSpentByTimeByCurrency(startTime, endTime, ownerId, currency);
+            case NONE -> BigDecimal.ZERO;
+        };
+    }
 
-        } else {
-            return transactionsRepository.totalSpentInMonthByCategoryDescByAccount(startTime, endTime, ownerId, accountId);
-        }
-
+    @Override
+    public List<AmountAndCategoryDTO> totalSpentInMonthByCategoryDesc(LocalDate startTime, LocalDate endTime, Integer accountId, CurrencyEnum currency, Integer ownerId) {
+        DateUtils.validateTimeRange(startTime, endTime);
+        return switch (resolveScope(accountId, currency, ownerId)) {
+            case ALL -> transactionsRepository.totalSpentInMonthByCategoryDesc(startTime, endTime, ownerId);
+            case ACCOUNT -> transactionsRepository.totalSpentInMonthByCategoryDescByAccount(startTime, endTime, ownerId, accountId);
+            case CURRENCY -> transactionsRepository.totalSpentInMonthByCategoryDescByCurrency(startTime, endTime, ownerId, currency);
+            case NONE -> List.of();
+        };
     }
 
     @Transactional
@@ -119,7 +132,7 @@ public class TransactionsServiceImpl implements TransactionsService {
         accountRepository.decrementBalance(accountId, amountValue);
         Optional<AccountEntity> account = accountRepository.findById(accountId);
 
-        return new TransactionRegistrationResultDTO(amountValue, account.get().getBalance());
+        return new TransactionRegistrationResultDTO(amountValue, account.get().getBalance(), account.get().getCurrency(), account.get().getDescription(), category.get().getDescription());
     }
 
     @Transactional
@@ -138,30 +151,29 @@ public class TransactionsServiceImpl implements TransactionsService {
         accountRepository.incrementBalance(accountId, amountValue);
         Optional<AccountEntity> account = accountRepository.findById(accountId);
 
-        return new TransactionRegistrationResultDTO(amountValue, account.get().getBalance());
+        return new TransactionRegistrationResultDTO(amountValue, account.get().getBalance(), account.get().getCurrency(), account.get().getDescription(), category.get().getDescription());
     }
 
     @Override
-    public List<TransactionDTO> listAllTransactions(LocalDate startTime, LocalDate endTime, Integer accountId, Integer ownerId) {
+    public List<TransactionDTO> listAllTransactions(LocalDate startTime, LocalDate endTime, Integer accountId, CurrencyEnum currency, Integer ownerId) {
         DateUtils.validateTimeRange(startTime, endTime);
-        if (accountId != null) accountService.validateAccountOwnership(accountId, ownerId);
-        if (accountId == null){
-            return transactionsRepository.listAllTransaction(startTime, endTime, ownerId);
-        } else{
-            return transactionsRepository.listAllTransactionByAccount(startTime, endTime, ownerId, accountId);
-        }
+        return switch (resolveScope(accountId, currency, ownerId)) {
+            case ALL -> transactionsRepository.listAllTransaction(startTime, endTime, ownerId);
+            case ACCOUNT -> transactionsRepository.listAllTransactionByAccount(startTime, endTime, ownerId, accountId);
+            case CURRENCY -> transactionsRepository.listAllTransactionByCurrency(startTime, endTime, ownerId, currency);
+            case NONE -> List.of();
+        };
     }
 
     @Override
-    public List<MonthlyIncomeExpenseDTO> monthlyIncomeExpense(LocalDate startTime, LocalDate endTime, Integer accountId, Integer ownerId) {
+    public List<MonthlyIncomeExpenseDTO> monthlyIncomeExpense(LocalDate startTime, LocalDate endTime, Integer accountId, CurrencyEnum currency, Integer ownerId) {
         DateUtils.validateTimeRange(startTime, endTime);
-        if (accountId != null) accountService.validateAccountOwnership(accountId, ownerId);
-        List<Object[]> rows;
-        if (accountId == null) {
-            rows = transactionsRepository.incomeExpenseMonthly(startTime, endTime, ownerId);
-        } else {
-            rows = transactionsRepository.incomeExpenseMonthlyByAccount(startTime, endTime, ownerId, accountId);
-        }
+        List<Object[]> rows = switch (resolveScope(accountId, currency, ownerId)) {
+            case ALL -> transactionsRepository.incomeExpenseMonthly(startTime, endTime, ownerId);
+            case ACCOUNT -> transactionsRepository.incomeExpenseMonthlyByAccount(startTime, endTime, ownerId, accountId);
+            case CURRENCY -> transactionsRepository.incomeExpenseMonthlyByCurrency(startTime, endTime, ownerId, currency);
+            case NONE -> List.of();
+        };
         List<MonthlyIncomeExpenseDTO> result = new ArrayList<>();
         for (Object[] row : rows) {
             LocalDate month = (LocalDate) row[0];
@@ -172,15 +184,14 @@ public class TransactionsServiceImpl implements TransactionsService {
     }
 
     @Override
-    public List<DailyBalanceDTO> dailyBalance(LocalDate startTime, LocalDate endTime, Integer accountId, Integer ownerId) {
+    public List<DailyBalanceDTO> dailyBalance(LocalDate startTime, LocalDate endTime, Integer accountId, CurrencyEnum currency, Integer ownerId) {
         DateUtils.validateTimeRange(startTime, endTime);
-        if (accountId != null) accountService.validateAccountOwnership(accountId, ownerId);
-        List<Object[]> rows;
-        if (accountId == null) {
-            rows = transactionsRepository.balanceHistory(startTime, endTime, ownerId);
-        } else {
-            rows = transactionsRepository.balanceHistoryByAccount(startTime, endTime, ownerId, accountId);
-        }
+        List<Object[]> rows = switch (resolveScope(accountId, currency, ownerId)) {
+            case ALL -> transactionsRepository.balanceHistory(startTime, endTime, ownerId);
+            case ACCOUNT -> transactionsRepository.balanceHistoryByAccount(startTime, endTime, ownerId, accountId);
+            case CURRENCY -> transactionsRepository.balanceHistoryByCurrency(startTime, endTime, ownerId, currency);
+            case NONE -> List.of();
+        };
         List<DailyBalanceDTO> result = new ArrayList<>();
         for (Object[] row : rows){
             LocalDate day = (LocalDate) row[0];
