@@ -72,7 +72,7 @@ export function Settings() {
             </a>
             <p className="flex items-center gap-2 font-mono text-xs text-fg-subtle">
               <Clock className="size-3.5 shrink-0" strokeWidth={1.8} />
-              Você tem 1 minuto para abrir o link no Telegram antes que ele expire.
+              Você tem 15 minutos para abrir o link no Telegram antes que ele expire.
             </p>
           </div>
         )}
