@@ -1,5 +1,6 @@
 package com.pctheone.money_flow.services.impl;
 
+import com.pctheone.money_flow.dto.OwnerProfileDTO;
 import com.pctheone.money_flow.entities.OwnerEntity;
 import com.pctheone.money_flow.exceptions.InvalidCredentialsException;
 import com.pctheone.money_flow.repositories.OwnerRepository;
@@ -40,6 +41,13 @@ public class OwnerServiceImpl implements OwnerService {
         }
 
         return authService.register(name, email, pass);
+    }
+
+    @Override
+    public OwnerProfileDTO getProfile(Integer ownerId) {
+        OwnerEntity owner = ownerRepository.findById(ownerId)
+                .orElseThrow(() -> new InvalidCredentialsException("Owner not found"));
+        return new OwnerProfileDTO(owner.getName(), owner.getEmail(), owner.getTelegramChatId() != null);
     }
 
     @Override

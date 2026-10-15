@@ -4,6 +4,7 @@ import type {
   AmountAndCategory,
   DateRange,
   MonthlyIncomeExpense,
+  OwnerProfile,
   TelegramInvite,
   TimeSeriesPoint,
   TotalAmount,
@@ -137,5 +138,6 @@ export const authApi = {
 
 export const ownerApi = {
   // ownerId sai do JWT no backend — nada é enviado no corpo.
+  me: () => get<OwnerProfile>('/owner/me'),
   telegramInvite: () => post<TelegramInvite>('/owner/telegram-invite', {}),
 }
