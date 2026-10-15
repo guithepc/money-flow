@@ -1,6 +1,7 @@
 package com.pctheone.money_flow.services;
 
 import com.pctheone.money_flow.dto.AccountDTO;
+import com.pctheone.money_flow.dto.CategoryCreationResultDTO;
 import com.pctheone.money_flow.dto.CategoryDTO;
 import com.pctheone.money_flow.entities.CategoryEntity;
 import com.pctheone.money_flow.entities.OwnerEntity;
@@ -88,8 +89,10 @@ public class CategoryIsolationTest {
 
     @Test
     void sameDescriptionCanExistForDifferentOwners(){
-        Assertions.assertEquals("Category Secret created!", categoryService.addCategory("secret", CategoryTypeEnum.INCOME, ownerA));
-        Assertions.assertEquals("Category already exists.", categoryService.addCategory("secret", CategoryTypeEnum.EXPENSE, ownerB));
+        Assertions.assertTrue(categoryService.addCategory("secret", CategoryTypeEnum.INCOME, ownerA).isCreated());
+        CategoryCreationResultDTO again = categoryService.addCategory("secret", CategoryTypeEnum.INCOME, ownerB);
+        Assertions.assertFalse(again.isCreated());
+        Assertions.assertEquals(CategoryTypeEnum.EXPENSE, again.getCategory().getType());
 
         CategoryEntity ofA = categoryService.findByDescription("secret", ownerA).orElseThrow();
         CategoryEntity ofB = categoryService.findByDescription("secret", ownerB).orElseThrow();
