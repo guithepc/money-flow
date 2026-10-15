@@ -57,7 +57,7 @@ public class TelegramApiClient {
     public void sendMessageWithInlineKeyboard(Long chatId, String text, List<List<TelegramInlineButtonDTO>> keyboard) {
         List<List<Map<String, String>>> rows = keyboard.stream()
                 .map(row -> row.stream()
-                        .map(button -> Map.of("text", button.getText(), "callback_data", button.getCallbackData()))
+                        .map(TelegramApiClient::toButtonJson)
                         .toList())
                 .toList();
 
@@ -66,6 +66,17 @@ public class TelegramApiClient {
         body.put("text", text);
         body.put("reply_markup", Map.of("inline_keyboard", rows));
         post("sendMessage", body);
+    }
+
+    //---- Buttons are validated when built (TelegramInlineButtonDTO factories), so exactly one of callbackData/url is set.
+    static Map<String, String> toButtonJson(TelegramInlineButtonDTO button) {
+        Map<String, String> json = new LinkedHashMap<>();
+        json.put("text", button.getText());
+        if (button.getCallbackData() != null)
+            json.put("callback_data", button.getCallbackData());
+        if (button.getUrl() != null)
+            json.put("url", button.getUrl());
+        return json;
     }
 
     public void answerCallbackQuery(String callbackQueryId, String text) {
