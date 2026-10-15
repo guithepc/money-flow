@@ -20,10 +20,6 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Integer>
     @Query("UPDATE AccountEntity SET balance = balance + :amount WHERE accountId = :accountId")
     void incrementBalance(@Param("accountId") Integer accountId, @Param("amount") BigDecimal amount);
 
-    @Modifying
-    @Query("INSERT INTO AccountEntity (balance, description, owner) values (:balance, :description, :owner)")
-    void addAccount(@Param("balance") BigDecimal balance, @Param("description") String description, @Param("owner") Integer ownerId);
-
     List<AccountEntity> findByOwnerOwnerIdOrderByAccountIdAsc(Integer ownerId);
 
     boolean existsByAccountIdAndOwnerOwnerId(Integer accountId, Integer ownerId);

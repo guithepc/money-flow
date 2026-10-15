@@ -12,11 +12,15 @@ export interface AmountAndCategory {
   categoryDescription: string
 }
 
-/** AccountDTO { accountId: Integer, description: String, amount: BigDecimal } */
+/** currency ENUM do backend. */
+export type Currency = 'BRL' | 'EUR' | 'USD'
+
+/** AccountDTO { accountId: Integer, description: String, amount: BigDecimal, currency: CurrencyEnum } */
 export interface Account {
   accountId: number
   description: string
   amount: number
+  currency: Currency
 }
 
 /** operation ENUM do backend (EXPENSE, INCOME, TRANSFER). */
