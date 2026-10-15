@@ -188,7 +188,11 @@ public class TelegramBotServices {
         Optional<OwnerEntity> owner = ownerRepository.findByTelegramChatId(chatId);
         if (owner.isEmpty()) {
             log.info("Unlinked chatId {} tried to use the bot.", chatId);
-            sendReply(chatId, messages.get(LanguageEnum.fromTelegram(telegramLanguage), NOT_LINKED_MESSAGE));
+            LanguageEnum unlinkedLanguage = LanguageEnum.fromTelegram(telegramLanguage);
+            //---- The command list is useful before linking too; the link instructions follow it.
+            if (!command.isEmpty() && List.of("/ajuda", "/help").contains(normalizeCommand(command.getFirst())))
+                sendReply(chatId, TelegramBotCommands.helpText(unlinkedLanguage.code()));
+            sendReply(chatId, messages.get(unlinkedLanguage, NOT_LINKED_MESSAGE));
             return;
         }
         Integer ownerId = owner.get().getOwnerId();
