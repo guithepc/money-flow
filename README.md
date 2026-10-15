@@ -62,7 +62,7 @@ Built as a real tool I use daily to manage finances across currencies (EUR/BRL),
 
 | Table | Purpose |
 |-------|---------|
-| `owner` | User accounts with email/password auth, Telegram chat link and one-time invite (`invite_uuid` + expiration) |
+| `owner` | User accounts with email/password auth, Telegram chat link and one-time invite (`invite_uuid` + expiration), bot `language` and onboarding state (`onboarding_step`, `onboarding_draft`) |
 | `account` | Financial accounts (checking, savings, etc.) with running balance and currency (`BRL`/`EUR`/`USD`) |
 | `category` | Transaction categories, per user, typed `EXPENSE`/`INCOME`, unique per `(owner_id, description)` |
 | `recurring_payment` | Templates for recurring charges, amount can change over time |
@@ -85,11 +85,24 @@ Key design decisions:
 
 ### Linking a chat
 1. Register on the dashboard and open **Configurações → Telegram**
-2. Generate an invite: the API returns a deep link `t.me/<bot>?start=<uuid>` valid for 1 minute
+2. Generate an invite: the API returns a deep link `t.me/<bot>?start=<uuid>` valid for 15 minutes
 3. Opening the link sends `/start <uuid>` and links that chat to the account. Unlinked chats are refused
 
+### Guided onboarding
+Right after the first link the bot walks a new user through setup (state in `owner.onboarding_step`):
+
+1. **Language**: 🇧🇷 Português / 🇬🇧 English buttons (Telegram's language first). Seeds the base categories in that language: Mercado, Restaurantes, Transporte, Casa (expense), Salário, Renda extra (income) / Groceries, Eating out, Transport, Home, Salary, Side income
+2. **Account**: one text or voice message like *"Nubank, 50 mil reais"*. GPT splits name/currency/amount (`prompts/account-parser.txt`), the amount is parsed deterministically (`50 mil`, `1.250,90`, `1250.90`, `-300`). Only missing fields are asked (currency via buttons). Duplicate names are refused
+3. **Confirmation** (mandatory): *"Nubank · R$ 50.000,00 — está certo?"*. The balance goes straight into `account.balance`, it is not a transaction
+4. **More accounts?** loops back to step 2
+5. **Categories + first voice message**: the first registered transaction finishes onboarding with the dashboard link
+
+Sending anything unexpected repeats the current question (also `/start`). `/ajuda` works at any step and `/cancelar` leaves the flow keeping what was already saved. Re-linking an owner that finished onboarding does not restart it; owners that existed before onboarding are migrated as `DONE`.
+
+All bot replies are in the owner's language (`messages/bot_pt.properties` / `bot_en.properties`; falls back to the Telegram client language when none was chosen).
+
 ### Voice messages
-Send a voice note like *"gastei 25 reais no mercado com carne no Nubank"*. The audio is transcribed by Whisper and parsed by GPT using **your** categories and accounts, then registered as an expense or income.
+Send a voice note like *"gastei 25 reais no mercado com carne no Nubank"*. The audio is transcribed by Whisper and parsed by GPT using **your** categories and accounts, then registered as an expense or income. Expenses only match expense categories and income only income categories. When the category doesn't exist the bot offers to create it (*"Não encontrei a categoria "Farmácia". Quer criar como gasto?"* with Yes/No buttons).
 
 ### Commands
 Positional interface for quick logging on the go. The command menu is registered on startup via `setMyCommands` (Portuguese by default, English for `en` clients).
@@ -180,7 +193,7 @@ Every query takes `startDate` / `endDate` and an optional `accountId`.
 - [x] Dashboard visual refactor (Tinta palette)
 - [x] Flyway migrations, per-user categories and per-account currency (#5)
 - [x] Bot robustness: error handling, idempotency, inline buttons, `_` command names (#6)
-- [ ] Guided Telegram onboarding: language, accounts with balance, base categories (#7)
+- [x] Guided Telegram onboarding: language, accounts with balance, base categories (#7)
 - [ ] Per-account currency in bot replies and dashboard currency filter (#8)
 - [ ] Transfer between accounts (origin/destination)
 - [ ] Exchange rates / consolidated net worth
