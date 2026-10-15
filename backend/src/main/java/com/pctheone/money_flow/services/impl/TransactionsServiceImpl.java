@@ -231,7 +231,7 @@ public class TransactionsServiceImpl implements TransactionsService {
     @Override
     @Transactional
     public TransactionDTO updateTransaction(Integer id, TransactionUpdateRequestDTO request, Integer ownerId) {
-        TransactionsEntity transaction = transactionsRepository.findById(id)
+        TransactionsEntity transaction = transactionsRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
         if (!transaction.getOwner().getOwnerId().equals(ownerId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Transaction does not belong to the authenticated user");
@@ -266,19 +266,18 @@ public class TransactionsServiceImpl implements TransactionsService {
         BigDecimal delta = amount.subtract(transaction.getAmount());
         Integer accountId = transaction.getAccount().getAccountId();
         TransactionDTO result = new TransactionDTO(transaction.getTransactionsId(), description, amount, transaction.getTimestamp(),
-                category.getDescription(), transaction.getOperationType(), transaction.getAccount().getCurrency());
+                category.getDescription(), transaction.getOperationType(), transaction.getAccount().getCurrency(), category.getCategoryId());
 
         transaction.setDescription(description);
         transaction.setAmount(amount);
         transaction.setCategory(category);
 
-        // The balance queries flush these changes first, then clear the persistence context.
+        // The balance query flushes these changes first (flushAutomatically), then clears the persistence context.
         if (transaction.getOperationType() == OperationTypeEnum.EXPENSE) {
             accountRepository.decrementBalance(accountId, delta);
         } else {
             accountRepository.incrementBalance(accountId, delta);
         }
-        transactionsRepository.flush();
 
         return result;
     }

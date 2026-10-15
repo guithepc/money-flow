@@ -25,9 +25,7 @@ export function useReports(
   range: DateRange,
   scope: ReportScope,
   enabled = true,
-  /** Incrementar força uma nova busca (ex.: depois de editar uma transação). */
-  reloadKey = 0,
-): ReportsState {
+): ReportsState & { reload: () => void } {
   const [state, setState] = useState<ReportsState>({
     data: null,
     loading: true,
@@ -72,13 +70,16 @@ export function useReports(
         error: err instanceof Error ? err.message : 'Erro ao carregar dados',
       })
     }
-    // reloadKey não é lido dentro do load: só força recriar o callback e buscar de novo.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range.startDate, range.endDate, accountId, currency, reloadKey])
+  }, [range.startDate, range.endDate, accountId, currency])
 
   useEffect(() => {
     if (enabled) void load()
   }, [load, enabled])
 
-  return state
+  // Refaz a busca com os mesmos filtros (ex.: depois de editar uma transação).
+  const reload = useCallback(() => {
+    if (enabled) void load()
+  }, [load, enabled])
+
+  return { ...state, reload }
 }

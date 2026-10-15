@@ -27,7 +27,7 @@ export interface Account {
 export type OperationType = 'EXPENSE' | 'INCOME' | 'TRANSFER'
 
 /**
- * TransactionDTO { id, description, amount, date, categoryDescription, operationType, currency }
+ * TransactionDTO { id, description, amount, date, categoryDescription, operationType, currency, categoryId }
  * Retornado por `GET /api/transactions`.
  */
 export interface Transaction {
@@ -39,6 +39,7 @@ export interface Transaction {
   operationType: OperationType
   /** Moeda da conta da transação. */
   currency: Currency
+  categoryId: number
 }
 
 /**

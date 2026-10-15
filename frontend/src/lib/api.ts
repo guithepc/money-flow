@@ -55,33 +55,27 @@ async function get<T>(path: string, params: Record<string, string> = {}): Promis
   return handleResponse<T>(res, path)
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function send<T>(method: 'POST' | 'PUT', path: string, body: unknown): Promise<T> {
   const url = new URL(`${BASE_URL}${path}`)
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      ...authHeaders(),
-    },
-    body: JSON.stringify(body),
-  })
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify(body),
+    })
+  } catch {
+    throw new Error(`Network error — ${path}`)
+  }
   return handleResponse<T>(res, path)
 }
 
-async function put<T>(path: string, body: unknown): Promise<T> {
-  const url = new URL(`${BASE_URL}${path}`)
-  const res = await fetch(url, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      ...authHeaders(),
-    },
-    body: JSON.stringify(body),
-  })
-  return handleResponse<T>(res, path)
-}
+const post = <T>(path: string, body: unknown) => send<T>('POST', path, body)
+const put = <T>(path: string, body: unknown) => send<T>('PUT', path, body)
 
 /** Escopo das agregações: conta específica e/ou moeda (nunca soma moedas diferentes). */
 export interface ReportScope {

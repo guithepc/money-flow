@@ -456,8 +456,8 @@ public class TelegramBotServicesTest {
                 new AccountDTO(2, "Revolut", new BigDecimal("681.03"), CurrencyEnum.EUR)));
         Mockito.when(transactionsService.listAllTransactions(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.isNull(), ArgumentMatchers.isNull(), ArgumentMatchers.eq(OWNER_ID)))
                 .thenReturn(new ArrayList<>(List.of(
-                        new TransactionDTO(10, "feira", new BigDecimal("30"), java.time.LocalDate.now(), "Mercado", OperationTypeEnum.EXPENSE, CurrencyEnum.BRL),
-                        new TransactionDTO(11, "us store", new BigDecimal("10"), java.time.LocalDate.now(), "Mercado", OperationTypeEnum.EXPENSE, CurrencyEnum.USD))));
+                        new TransactionDTO(10, "feira", new BigDecimal("30"), java.time.LocalDate.now(), "Mercado", OperationTypeEnum.EXPENSE, CurrencyEnum.BRL, 1),
+                        new TransactionDTO(11, "us store", new BigDecimal("10"), java.time.LocalDate.now(), "Mercado", OperationTypeEnum.EXPENSE, CurrencyEnum.USD, 1))));
 
         service.telegramRouter(textUpdate("/contas"));
         service.telegramRouter(textUpdate("/transacoes"));

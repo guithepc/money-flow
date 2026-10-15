@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { X } from 'lucide-react'
+import { Eye, X } from 'lucide-react'
+import { useCurrency } from '@/contexts/CurrencyContext'
 import { categoriesApi, transactionsApi } from '@/lib/api'
 import type { Category, Transaction } from '@/lib/types'
 import { CURRENCIES, cn, formatAmountInput, parseAmountInput } from '@/lib/utils'
@@ -17,11 +18,27 @@ const fieldClass =
 export function EditTransactionDialog({ transaction, onClose, onSaved }: EditTransactionDialogProps) {
   const [description, setDescription] = useState(transaction.description)
   const [amount, setAmount] = useState(formatAmountInput(transaction.amount))
-  const [categoryId, setCategoryId] = useState<number | null>(null)
+  const [categoryId, setCategoryId] = useState<number>(transaction.categoryId)
   const [categories, setCategories] = useState<Category[] | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const descriptionRef = useRef<HTMLInputElement>(null)
+  // Com "ocultar valores" ligado, o valor fica mascarado até a pessoa pedir pra ver.
+  const { valuesVisible } = useCurrency()
+  const [revealed, setRevealed] = useState(false)
+  const amountHidden = !valuesVisible && !revealed
+
+  // Enquanto salva, o diálogo não fecha: o PUT já foi e o resultado precisa chegar.
+  const savingRef = useRef(false)
+  const onCloseRef = useRef(onClose)
+  const onSavedRef = useRef(onSaved)
+  useEffect(() => {
+    onCloseRef.current = onClose
+    onSavedRef.current = onSaved
+  })
+  const requestClose = () => {
+    if (!savingRef.current) onCloseRef.current()
+  }
 
   const isIncome = transaction.operationType === 'INCOME'
   const symbol = CURRENCIES.find((c) => c.code === transaction.currency)?.symbol ?? transaction.currency
@@ -37,11 +54,7 @@ export function EditTransactionDialog({ transaction, onClose, onSaved }: EditTra
     categoriesApi
       .list()
       .then((list) => {
-        if (!active) return
-        setCategories(list)
-        // Descrição é única por usuário, então dá pra achar a categoria atual pelo nome.
-        const current = list.find((c) => c.categoryDescription === transaction.categoryDescription)
-        setCategoryId(current?.categoryId ?? null)
+        if (active) setCategories(list)
       })
       .catch(() => {
         if (active) setError('Não foi possível carregar as categorias.')
@@ -49,16 +62,17 @@ export function EditTransactionDialog({ transaction, onClose, onSaved }: EditTra
     return () => {
       active = false
     }
-  }, [transaction.categoryDescription])
+  }, [])
 
+  // Só no mount: re-renders do dashboard não podem roubar o foco de outro campo.
   useEffect(() => {
     descriptionRef.current?.focus()
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && !savingRef.current) onCloseRef.current()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -66,23 +80,26 @@ export function EditTransactionDialog({ transaction, onClose, onSaved }: EditTra
     const value = parseAmountInput(amount)
     if (!trimmed) return setError('Informe uma descrição.')
     if (trimmed.length > 255) return setError('A descrição pode ter no máximo 255 caracteres.')
-    if (categoryId == null) return setError('Escolha uma categoria.')
+    if (!options.some((c) => c.categoryId === categoryId)) return setError('Escolha uma categoria.')
     if (value == null || value <= 0) return setError('Valor inválido. Use o formato 1.250,90.')
 
+    savingRef.current = true
     setSaving(true)
     setError(null)
     try {
       await transactionsApi.update(transaction.id, { description: trimmed, categoryId, amount: value })
-      onSaved()
+      onSavedRef.current()
     } catch {
       setError('Não foi possível salvar. Tente novamente.')
+    } finally {
+      savingRef.current = false
       setSaving(false)
     }
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70" onClick={onClose} aria-hidden />
+      <div className="absolute inset-0 bg-black/70" onClick={requestClose} aria-hidden />
       <form
         role="dialog"
         aria-modal="true"
@@ -102,8 +119,9 @@ export function EditTransactionDialog({ transaction, onClose, onSaved }: EditTra
           </div>
           <button
             type="button"
-            onClick={onClose}
-            className="flex size-8 shrink-0 items-center justify-center border border-edge text-fg-muted transition-colors duration-150 hover:border-white/30 hover:text-fg"
+            onClick={requestClose}
+            disabled={saving}
+            className="flex size-8 shrink-0 items-center justify-center border border-edge text-fg-muted transition-colors duration-150 hover:border-white/30 hover:text-fg disabled:opacity-50"
             aria-label="Fechar"
           >
             <X className="size-4" strokeWidth={1.8} />
@@ -124,13 +142,12 @@ export function EditTransactionDialog({ transaction, onClose, onSaved }: EditTra
         <label className="flex flex-col gap-2">
           <span className="label-mono text-[11px] text-fg-muted">Categoria</span>
           <select
-            value={categoryId ?? ''}
-            onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : null)}
+            value={categoryId}
+            onChange={(e) => setCategoryId(Number(e.target.value))}
             disabled={categories == null}
             className={cn(fieldClass, 'appearance-none disabled:opacity-50')}
           >
-            {categories == null && <option value="">Carregando…</option>}
-            {categories != null && categoryId == null && <option value="">Escolha uma categoria</option>}
+            {categories == null && <option value={categoryId}>{transaction.categoryDescription}</option>}
             {options.map((c) => (
               <option key={c.categoryId} value={c.categoryId}>
                 {c.categoryDescription}
@@ -148,9 +165,22 @@ export function EditTransactionDialog({ transaction, onClose, onSaved }: EditTra
             <input
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+              type={amountHidden ? 'password' : 'text'}
               inputMode="decimal"
+              autoComplete="off"
               className="w-full bg-transparent px-3.5 py-3 font-display text-sm tabular-nums text-fg outline-none"
             />
+            {amountHidden && (
+              <button
+                type="button"
+                onClick={() => setRevealed(true)}
+                className="flex items-center border-l border-edge px-3.5 text-fg-muted transition-colors duration-150 hover:text-fg"
+                title="Mostrar valor"
+                aria-label="Mostrar valor"
+              >
+                <Eye className="size-4" strokeWidth={1.8} />
+              </button>
+            )}
           </div>
           <span className="font-mono text-[11px] text-fg-subtle">
             O saldo da conta é ajustado pela diferença.
@@ -164,8 +194,9 @@ export function EditTransactionDialog({ transaction, onClose, onSaved }: EditTra
         <div className="flex justify-end gap-3">
           <button
             type="button"
-            onClick={onClose}
-            className="border border-edge px-5 py-3 text-sm font-semibold uppercase tracking-[0.04em] text-fg-muted transition-colors duration-150 hover:border-fg-subtle hover:text-fg"
+            onClick={requestClose}
+            disabled={saving}
+            className="border border-edge px-5 py-3 text-sm font-semibold uppercase tracking-[0.04em] text-fg-muted transition-colors duration-150 hover:border-fg-subtle hover:text-fg disabled:opacity-50"
           >
             Cancelar
           </button>

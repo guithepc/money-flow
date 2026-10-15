@@ -22,8 +22,6 @@ export function Dashboard() {
   // null = "Todas as contas" (agregado). Ao selecionar, os hooks repassam accountId.
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
   const [editing, setEditing] = useState<Transaction | null>(null)
-  // Incrementado depois de uma edição: refaz relatórios e lista com os valores novos.
-  const [reloadKey, setReloadKey] = useState(0)
 
   const {
     valuesVisible,
@@ -59,8 +57,8 @@ export function Dashboard() {
   // Só busca depois de conhecer as contas — a moeda padrão vem delas. Se as
   // contas falharem, não chuta uma moeda: mostra o erro e o estado vazio.
   const ready = !accountsLoading && !accountsError
-  const reports = useReports(appliedRange, scope, ready, reloadKey)
-  const transactions = useTransactions(appliedRange, scope, ready, reloadKey)
+  const reports = useReports(appliedRange, scope, ready)
+  const transactions = useTransactions(appliedRange, scope, ready)
   const data = ready ? reports.data : null
   const loading = ready && reports.loading
   const error = accountsError ?? reports.error
@@ -167,7 +165,8 @@ export function Dashboard() {
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null)
-            setReloadKey((k) => k + 1)
+            reports.reload()
+            transactions.reload()
             // O saldo da conta mudou no backend.
             refreshAccounts()
           }}

@@ -4,15 +4,14 @@ import com.pctheone.money_flow.enums.OperationTypeEnum;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.annotations.DynamicUpdate;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Getter
 @Entity
-//---- Edits only rewrite changed columns; operation_type is a Postgres enum mapped as a plain string.
-@DynamicUpdate
 @Table(name = "transactions")
 public class TransactionsEntity {
     @Id
@@ -49,7 +48,8 @@ public class TransactionsEntity {
     private BigDecimal amount;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(nullable = false, columnDefinition = "operation")
     private OperationTypeEnum operationType;
 
 }
