@@ -164,7 +164,7 @@ export function RecentTransactions({ data, loading = false, limit = 12 }: Recent
                         )}
                       >
                         {sign}
-                        {format(tx.amount)}
+                        {format(tx.amount, tx.currency)}
                       </span>
                     </li>
                   )

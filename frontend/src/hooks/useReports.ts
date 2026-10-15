@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { reportsApi } from '@/lib/api'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { reportsApi, type ReportScope } from '@/lib/api'
 import type { AmountAndCategory, DateRange, MonthlyIncomeExpense, TimeSeriesPoint } from '@/lib/types'
 
 export interface ReportsData {
@@ -18,26 +18,36 @@ interface ReportsState {
 }
 
 /**
- * Agregações do dashboard pro período. `accountId` é repassado pro backend
- * (ignorado até o filtro por conta existir).
+ * Agregações do dashboard pro período, no escopo `scope` (conta e/ou moeda).
+ * Com `enabled = false` não busca nada (ex.: enquanto a moeda padrão não é conhecida).
  */
-export function useReports(range: DateRange, accountId?: number): ReportsState {
+export function useReports(
+  range: DateRange,
+  scope: ReportScope,
+  enabled = true,
+): ReportsState {
   const [state, setState] = useState<ReportsState>({
     data: null,
     loading: true,
     error: null,
   })
 
+  const { accountId, currency } = scope
+  // Descarta respostas atrasadas: trocar de moeda rápido não pode exibir valores de outra moeda.
+  const requestRef = useRef(0)
+
   const load = useCallback(async () => {
+    const request = ++requestRef.current
     setState((s) => ({ ...s, loading: true, error: null }))
     try {
       const [spent, income, ranking, monthlyIncomeExpense] = await Promise.all([
-        reportsApi.totalSpent(range, accountId),
-        reportsApi.totalIncome(range, accountId),
-        reportsApi.spentRankedByCategory(range, accountId),
-        reportsApi.incomeExpenseMonthly(range, accountId),
+        reportsApi.totalSpent(range, { accountId, currency }),
+        reportsApi.totalIncome(range, { accountId, currency }),
+        reportsApi.spentRankedByCategory(range, { accountId, currency }),
+        reportsApi.incomeExpenseMonthly(range, { accountId, currency }),
       ])
-      const balanceHistory = await reportsApi.balanceHistory(range, accountId).catch(() => [] as TimeSeriesPoint[])
+      const balanceHistory = await reportsApi.balanceHistory(range, { accountId, currency }).catch(() => [] as TimeSeriesPoint[])
+      if (request !== requestRef.current) return
       setState({
         loading: false,
         error: null,
@@ -51,17 +61,18 @@ export function useReports(range: DateRange, accountId?: number): ReportsState {
         },
       })
     } catch (err) {
+      if (request !== requestRef.current) return
       setState({
         data: null,
         loading: false,
         error: err instanceof Error ? err.message : 'Erro ao carregar dados',
       })
     }
-  }, [range.startDate, range.endDate, accountId])
+  }, [range.startDate, range.endDate, accountId, currency])
 
   useEffect(() => {
-    void load()
-  }, [load])
+    if (enabled) void load()
+  }, [load, enabled])
 
   return state
 }

@@ -1,55 +1,94 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import { formatCurrency, type Currency } from '@/lib/utils'
+import type { Account } from '@/lib/types'
+import { useAccounts } from '@/hooks/useAccounts'
 
 interface CurrencyContextValue {
+  /** Contas do usuário (carregadas uma vez e compartilhadas entre as páginas). */
+  accounts: Account[]
+  accountsLoading: boolean
+  accountsError: string | null
+  /** Rebusca as contas em segundo plano (saldos frescos ao abrir uma página). */
+  refreshAccounts: () => void
+  /** Moedas em que o usuário tem contas, na ordem da primeira conta de cada uma. */
+  currencies: Currency[]
+  /**
+   * Moeda filtrada no dashboard. Não há câmbio: só contas dessa moeda entram
+   * em saldo, KPIs, gráficos e categorias. Padrão = moeda da primeira conta.
+   */
   currency: Currency
   setCurrency: (c: Currency) => void
-  /** Formata um valor na moeda atualmente selecionada. */
-  format: (value: number | string) => string
+  /** Formata um valor na moeda selecionada (ou na moeda informada, ex.: a da conta). */
+  format: (value: number | string, currency?: Currency) => string
   valuesVisible: boolean
   toggleValuesVisible: () => void
 }
 
 const CurrencyContext = createContext<CurrencyContextValue | null>(null)
 
-const STORAGE_KEY = 'money-flow:currency'
-
-function initialCurrency(): Currency {
-  const stored = localStorage.getItem(STORAGE_KEY)
-  return stored === 'EUR' || stored === 'USD' ? stored : 'BRL'
-}
-
-/** Moeda de exibição global do dashboard (persistida em localStorage). */
 const VISIBILITY_KEY = 'money-flow:values-visible'
 
-export function CurrencyProvider({ children }: { children: ReactNode }) {
-  const [currency, setCurrencyState] = useState<Currency>(initialCurrency)
-  const [valuesVisible, setValuesVisible] = useState<boolean>(
-    () => localStorage.getItem(VISIBILITY_KEY) !== 'false',
-  )
+function readVisibility(): boolean {
+  try {
+    return localStorage.getItem(VISIBILITY_KEY) !== 'false'
+  } catch {
+    return true
+  }
+}
 
-  const setCurrency = useCallback((c: Currency) => {
-    setCurrencyState(c)
-    localStorage.setItem(STORAGE_KEY, c)
-  }, [])
+export function CurrencyProvider({ children }: { children: ReactNode }) {
+  const { data: accountList, loading: accountsLoading, error: accountsError, refresh } = useAccounts()
+  // null = o usuário ainda não escolheu; cai na moeda da primeira conta.
+  const [chosen, setChosen] = useState<Currency | null>(null)
+  const [valuesVisible, setValuesVisible] = useState<boolean>(readVisibility)
+
+  const currencies = useMemo<Currency[]>(() => {
+    const seen: Currency[] = []
+    for (const a of accountList) if (!seen.includes(a.currency)) seen.push(a.currency)
+    return seen
+  }, [accountList])
+
+  const currency: Currency =
+    chosen && currencies.includes(chosen) ? chosen : (currencies[0] ?? 'BRL')
+
+  const setCurrency = useCallback((c: Currency) => setChosen(c), [])
 
   const toggleValuesVisible = useCallback(() => {
     setValuesVisible((prev) => {
       const next = !prev
-      localStorage.setItem(VISIBILITY_KEY, String(next))
+      try {
+        localStorage.setItem(VISIBILITY_KEY, String(next))
+      } catch {
+        // armazenamento indisponível — mantém só em memória
+      }
       return next
     })
   }, [])
 
   const value = useMemo<CurrencyContextValue>(
     () => ({
+      accounts: accountList,
+      accountsLoading,
+      accountsError,
+      refreshAccounts: refresh,
+      currencies,
       currency,
       setCurrency,
-      format: (v) => (valuesVisible ? formatCurrency(v, currency) : '••••••'),
+      format: (v, c) => (valuesVisible ? formatCurrency(v, c ?? currency) : '••••••'),
       valuesVisible,
       toggleValuesVisible,
     }),
-    [currency, setCurrency, valuesVisible, toggleValuesVisible],
+    [
+      accountList,
+      accountsLoading,
+      accountsError,
+      refresh,
+      currencies,
+      currency,
+      setCurrency,
+      valuesVisible,
+      toggleValuesVisible,
+    ],
   )
 
   return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>

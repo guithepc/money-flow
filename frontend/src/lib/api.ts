@@ -1,5 +1,6 @@
 import type {
   Account,
+  Currency,
   AmountAndCategory,
   DateRange,
   MonthlyIncomeExpense,
@@ -65,42 +66,49 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return handleResponse<T>(res, path)
 }
 
+/** Escopo das agregações: conta específica e/ou moeda (nunca soma moedas diferentes). */
+export interface ReportScope {
+  accountId?: number
+  currency?: Currency
+}
+
 /**
- * Monta os query params das queries de agregação. `accountId` é opcional e só
- * entra no querystring quando presente.
+ * Monta os query params das queries de agregação. `accountId` e `currency` são
+ * opcionais e só entram no querystring quando presentes.
  */
-function reportParams(range: DateRange, accountId?: number): Record<string, string> {
+function reportParams(range: DateRange, scope: ReportScope = {}): Record<string, string> {
   const params: Record<string, string> = { ...range }
-  if (accountId != null) params.accountId = String(accountId)
+  if (scope.accountId != null) params.accountId = String(scope.accountId)
+  if (scope.currency != null) params.currency = scope.currency
   return params
 }
 
 export const reportsApi = {
-  totalSpent: (range: DateRange, accountId?: number) =>
-    get<TotalAmount>('/transactions/total-spent-by-time', reportParams(range, accountId)),
+  totalSpent: (range: DateRange, scope?: ReportScope) =>
+    get<TotalAmount>('/transactions/total-spent-by-time', reportParams(range, scope)),
 
-  totalIncome: (range: DateRange, accountId?: number) =>
-    get<TotalAmount>('/transactions/total-income-by-time', reportParams(range, accountId)),
+  totalIncome: (range: DateRange, scope?: ReportScope) =>
+    get<TotalAmount>('/transactions/total-income-by-time', reportParams(range, scope)),
 
-  totalRecurring: (range: DateRange, accountId?: number) =>
-    get<TotalAmount>('/transactions/total-recurring-by-time', reportParams(range, accountId)),
+  totalRecurring: (range: DateRange, scope?: ReportScope) =>
+    get<TotalAmount>('/transactions/total-recurring-by-time', reportParams(range, scope)),
 
-  spentRankedByCategory: (range: DateRange, accountId?: number) =>
+  spentRankedByCategory: (range: DateRange, scope?: ReportScope) =>
     get<AmountAndCategory[]>(
       '/transactions/total-spent-ranked-by-category',
-      reportParams(range, accountId),
+      reportParams(range, scope),
     ),
 
-  incomeExpenseMonthly: (range: DateRange, accountId?: number) =>
+  incomeExpenseMonthly: (range: DateRange, scope?: ReportScope) =>
     get<MonthlyIncomeExpense[]>(
       '/transactions/income-expense-monthly',
-      reportParams(range, accountId),
+      reportParams(range, scope),
     ),
 
-  balanceHistory: async (range: DateRange, accountId?: number) => {
+  balanceHistory: async (range: DateRange, scope?: ReportScope) => {
     const raw = await get<Record<string, unknown>[]>(
       '/transactions/history-balance',
-      reportParams(range, accountId),
+      reportParams(range, scope),
     )
     return raw.map((r) => ({
       date: String(r.date ?? r.day),
@@ -112,8 +120,8 @@ export const reportsApi = {
 }
 
 export const transactionsApi = {
-  list: (range: DateRange, accountId?: number) =>
-    get<Transaction[]>('/transactions', reportParams(range, accountId)),
+  list: (range: DateRange, scope?: ReportScope) =>
+    get<Transaction[]>('/transactions', reportParams(range, scope)),
 }
 
 export const accountsApi = {

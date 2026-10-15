@@ -10,6 +10,8 @@ interface AccountSwitcherProps {
   selectedId: number | null
   onSelect: (id: number | null) => void
   loading?: boolean
+  /** Moeda filtrada — exibida ao lado da contagem quando o usuário tem mais de uma. */
+  currencyLabel?: string
 }
 
 /** Final mascarado decorativo derivado do id — estética de "cartão". */
@@ -22,6 +24,7 @@ export function AccountSwitcher({
   selectedId,
   onSelect,
   loading = false,
+  currencyLabel,
 }: AccountSwitcherProps) {
   const total = useMemo(() => accounts.reduce((acc, a) => acc + a.amount, 0), [accounts])
 
@@ -42,6 +45,7 @@ export function AccountSwitcher({
         <span className="eyebrow">Saldo acumulado</span>
         <span className="font-mono text-[11px] text-fg-subtle">
           {accounts.length} {accounts.length === 1 ? 'conta' : 'contas'}
+          {currencyLabel && ` · ${currencyLabel}`}
         </span>
       </div>
 

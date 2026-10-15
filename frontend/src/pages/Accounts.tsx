@@ -1,14 +1,39 @@
+import { useEffect, useMemo } from 'react'
 import { Wallet } from 'lucide-react'
-import { KpiStrip } from '@/components/KpiStrip'
-import { useAccounts } from '@/hooks/useAccounts'
+import { KpiStrip, type KpiItem } from '@/components/KpiStrip'
 import { useCurrency } from '@/contexts/CurrencyContext'
-import { cn } from '@/lib/utils'
+import { cn, type Currency } from '@/lib/utils'
 
 export function Accounts() {
-  const { data, loading, error } = useAccounts()
-  const { format } = useCurrency()
+  const {
+    accounts: data,
+    accountsLoading: loading,
+    accountsError: error,
+    refreshAccounts,
+    currencies,
+    format,
+  } = useCurrency()
+  useEffect(() => refreshAccounts(), [refreshAccounts])
 
-  const total = data.reduce((acc, a) => acc + a.amount, 0)
+  // Sem câmbio: um total por moeda, nunca somando moedas diferentes.
+  const totals = useMemo(() => {
+    const map = new Map<Currency, number>()
+    for (const a of data) map.set(a.currency, (map.get(a.currency) ?? 0) + a.amount)
+    return map
+  }, [data])
+  const multiCurrency = currencies.length > 1
+  const totalItems: KpiItem[] = (currencies.length > 0 ? currencies : (['BRL'] as Currency[])).map(
+    (c) => {
+      const value = totals.get(c) ?? 0
+      return {
+        label: multiCurrency ? `Saldo total · ${c}` : 'Saldo total',
+        value,
+        currency: c,
+        icon: Wallet,
+        tone: value < 0 ? 'negative' : 'neutral',
+      }
+    },
+  )
 
   return (
     <main className="bg-page-grid flex-1 overflow-y-auto px-10 pt-9 pb-10">
@@ -17,7 +42,11 @@ export function Accounts() {
         <h1 className="font-display text-5xl leading-[52px] font-normal tracking-[-0.02em] text-fg">
           Contas
         </h1>
-        <p className="text-[15px] text-fg-muted">Saldo consolidado de todas as suas contas.</p>
+        <p className="text-[15px] text-fg-muted">
+          {multiCurrency
+            ? 'Saldo por moeda — cada conta na sua própria moeda, sem conversão.'
+            : 'Saldo consolidado de todas as suas contas.'}
+        </p>
       </header>
 
       {error && (
@@ -26,13 +55,8 @@ export function Accounts() {
         </div>
       )}
 
-      <div className="mb-7 max-w-xl">
-        <KpiStrip
-          loading={loading}
-          items={[
-            { label: 'Saldo total', value: total, icon: Wallet, tone: total < 0 ? 'negative' : 'neutral' },
-          ]}
-        />
+      <div className={cn('mb-7', totalItems.length > 1 ? 'max-w-5xl' : 'max-w-xl')}>
+        <KpiStrip loading={loading} items={totalItems} />
       </div>
 
       <section className="flex flex-col border border-edge bg-surface">
@@ -66,6 +90,8 @@ export function Accounts() {
         ) : (
           <ul className="flex flex-col border-t border-white/8">
             {data.map((account) => {
+              // Participação dentro da própria moeda da conta.
+              const total = totals.get(account.currency) ?? 0
               const share = total > 0 ? (account.amount / total) * 100 : 0
               return (
                 <li
@@ -78,7 +104,7 @@ export function Accounts() {
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="truncate text-sm font-semibold text-fg">{account.description}</span>
                     <span className="font-mono text-[11px] text-fg-subtle">
-                      •••• {1000 + (account.accountId % 9000)}
+                      •••• {1000 + (account.accountId % 9000)} · {account.currency}
                     </span>
                   </div>
                   <span className="hidden w-16 shrink-0 text-right font-mono text-xs text-fg-subtle sm:block">
@@ -90,7 +116,7 @@ export function Accounts() {
                       account.amount < 0 ? 'text-negative' : 'text-fg',
                     )}
                   >
-                    {format(account.amount)}
+                    {format(account.amount, account.currency)}
                   </span>
                 </li>
               )
