@@ -92,12 +92,12 @@ Key design decisions:
 Right after the first link the bot walks a new user through setup (state in `owner.onboarding_step`):
 
 1. **Language**: 🇧🇷 Português / 🇬🇧 English buttons (Telegram's language first). Seeds the base categories in that language: Mercado, Restaurantes, Transporte, Casa (expense), Salário, Renda extra (income) / Groceries, Eating out, Transport, Home, Salary, Side income
-2. **Account**: one text or voice message like *"Nubank, 50 mil reais"*. GPT splits name/currency/amount (`prompts/account-parser.txt`), the amount is parsed deterministically (`50 mil`, `1.250,90`, `1250.90`, `-300`). Only missing fields are asked (currency via buttons). Duplicate names are refused
+2. **Account**: one text or voice message like *"Nubank, 50 mil reais"*. GPT splits name/currency/amount (`prompts/account-parser.txt`), the amount is parsed deterministically (`50 mil`, `1.250,90`, `1250.90`, `-300`). Only missing fields are asked (currency via buttons). Duplicate names are refused (account names are unique per owner, case-insensitive; `POST /api/accounts` answers `409`)
 3. **Confirmation** (mandatory): *"Nubank · R$ 50.000,00 — está certo?"*. The balance goes straight into `account.balance`, it is not a transaction
 4. **More accounts?** loops back to step 2
 5. **Categories + first voice message**: the first registered transaction finishes onboarding with the dashboard link
 
-Sending anything unexpected repeats the current question (also `/start`). `/ajuda` works at any step and `/cancelar` leaves the flow keeping what was already saved. Re-linking an owner that finished onboarding does not restart it; owners that existed before onboarding are migrated as `DONE`.
+Sending anything unexpected repeats the current question (also `/start`). `/ajuda` works at any step and `/cancelar` leaves the flow keeping what was already saved. Re-linking an owner that finished onboarding does not restart it; owners that already had a linked chat or at least one account are migrated as `DONE`; the others get the flow when they link Telegram. Replies are sent only after the database transaction commits, and transcription/GPT parsing run outside the owner row lock.
 
 All bot replies are in the owner's language (`messages/bot_pt.properties` / `bot_en.properties`; falls back to the Telegram client language when none was chosen).
 
