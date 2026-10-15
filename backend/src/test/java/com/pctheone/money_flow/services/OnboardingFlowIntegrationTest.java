@@ -22,11 +22,16 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
+import javax.sql.DataSource;
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.ConcurrentHashMap;
 
 //---- Full onboarding through the webhook router against a real database (Flyway V6, row locks, JSON draft, seed).
 //---- Telegram and the GPT account parser are mocked.
@@ -65,6 +70,10 @@ public class OnboardingFlowIntegrationTest {
     long chatId = ThreadLocalRandom.current().nextLong(1_000_000_000L, 9_000_000_000L);
     int updateId = ThreadLocalRandom.current().nextInt(1_000_000_000, 2_000_000_000);
     Integer ownerId;
+    Map<String, String> committedStepWhenSent = new ConcurrentHashMap<>();
+
+    @Autowired
+    DataSource dataSource;
 
     @BeforeEach
     void setUp() {
@@ -73,6 +82,22 @@ public class OnboardingFlowIntegrationTest {
         owner.setEmail("onboarding-" + UUID.randomUUID() + "@test.local");
         owner.setPasswordHash("x".repeat(60));
         ownerId = ownerRepository.save(owner).getOwnerId();
+
+        //---- Records the step another connection sees when each reply leaves: replies go out only after commit.
+        Mockito.doAnswer(invocation -> recordSend(invocation.getArgument(1))).when(telegramApiClient).sendMessage(ArgumentMatchers.anyLong(), ArgumentMatchers.anyString());
+        Mockito.doAnswer(invocation -> recordSend(invocation.getArgument(1))).when(telegramApiClient).sendMessageWithInlineKeyboard(ArgumentMatchers.anyLong(), ArgumentMatchers.anyString(), ArgumentMatchers.any());
+    }
+
+    private Object recordSend(String text) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("SELECT onboarding_step::text FROM owner WHERE owner_id = ?")) {
+            statement.setInt(1, ownerId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                resultSet.next();
+                committedStepWhenSent.put(text, resultSet.getString(1));
+            }
+        }
+        return null;
     }
 
     @AfterEach
@@ -99,6 +124,7 @@ public class OnboardingFlowIntegrationTest {
         route(callback("onb:lang:pt"));
         Assertions.assertEquals(OnboardingStepEnum.ACCOUNT, owner().getOnboardingStep());
         Assertions.assertEquals("pt", owner().getLanguage());
+        Assertions.assertEquals("ACCOUNT", committedStepWhenSent.get(messages.get(LanguageEnum.PT, "onboarding.account.question")));
         List<String> categories = jdbcTemplate.queryForList(
                 "SELECT description || ':' || type FROM category WHERE owner_id = ? ORDER BY category_id", String.class, ownerId);
         Assertions.assertEquals(List.of("Mercado:EXPENSE", "Restaurantes:EXPENSE", "Transporte:EXPENSE", "Casa:EXPENSE",
@@ -124,6 +150,7 @@ public class OnboardingFlowIntegrationTest {
         Assertions.assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM transactions WHERE owner_id = ?", Integer.class, ownerId));
         Assertions.assertEquals(OnboardingStepEnum.MORE_ACCOUNTS, owner().getOnboardingStep());
         Assertions.assertNull(owner().getOnboardingDraft());
+        Assertions.assertEquals("MORE_ACCOUNTS", committedStepWhenSent.get(messages.get(LanguageEnum.PT, "onboarding.confirm.saved", "Nubank", "R$ 50.000,00")));
 
         //---- Same name again is refused
         route(callback("onb:more"));
@@ -145,7 +172,7 @@ public class OnboardingFlowIntegrationTest {
                 jdbcTemplate.queryForObject("SELECT balance FROM account WHERE account_id = ?", BigDecimal.class, nubankId)));
 
         //---- Re-linking a DONE owner does not restart onboarding
-        Mockito.reset(telegramApiClient);
+        Mockito.clearInvocations(telegramApiClient);
         route(text("/start " + invite()));
         Mockito.verify(telegramApiClient).sendMessage(chatId, messages.get(LanguageEnum.PT, "link.success"));
         Mockito.verify(telegramApiClient, Mockito.never()).sendMessageWithInlineKeyboard(ArgumentMatchers.anyLong(), ArgumentMatchers.anyString(), ArgumentMatchers.any());

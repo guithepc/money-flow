@@ -8,16 +8,19 @@ import com.pctheone.money_flow.enums.CategoryTypeEnum;
 import com.pctheone.money_flow.enums.CurrencyEnum;
 import com.pctheone.money_flow.enums.LanguageEnum;
 import com.pctheone.money_flow.enums.OnboardingStepEnum;
+import com.pctheone.money_flow.exceptions.DuplicateAccountNameException;
 import com.pctheone.money_flow.repositories.OwnerRepository;
 import com.pctheone.money_flow.services.telegram.AccountMessageParser;
 import com.pctheone.money_flow.services.telegram.BotMessages;
 import com.pctheone.money_flow.services.telegram.TelegramApiClient;
+import com.pctheone.money_flow.services.telegram.TelegramReplySender;
 import com.pctheone.money_flow.services.telegram.VoiceTranscriptionService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
 
 import java.io.IOException;
@@ -32,6 +35,7 @@ public class OnboardingServiceTest {
     private static final String DASHBOARD = "https://moneyflow.pctheone.com";
 
     OnboardingService service;
+    OnboardingStateMachine stateMachine;
     OwnerEntity owner;
     OwnerRepository ownerRepository;
     AccountService accountService;
@@ -62,15 +66,24 @@ public class OnboardingServiceTest {
                 new CategoryDTO("Casa", 2, CategoryTypeEnum.EXPENSE),
                 new CategoryDTO("Salário", 3, CategoryTypeEnum.INCOME)));
 
+        Mockito.when(ownerRepository.findById(OWNER_ID)).thenReturn(Optional.of(owner));
+        TelegramReplySender replySender = new TelegramReplySender(telegramApiClient);
+
+        stateMachine = new OnboardingStateMachine();
+        stateMachine.ownerRepository = ownerRepository;
+        stateMachine.accountService = accountService;
+        stateMachine.categoryService = categoryService;
+        stateMachine.replySender = replySender;
+        stateMachine.messages = messages;
+        stateMachine.dashboardUrl = DASHBOARD;
+
         service = new OnboardingService();
+        service.stateMachine = stateMachine;
         service.ownerRepository = ownerRepository;
-        service.accountService = accountService;
-        service.categoryService = categoryService;
-        service.telegramApiClient = telegramApiClient;
-        service.messages = messages;
         service.accountMessageParser = accountMessageParser;
         service.voiceTranscriptionService = voiceTranscriptionService;
-        service.dashboardUrl = DASHBOARD;
+        service.replySender = replySender;
+        service.messages = messages;
     }
 
     //---- LANGUAGE
@@ -290,7 +303,95 @@ public class OnboardingServiceTest {
         Mockito.verifyNoInteractions(telegramApiClient);
     }
 
+    @Test
+    void nameAnswerWithBalanceAndCurrencyKeepsOnlyTheExtractedName() {
+        atAccountStep();
+        parserReturns("100 reais", null, CurrencyEnum.BRL, "100");
+        service.handleMessage(OWNER_ID, CHAT_ID, text("100 reais"));
+        Mockito.verify(telegramApiClient).sendMessage(CHAT_ID, pt("onboarding.account.askName"));
+
+        parserReturns("Nubank com 200 dólares", "Nubank", CurrencyEnum.USD, "200");
+        service.handleMessage(OWNER_ID, CHAT_ID, text("Nubank com 200 dólares"));
+
+        lastKeyboard("🧐 Nubank · US$ 200,00 — está certo?");
+    }
+
+    @Test
+    void nameAnswerWithOnlyBalanceKeepsAskingTheName() {
+        atAccountStep();
+        parserReturns("100 reais", null, CurrencyEnum.BRL, "100");
+        service.handleMessage(OWNER_ID, CHAT_ID, text("100 reais"));
+        Mockito.reset(telegramApiClient);
+
+        parserReturns("não, 300 reais", null, CurrencyEnum.BRL, "300");
+        service.handleMessage(OWNER_ID, CHAT_ID, text("não, 300 reais"));
+
+        Mockito.verify(telegramApiClient).sendMessage(CHAT_ID, pt("onboarding.account.askName"));
+        Assertions.assertEquals(OnboardingStepEnum.ACCOUNT, owner.getOnboardingStep());
+        Assertions.assertTrue(owner.getOnboardingDraft().contains("300"), owner.getOnboardingDraft());
+    }
+
+    @Test
+    void transcriptionAndParsingHappenBeforeTheLock() throws Exception {
+        atAccountStep();
+        Mockito.when(voiceTranscriptionService.transcribe("voice-1")).thenReturn("Nubank, 50 mil reais");
+        parserReturns("Nubank, 50 mil reais", "Nubank", CurrencyEnum.BRL, "50000");
+
+        service.handleMessage(OWNER_ID, CHAT_ID, new OnboardingService.Input(null, "voice-1", "pt-br"));
+
+        InOrder order = Mockito.inOrder(voiceTranscriptionService, accountMessageParser, ownerRepository);
+        order.verify(voiceTranscriptionService).transcribe("voice-1");
+        order.verify(accountMessageParser).parse("Nubank, 50 mil reais");
+        order.verify(ownerRepository).findByIdForUpdate(OWNER_ID);
+    }
+
+    @Test
+    void stepChangedWhilePreparingRepeatsTheCurrentQuestion() {
+        atConfirmStep();
+        OwnerEntity staleSnapshot = new OwnerEntity();
+        staleSnapshot.setOwnerId(OWNER_ID);
+        staleSnapshot.setOnboardingStep(OnboardingStepEnum.ACCOUNT);
+        Mockito.when(ownerRepository.findById(OWNER_ID)).thenReturn(Optional.of(staleSnapshot));
+        parserReturns("Wise 10 euros", "Wise", CurrencyEnum.EUR, "10");
+        Mockito.reset(telegramApiClient);
+
+        service.handleMessage(OWNER_ID, CHAT_ID, text("Wise 10 euros"));
+
+        Assertions.assertEquals(OnboardingStepEnum.ACCOUNT_CONFIRM, owner.getOnboardingStep());
+        lastKeyboard("🧐 Nubank · R$ 50.000,00 — está certo?");
+    }
+
+    @Test
+    void fieldChangedWhilePreparingRepeatsTheCurrentQuestion() {
+        atAccountStep();
+        parserReturns("Wise 2000", "Wise", null, "2000");
+        service.handleMessage(OWNER_ID, CHAT_ID, text("Wise 2000"));
+        OwnerEntity staleSnapshot = new OwnerEntity();
+        staleSnapshot.setOwnerId(OWNER_ID);
+        staleSnapshot.setOnboardingStep(OnboardingStepEnum.ACCOUNT);
+        Mockito.when(ownerRepository.findById(OWNER_ID)).thenReturn(Optional.of(staleSnapshot));
+        parserReturns("Revolut", "Revolut", null, null);
+        Mockito.reset(telegramApiClient);
+
+        service.handleMessage(OWNER_ID, CHAT_ID, text("Revolut"));
+
+        lastKeyboard(pt("onboarding.account.askCurrency", "Wise"));
+    }
+
     //---- ACCOUNT_CONFIRM
+
+    @Test
+    void lostRaceOnTheUniqueNameIndexAsksForAnotherName() {
+        atConfirmStep();
+        Mockito.when(accountService.addAccount(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.anyInt()))
+                .thenThrow(new DuplicateAccountNameException("Nubank"));
+
+        service.handleCallback(OWNER_ID, CHAT_ID, "ok", "pt-br");
+
+        Mockito.verify(telegramApiClient).sendMessage(CHAT_ID, pt("onboarding.account.duplicate", "Nubank"));
+        Assertions.assertEquals(OnboardingStepEnum.ACCOUNT, owner.getOnboardingStep());
+        Assertions.assertTrue(owner.getOnboardingDraft().contains("\"awaiting\":\"NAME\""), owner.getOnboardingDraft());
+    }
 
     @Test
     void confirmationSavesTheAccountWithInitialBalanceOnce() {
