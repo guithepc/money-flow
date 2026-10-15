@@ -92,20 +92,28 @@ Key design decisions:
 Send a voice note like *"gastei 25 reais no mercado com carne no Nubank"*. The audio is transcribed by Whisper and parsed by GPT using **your** categories and accounts, then registered as an expense or income.
 
 ### Commands
-Positional interface for quick logging on the go:
+Positional interface for quick logging on the go. The command menu is registered on startup via `setMyCommands` (Portuguese by default, English for `en` clients).
 
 | Command | Example | Description |
 |---------|---------|-------------|
-| `/gasto` | `/gasto mercado carne 25,90 1` | Log an expense (category, description, amount, account id) |
-| `/entrada` | `/entrada salario salario 3500 1` | Log income |
+| `/gasto` | `/gasto mercado carne moida 25,90 1` | Log an expense: `<category> <description...> <amount> <account id>` (description can have several words) |
+| `/entrada` | `/entrada salario salario de maio 3.500,00 1` | Log income, same format as `/gasto` |
 | `/categorias` | `/categorias` | List your categories |
-| `/add-categoria` | `/add-categoria freela entrada` | Create a category (type `gasto`/`entrada`, default `gasto`) |
-| `/add-conta` | `/add-conta nubank 1000 BRL` | Create an account (currency `BRL`/`EUR`/`USD`, default `EUR`) |
+| `/nova_categoria` | `/nova_categoria freela entrada` | Create a category (type `gasto`/`entrada`, default `gasto`) |
+| `/nova_conta` | `/nova_conta nubank 1000 BRL` | Create an account (currency `BRL`/`EUR`/`USD`, default `EUR`; the balance may be negative, e.g. `-1.500,00` for a credit card) |
 | `/contas` | `/contas` | List accounts with balances |
 | `/transacoes` | `/transacoes` | Transactions from the last 7 days |
-| `/deletar-transacao` | `/deletar-transacao 42` | Delete a transaction by id |
+| `/deletar_transacao` | `/deletar_transacao 42` | Delete a transaction by id |
+| `/ajuda` / `/help` | `/ajuda` | List the available commands |
 
-Values use Brazilian/Portuguese format: comma as decimal separator (`25,90`), period as thousands separator (`1.000,50`).
+The old hyphenated names (`/add-categoria`, `/add-conta`, `/deletar-transacao`) still work as aliases for now.
+
+Values use Brazilian/Portuguese format: comma as decimal separator (`25,90`), period only as thousands separator (`1.000,50`). `25.90` is rejected as ambiguous, and transaction amounts must be greater than zero.
+
+### Reliability
+- The webhook always answers `200`, so Telegram never retries an update because of a processing error; the user gets a friendly reply instead (unknown category, invalid amount, invalid account, generic failure)
+- Processed `update_id`s are stored in `telegram_processed_update` (kept 7 days) and duplicates are skipped
+- Inline keyboard clicks (`callback_query`) are routed by callback data prefix (`<prefix>:<payload>`) to a `TelegramCallbackHandler` bean
 
 ## Dashboard
 
@@ -171,7 +179,7 @@ Every query takes `startDate` / `endDate` and an optional `accountId`.
 - [x] Voice messages via Whisper transcription + GPT parsing
 - [x] Dashboard visual refactor (Tinta palette)
 - [x] Flyway migrations, per-user categories and per-account currency (#5)
-- [ ] Bot robustness: error handling, idempotency, inline buttons, `_` command names (#6)
+- [x] Bot robustness: error handling, idempotency, inline buttons, `_` command names (#6)
 - [ ] Guided Telegram onboarding: language, accounts with balance, base categories (#7)
 - [ ] Per-account currency in bot replies and dashboard currency filter (#8)
 - [ ] Transfer between accounts (origin/destination)
