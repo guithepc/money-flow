@@ -18,4 +18,5 @@ public class TransactionDTO {
     private String categoryDescription;
     private OperationTypeEnum operationType;
     private CurrencyEnum currency;
+    private Integer categoryId;
 }

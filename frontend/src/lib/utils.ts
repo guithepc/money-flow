@@ -33,6 +33,23 @@ export function formatCurrency(value: number | string, currency: Currency = 'BRL
   return `${sign}${symbol} ${numberFmt.format(Math.abs(safe))}`
 }
 
+/** Valor em notação pt-BR pro input de edição, sem símbolo: `1250.9` → `1.250,90`. */
+export function formatAmountInput(value: number): string {
+  return numberFmt.format(value)
+}
+
+/**
+ * Lê o valor digitado no formato brasileiro (mesma regra do bot): ponto só como
+ * separador de milhar, vírgula como decimal, até 2 casas. `null` se inválido.
+ * `1.250,90` · `1250,90` · `1250` → ok · `25.90` · `1,999` · `abc` → null
+ */
+export function parseAmountInput(raw: string): number | null {
+  const value = raw.trim()
+  if (!/^(\d{1,3}(\.\d{3})+|\d+)(,\d{1,2})?$/.test(value)) return null
+  const n = Number(value.replace(/\./g, '').replace(',', '.'))
+  return Number.isFinite(n) ? n : null
+}
+
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 
 /** Data ISO (yyyy-mm-dd) do primeiro e último dia do mês atual. */

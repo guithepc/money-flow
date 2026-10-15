@@ -25,6 +25,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**", "/api/integration/**").permitAll()
+                        //---- Errors thrown by controllers are forwarded here without the JWT filter;
+                        //---- without this a 400/403/404 reaches the client as 401 and logs the user out.
+                        .requestMatchers("/error").permitAll()
                             .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

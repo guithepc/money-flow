@@ -6,12 +6,13 @@ import { CategoryDonut } from '@/components/CategoryDonut'
 import { BalanceHistoryChart } from '@/components/BalanceHistoryChart'
 import { IncomeExpenseChart } from '@/components/IncomeExpenseChart'
 import { RecentTransactions } from '@/components/RecentTransactions'
+import { EditTransactionDialog } from '@/components/EditTransactionDialog'
 import { PeriodPicker } from '@/components/PeriodPicker'
 import { CurrencySelector } from '@/components/CurrencySelector'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { useReports } from '@/hooks/useReports'
 import { useTransactions } from '@/hooks/useTransactions'
-import type { DateRange } from '@/lib/types'
+import type { DateRange, Transaction } from '@/lib/types'
 import { currentMonthRange } from '@/lib/utils'
 
 export function Dashboard() {
@@ -20,6 +21,7 @@ export function Dashboard() {
   const [appliedRange, setAppliedRange] = useState<DateRange>(draftRange)
   // null = "Todas as contas" (agregado). Ao selecionar, os hooks repassam accountId.
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
+  const [editing, setEditing] = useState<Transaction | null>(null)
 
   const {
     valuesVisible,
@@ -153,8 +155,23 @@ export function Dashboard() {
         <RecentTransactions
           data={ready ? transactions.data : []}
           loading={ready && transactions.loading}
+          onSelect={setEditing}
         />
       </section>
+
+      {editing && (
+        <EditTransactionDialog
+          transaction={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null)
+            reports.reload()
+            transactions.reload()
+            // O saldo da conta mudou no backend.
+            refreshAccounts()
+          }}
+        />
+      )}
     </main>
   )
 }

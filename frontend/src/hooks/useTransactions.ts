@@ -16,7 +16,7 @@ export function useTransactions(
   range: DateRange,
   scope: ReportScope,
   enabled = true,
-): TransactionsState {
+): TransactionsState & { reload: () => void } {
   const [state, setState] = useState<TransactionsState>({
     data: [],
     loading: true,
@@ -48,5 +48,10 @@ export function useTransactions(
     if (enabled) void load()
   }, [load, enabled])
 
-  return state
+  // Refaz a busca com os mesmos filtros (ex.: depois de editar uma transação).
+  const reload = useCallback(() => {
+    if (enabled) void load()
+  }, [load, enabled])
+
+  return { ...state, reload }
 }

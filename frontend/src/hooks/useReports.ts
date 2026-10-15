@@ -25,7 +25,7 @@ export function useReports(
   range: DateRange,
   scope: ReportScope,
   enabled = true,
-): ReportsState {
+): ReportsState & { reload: () => void } {
   const [state, setState] = useState<ReportsState>({
     data: null,
     loading: true,
@@ -76,5 +76,10 @@ export function useReports(
     if (enabled) void load()
   }, [load, enabled])
 
-  return state
+  // Refaz a busca com os mesmos filtros (ex.: depois de editar uma transação).
+  const reload = useCallback(() => {
+    if (enabled) void load()
+  }, [load, enabled])
+
+  return { ...state, reload }
 }

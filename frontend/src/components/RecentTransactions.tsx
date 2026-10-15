@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { ArrowLeftRight, ArrowUpRight, ShoppingBag } from 'lucide-react'
+import { ArrowLeftRight, ArrowUpRight, Pencil, ShoppingBag } from 'lucide-react'
 import type { Transaction } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { useCurrency } from '@/contexts/CurrencyContext'
@@ -10,6 +10,8 @@ interface RecentTransactionsProps {
   loading?: boolean
   /** Máximo de itens exibidos (as mais recentes). */
   limit?: number
+  /** Clique numa transação (gasto ou entrada) abre a edição. */
+  onSelect?: (tx: Transaction) => void
 }
 
 const ICON = {
@@ -67,7 +69,7 @@ function groupByDay(data: Transaction[], limit: number): DayGroup[] {
   return groups
 }
 
-export function RecentTransactions({ data, loading = false, limit = 12 }: RecentTransactionsProps) {
+export function RecentTransactions({ data, loading = false, limit = 12, onSelect }: RecentTransactionsProps) {
   const { format } = useCurrency()
   const groups = useMemo(() => groupByDay(data, limit), [data, limit])
   const newestId = groups[0]?.items[0]?.id
@@ -125,11 +127,27 @@ export function RecentTransactions({ data, loading = false, limit = 12 }: Recent
                   const isIncome = tx.operationType === 'INCOME'
                   const isNew = tx.id === newestId
                   const sign = isIncome ? '+' : tx.operationType === 'EXPENSE' ? '−' : ''
+                  const editable = onSelect != null && tx.operationType !== 'TRANSFER'
                   return (
                     <li
                       key={tx.id}
+                      role={editable ? 'button' : undefined}
+                      tabIndex={editable ? 0 : undefined}
+                      title={editable ? 'Editar transação' : undefined}
+                      onClick={editable ? () => onSelect(tx) : undefined}
+                      onKeyDown={
+                        editable
+                          ? (e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                onSelect(tx)
+                              }
+                            }
+                          : undefined
+                      }
                       className={cn(
-                        'flex h-[60px] items-center gap-3 px-6 transition-colors duration-150',
+                        'group flex h-[60px] items-center gap-3 px-6 transition-colors duration-150',
+                        editable && 'cursor-pointer outline-none focus-visible:bg-white/[0.06]',
                         isNew
                           ? '-mt-px border-y border-brand/50 bg-brand-soft'
                           : 'border-b border-white/8 last:border-b-0 hover:bg-white/[0.03]',
@@ -166,6 +184,13 @@ export function RecentTransactions({ data, loading = false, limit = 12 }: Recent
                         {sign}
                         {format(tx.amount, tx.currency)}
                       </span>
+                      {editable && (
+                        <Pencil
+                          className="size-3.5 shrink-0 text-fg-subtle opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+                          strokeWidth={1.8}
+                          aria-hidden
+                        />
+                      )}
                     </li>
                   )
                 })}

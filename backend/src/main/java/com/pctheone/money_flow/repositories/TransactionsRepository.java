@@ -5,7 +5,9 @@ import com.pctheone.money_flow.dto.MonthlyIncomeExpenseDTO;
 import com.pctheone.money_flow.dto.TransactionDTO;
 import com.pctheone.money_flow.entities.TransactionsEntity;
 import com.pctheone.money_flow.enums.CurrencyEnum;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,8 +15,15 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface TransactionsRepository extends JpaRepository<TransactionsEntity, Integer> {
+
+    //---- Row lock so two concurrent edits can't both compute the balance delta from the same old amount.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM TransactionsEntity t WHERE t.transactionsId = :id")
+    Optional<TransactionsEntity> findByIdForUpdate(@Param("id") Integer id);
+
 
 
     @Query("SELECT new com.pctheone.money_flow.dto.AmountAndCategoryDTO(SUM(t.amount), t.category.description) from TransactionsEntity as t " +
@@ -27,11 +36,11 @@ public interface TransactionsRepository extends JpaRepository<TransactionsEntity
             "GROUP BY t.category.description ORDER BY SUM(t.amount) DESC")
     List<AmountAndCategoryDTO> totalSpentInMonthByCategoryDescByAccount(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("ownerId") Integer ownerId, @Param("accountId") Integer accountId);
 
-    @Query("SELECT new com.pctheone.money_flow.dto.TransactionDTO(t.transactionsId, t.description, t.amount, t.timestamp, t.category.description, t.operationType, t.account.currency) from TransactionsEntity as t " +
+    @Query("SELECT new com.pctheone.money_flow.dto.TransactionDTO(t.transactionsId, t.description, t.amount, t.timestamp, t.category.description, t.operationType, t.account.currency, t.category.categoryId) from TransactionsEntity as t " +
             "WHERE t.timestamp BETWEEN :startDate AND :endDate AND t.owner.ownerId = :ownerId")
     List<TransactionDTO> listAllTransaction(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("ownerId") Integer ownerId);
 
-    @Query("SELECT new com.pctheone.money_flow.dto.TransactionDTO(t.transactionsId, t.description, t.amount, t.timestamp, t.category.description, t.operationType, t.account.currency) from TransactionsEntity as t " +
+    @Query("SELECT new com.pctheone.money_flow.dto.TransactionDTO(t.transactionsId, t.description, t.amount, t.timestamp, t.category.description, t.operationType, t.account.currency, t.category.categoryId) from TransactionsEntity as t " +
             "WHERE t.timestamp BETWEEN :startDate AND :endDate AND t.owner.ownerId = :ownerId AND t.account.accountId = :accountId")
     List<TransactionDTO> listAllTransactionByAccount(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("ownerId") Integer ownerId, @Param("accountId") Integer accountId);
 
@@ -124,7 +133,7 @@ public interface TransactionsRepository extends JpaRepository<TransactionsEntity
             "GROUP BY t.category.description ORDER BY SUM(t.amount) DESC")
     List<AmountAndCategoryDTO> totalSpentInMonthByCategoryDescByCurrency(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("ownerId") Integer ownerId, @Param("currency") CurrencyEnum currency);
 
-    @Query("SELECT new com.pctheone.money_flow.dto.TransactionDTO(t.transactionsId, t.description, t.amount, t.timestamp, t.category.description, t.operationType, t.account.currency) from TransactionsEntity as t " +
+    @Query("SELECT new com.pctheone.money_flow.dto.TransactionDTO(t.transactionsId, t.description, t.amount, t.timestamp, t.category.description, t.operationType, t.account.currency, t.category.categoryId) from TransactionsEntity as t " +
             "WHERE t.timestamp BETWEEN :startDate AND :endDate AND t.owner.ownerId = :ownerId AND t.account.currency = :currency")
     List<TransactionDTO> listAllTransactionByCurrency(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("ownerId") Integer ownerId, @Param("currency") CurrencyEnum currency);
 

@@ -4,6 +4,7 @@ import com.pctheone.money_flow.dto.*;
 import com.pctheone.money_flow.entities.AccountEntity;
 import com.pctheone.money_flow.entities.CategoryEntity;
 import com.pctheone.money_flow.entities.TransactionsEntity;
+import com.pctheone.money_flow.enums.CategoryTypeEnum;
 import com.pctheone.money_flow.enums.CurrencyEnum;
 import com.pctheone.money_flow.enums.OperationTypeEnum;
 import com.pctheone.money_flow.exceptions.CategoryNotFoundException;
@@ -225,6 +226,60 @@ public class TransactionsServiceImpl implements TransactionsService {
         transactionsRepository.deleteById(id);
 
         return Optional.of(new DeletedTransactionDTO(transactions.getDescription(), transactions.getAmount(), transactions.getAccount().getCurrency()));
+    }
+
+    @Override
+    @Transactional
+    public TransactionDTO updateTransaction(Integer id, TransactionUpdateRequestDTO request, Integer ownerId) {
+        TransactionsEntity transaction = transactionsRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
+        if (!transaction.getOwner().getOwnerId().equals(ownerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Transaction does not belong to the authenticated user");
+        }
+
+        CategoryTypeEnum expectedType = switch (transaction.getOperationType()) {
+            case EXPENSE -> CategoryTypeEnum.EXPENSE;
+            case INCOME -> CategoryTypeEnum.INCOME;
+            case TRANSFER -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Transfers can't be edited");
+        };
+
+        String description = request.getDescription() == null ? "" : request.getDescription().trim();
+        if (description.isEmpty() || description.length() > 255) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Description must have between 1 and 255 characters");
+        }
+
+        BigDecimal amount = request.getAmount();
+        if (amount == null || amount.signum() <= 0 || amount.stripTrailingZeros().scale() > 2) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Amount must be positive with at most 2 decimals");
+        }
+
+        if (request.getCategoryId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is required");
+        }
+        CategoryEntity category = categoryRepository.findByCategoryIdAndOwnerOwnerId(request.getCategoryId(), ownerId)
+                .orElseThrow(() -> new CategoryNotFoundException("Category doesn't exist"));
+        if (category.getType() != expectedType) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category type doesn't match the transaction");
+        }
+
+        //---- Balance moves by the difference: an expense raised from 30 to 50 takes 20 more from the account.
+        BigDecimal delta = amount.subtract(transaction.getAmount());
+        Integer accountId = transaction.getAccount().getAccountId();
+        TransactionDTO result = new TransactionDTO(transaction.getTransactionsId(), description, amount, transaction.getTimestamp(),
+                category.getDescription(), transaction.getOperationType(), transaction.getAccount().getCurrency(), category.getCategoryId());
+
+        transaction.setDescription(description);
+        transaction.setAmount(amount);
+        transaction.setCategory(category);
+
+        // The balance query flushes these changes first (flushAutomatically), then clears the persistence context.
+        if (transaction.getOperationType() == OperationTypeEnum.EXPENSE) {
+            accountRepository.decrementBalance(accountId, delta);
+        } else {
+            accountRepository.incrementBalance(accountId, delta);
+        }
+
+        return result;
     }
 
 }

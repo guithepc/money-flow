@@ -27,7 +27,7 @@ export interface Account {
 export type OperationType = 'EXPENSE' | 'INCOME' | 'TRANSFER'
 
 /**
- * TransactionDTO { id, description, amount, date, categoryDescription, operationType, currency }
+ * TransactionDTO { id, description, amount, date, categoryDescription, operationType, currency, categoryId }
  * Retornado por `GET /api/transactions`.
  */
 export interface Transaction {
@@ -39,6 +39,7 @@ export interface Transaction {
   operationType: OperationType
   /** Moeda da conta da transação. */
   currency: Currency
+  categoryId: number
 }
 
 /**
@@ -64,6 +65,23 @@ export interface MonthlyIncomeExpense {
 
 /** Seções navegáveis da sidebar. */
 export type View = 'dashboard' | 'accounts' | 'reports' | 'settings'
+
+/** category_type ENUM do backend. */
+export type CategoryType = 'EXPENSE' | 'INCOME'
+
+/** CategoryDTO { categoryDescription, categoryId, type } — `GET /api/categories`. */
+export interface Category {
+  categoryId: number
+  categoryDescription: string
+  type: CategoryType
+}
+
+/** TransactionUpdateRequestDTO — corpo do `PUT /api/transactions/{id}`. */
+export interface TransactionUpdate {
+  description: string
+  categoryId: number
+  amount: number
+}
 
 /** OwnerProfileDTO { name: String, email: String, telegramLinked: boolean } */
 export interface OwnerProfile {

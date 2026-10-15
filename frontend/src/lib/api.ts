@@ -2,6 +2,7 @@ import type {
   Account,
   Currency,
   AmountAndCategory,
+  Category,
   DateRange,
   MonthlyIncomeExpense,
   OwnerProfile,
@@ -9,6 +10,7 @@ import type {
   TimeSeriesPoint,
   TotalAmount,
   Transaction,
+  TransactionUpdate,
 } from './types'
 import { clearToken, getToken } from './auth'
 
@@ -53,19 +55,27 @@ async function get<T>(path: string, params: Record<string, string> = {}): Promis
   return handleResponse<T>(res, path)
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function send<T>(method: 'POST' | 'PUT', path: string, body: unknown): Promise<T> {
   const url = new URL(`${BASE_URL}${path}`)
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      ...authHeaders(),
-    },
-    body: JSON.stringify(body),
-  })
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify(body),
+    })
+  } catch {
+    throw new Error(`Network error — ${path}`)
+  }
   return handleResponse<T>(res, path)
 }
+
+const post = <T>(path: string, body: unknown) => send<T>('POST', path, body)
+const put = <T>(path: string, body: unknown) => send<T>('PUT', path, body)
 
 /** Escopo das agregações: conta específica e/ou moeda (nunca soma moedas diferentes). */
 export interface ReportScope {
@@ -123,6 +133,13 @@ export const reportsApi = {
 export const transactionsApi = {
   list: (range: DateRange, scope?: ReportScope) =>
     get<Transaction[]>('/transactions', reportParams(range, scope)),
+
+  /** Edita descrição, categoria e valor; o backend ajusta o saldo da conta pela diferença. */
+  update: (id: number, body: TransactionUpdate) => put<Transaction>(`/transactions/${id}`, body),
+}
+
+export const categoriesApi = {
+  list: () => get<Category[]>('/categories'),
 }
 
 export const accountsApi = {

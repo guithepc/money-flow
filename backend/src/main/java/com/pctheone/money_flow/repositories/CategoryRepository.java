@@ -16,6 +16,8 @@ public interface CategoryRepository extends JpaRepository<CategoryEntity, Intege
 
     boolean existsByCategoryIdAndOwnerOwnerId(Integer categoryId, Integer ownerId);
 
+    Optional<CategoryEntity> findByCategoryIdAndOwnerOwnerId(Integer categoryId, Integer ownerId);
+
     //---- Idempotent: an existing (owner_id, description) is left untouched. Returns 1 when inserted, 0 otherwise.
     @Modifying
     @Query(value = "INSERT INTO category (owner_id, description, type) VALUES (:ownerId, :description, CAST(:type AS category_type)) " +
