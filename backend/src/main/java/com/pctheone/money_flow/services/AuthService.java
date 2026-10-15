@@ -1,6 +1,7 @@
 package com.pctheone.money_flow.services;
 
 import com.pctheone.money_flow.entities.OwnerEntity;
+import com.pctheone.money_flow.enums.OnboardingStepEnum;
 import com.pctheone.money_flow.repositories.OwnerRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -46,7 +47,7 @@ public class AuthService {
     }
 
     public Optional<Integer> register(String name, String email, String pass){
-        OwnerEntity owner = ownerRepository.save(new OwnerEntity(null, name, email, null, this.encodePassword(pass), null, null));
+        OwnerEntity owner = ownerRepository.save(new OwnerEntity(null, name, email, null, this.encodePassword(pass), null, null, null, OnboardingStepEnum.LANGUAGE, null));
         return Optional.of(owner.getOwnerId());
     }
 
