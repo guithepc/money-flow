@@ -2,6 +2,7 @@ package com.pctheone.money_flow.controllers;
 
 import com.pctheone.money_flow.dto.AccountCreateRequestDTO;
 import com.pctheone.money_flow.dto.AccountDTO;
+import com.pctheone.money_flow.exceptions.DuplicateAccountNameException;
 import com.pctheone.money_flow.services.AccountService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -35,7 +36,12 @@ public class AccountController {
         if (request.getDescription() == null || request.getDescription().isBlank() || request.getBalance() == null || request.getCurrency() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "description, balance and currency are required");
         }
-        AccountDTO account = accountService.addAccount(request.getDescription().trim(), request.getBalance(), request.getCurrency(), ownerId);
+        AccountDTO account;
+        try {
+            account = accountService.addAccount(request.getDescription().trim(), request.getBalance(), request.getCurrency(), ownerId);
+        } catch (DuplicateAccountNameException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "An account with this name already exists");
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(account);
     }
 

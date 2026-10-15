@@ -10,6 +10,12 @@ ALTER TABLE owner ADD COLUMN onboarding_step onboarding_step NOT NULL DEFAULT 'L
 -- JSON draft of the account being created (name, currency, balance, field being asked). Cleared on save/cancel.
 ALTER TABLE owner ADD COLUMN onboarding_draft JSONB;
 
--- Owners created before onboarding already have accounts and categories: they skip it.
--- language stays NULL for them, so the bot keeps following their Telegram language.
-UPDATE owner SET onboarding_step = 'DONE';
+-- Owners already using the app (Telegram linked or at least one account) skip onboarding.
+-- Everyone else keeps LANGUAGE and gets the guided flow when they link Telegram.
+-- language stays NULL for skipped owners, so the bot keeps following their Telegram language.
+UPDATE owner o SET onboarding_step = 'DONE'
+WHERE o.telegram_chat_id IS NOT NULL
+   OR EXISTS (SELECT 1 FROM account a WHERE a.owner_id = o.owner_id);
+
+-- Account names are unique per owner, case-insensitive ("Nubank" and "nubank" are the same account).
+CREATE UNIQUE INDEX account_owner_lower_description_key ON account (owner_id, lower(description));
