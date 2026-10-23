@@ -184,6 +184,18 @@ Every query takes `startDate` / `endDate` and an optional `accountId`.
 |--------|----------|-------------|
 | POST | `/api/integration/telegram-webhook` | Telegram updates, validated by `X-Telegram-Bot-Api-Secret-Token` |
 
+## Backups
+
+A daily Postgres dump runs on the VPS at 03:30 via cron and is kept for 14 days in `/root/backups` (`money-flow-daily-*.sql.gz`). Manual pre-deploy dumps in the same folder are not rotated.
+
+```bash
+chmod +x /opt/money-flow/ops/backup-postgres.sh
+cp /opt/money-flow/ops/money-flow-backup.cron /etc/cron.d/money-flow-backup
+/opt/money-flow/ops/backup-postgres.sh   # first run by hand
+```
+
+Restore: `gunzip -c <file>.sql.gz | docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" "$POSTGRES_DB"'` (into an empty database).
+
 ## Roadmap
 
 - [x] Multi-user Telegram bot with deep link onboarding
