@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { UseAuth } from '@/hooks/useAuth'
-import { AuthError, AuthShell, AuthSubmit, authInput, authLabel } from '@/components/AuthShell'
+import { AuthError, AuthShell, AuthSubmit, TermsCheckbox, authInput, authLabel } from '@/components/AuthShell'
+import { TERMS_VERSION } from '@/lib/legal'
 import { PASSWORD_MIN_LENGTH } from '@/lib/password'
 
 interface RegisterProps {
@@ -12,10 +13,13 @@ export function Register({ auth, onSwitchToLogin }: RegisterProps) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [termsAccepted, setTermsAccepted] = useState(false)
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    void auth.register(name, email, password)
+    // O checkbox é `required`; a checagem aqui só garante que nunca sai cadastro sem aceite.
+    if (!termsAccepted) return
+    void auth.register(name, email, password, TERMS_VERSION)
   }
 
   return (
@@ -64,7 +68,11 @@ export function Register({ auth, onSwitchToLogin }: RegisterProps) {
           <span className="text-xs text-ink/50">Mínimo de 8 caracteres</span>
         </label>
 
-        <AuthSubmit disabled={auth.loading}>{auth.loading ? 'Criando…' : 'Criar conta'}</AuthSubmit>
+        <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} />
+
+        <AuthSubmit disabled={auth.loading || !termsAccepted}>
+          {auth.loading ? 'Criando…' : 'Criar conta'}
+        </AuthSubmit>
 
         <p className="text-sm text-ink/65">
           Já tem conta?{' '}

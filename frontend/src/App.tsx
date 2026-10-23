@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { Dashboard } from '@/pages/Dashboard'
 import { Accounts } from '@/pages/Accounts'
@@ -7,8 +7,12 @@ import { Login } from '@/pages/Login'
 import { Register } from '@/pages/Register'
 import { ForgotPassword } from '@/pages/ForgotPassword'
 import { ResetPassword } from '@/pages/ResetPassword'
+import { Legal } from '@/pages/Legal'
+import { AcceptTerms } from '@/pages/AcceptTerms'
 import { useAuth } from '@/hooks/useAuth'
 import { CurrencyProvider } from '@/contexts/CurrencyContext'
+import { ownerApi } from '@/lib/api'
+import { LEGAL_PATHS } from '@/lib/legal'
 import type { View } from '@/lib/types'
 
 function Placeholder({ title }: { title: string }) {
@@ -20,13 +24,56 @@ function Placeholder({ title }: { title: string }) {
   )
 }
 
+/** Painel do usuário logado. Antes dele, pede o aceite dos termos se a versão atual ainda não foi aceita. */
+function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
+  const [view, setView] = useState<View>('dashboard')
+  // null = verificando. Se a consulta falhar, não bloqueia o painel (o backend não depende do aceite).
+  const [termsAccepted, setTermsAccepted] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let active = true
+    ownerApi
+      .me()
+      .then((profile) => {
+        if (active) setTermsAccepted(profile.termsAccepted)
+      })
+      .catch(() => {
+        if (active) setTermsAccepted(true)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  if (termsAccepted === null) return <div className="flex h-screen bg-background" />
+
+  if (!termsAccepted) {
+    return (
+      <div className="flex h-screen bg-background text-fg">
+        <AcceptTerms onAccepted={() => setTermsAccepted(true)} onLogout={onLogout} />
+      </div>
+    )
+  }
+
+  return (
+    <CurrencyProvider>
+      <div className="flex h-screen bg-background text-fg">
+        <Sidebar active={view} onNavigate={setView} onLogout={onLogout} />
+        {view === 'dashboard' && <Dashboard />}
+        {view === 'accounts' && <Accounts />}
+        {view === 'reports' && <Placeholder title="Relatórios" />}
+        {view === 'settings' && <Settings />}
+      </div>
+    </CurrencyProvider>
+  )
+}
+
 type AuthView = 'login' | 'register' | 'forgot' | 'reset'
 
 /** Único caminho com URL própria: o link que o bot manda (`/reset-password?token=…`). */
 const RESET_PATH = '/reset-password'
 
 export default function App() {
-  const [view, setView] = useState<View>('dashboard')
   const [authView, setAuthView] = useState<AuthView>(() =>
     window.location.pathname === RESET_PATH ? 'reset' : 'login',
   )
@@ -43,6 +90,11 @@ export default function App() {
 
   // Esqueci/redefinir a senha aparecem mesmo logado: abrir o link do bot é uma ação deliberada.
   const inPasswordFlow = authView === 'forgot' || authView === 'reset'
+
+  // Termos e privacidade são públicos: abrem com ou sem sessão, sem esperar a restauração.
+  const path = window.location.pathname.replace(/\/+$/, '')
+  if (path === LEGAL_PATHS.terms) return <Legal kind="terms" />
+  if (path === LEGAL_PATHS.privacy) return <Legal kind="privacy" />
 
   // Evita piscar a tela de login enquanto o cookie de refresh restaura a sessão.
   if (auth.restoring) {
@@ -79,15 +131,5 @@ export default function App() {
     )
   }
 
-  return (
-    <CurrencyProvider>
-      <div className="flex h-screen bg-background text-fg">
-        <Sidebar active={view} onNavigate={setView} onLogout={auth.logout} />
-        {view === 'dashboard' && <Dashboard />}
-        {view === 'accounts' && <Accounts />}
-        {view === 'reports' && <Placeholder title="Relatórios" />}
-        {view === 'settings' && <Settings />}
-      </div>
-    </CurrencyProvider>
-  )
+  return <AuthenticatedApp onLogout={auth.logout} />
 }

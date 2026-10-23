@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { ArrowRight, ShoppingBag, TrendingUp } from 'lucide-react'
+import { LEGAL_PATHS } from '@/lib/legal'
 import { cn } from '@/lib/utils'
 
 /** Classes compartilhadas pelos campos e botões das telas de auth (fundo claro). */
@@ -49,6 +50,39 @@ export function AuthNotice({ children }: { children: ReactNode }) {
 /** Botão com cara de link usado para alternar entre as telas de auth. */
 export const authLink = 'font-semibold text-indigo underline-offset-4 hover:underline'
 
+/** Link para um documento legal, em nova aba para não perder o formulário. */
+function LegalLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={authLink}
+    >
+      {children}
+    </a>
+  )
+}
+
+/** Checkbox obrigatório de aceite dos Termos de uso e da Política de privacidade. */
+export function TermsCheckbox({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <label className="flex items-start gap-3 text-[13px] leading-5 text-ink/70">
+      <input
+        type="checkbox"
+        required
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 size-4 shrink-0 accent-indigo"
+      />
+      <span>
+        Li e concordo com os <LegalLink href={LEGAL_PATHS.terms}>Termos de uso</LegalLink> e a{' '}
+        <LegalLink href={LEGAL_PATHS.privacy}>Política de privacidade</LegalLink>.
+      </span>
+    </label>
+  )
+}
+
 interface AuthShellProps {
   eyebrow: string
   title: string
@@ -83,6 +117,15 @@ export function AuthShell({ eyebrow, title, subtitle, children }: AuthShellProps
             {children}
           </div>
         </div>
+
+        <footer className="flex flex-wrap gap-x-5 gap-y-2 font-mono text-[11px] uppercase tracking-[0.07em] text-ink/45">
+          <a href={LEGAL_PATHS.terms} className="transition-colors duration-150 hover:text-ink">
+            Termos de uso
+          </a>
+          <a href={LEGAL_PATHS.privacy} className="transition-colors duration-150 hover:text-ink">
+            Política de privacidade
+          </a>
+        </footer>
       </main>
 
       <aside

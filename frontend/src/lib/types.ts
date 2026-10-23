@@ -83,11 +83,13 @@ export interface TransactionUpdate {
   amount: number
 }
 
-/** OwnerProfileDTO { name: String, email: String, telegramLinked: boolean } */
+/** OwnerProfileDTO { name, email, telegramLinked, termsAccepted } */
 export interface OwnerProfile {
   name: string
   email: string
   telegramLinked: boolean
+  /** false até o usuário aceitar a versão atual dos termos/política. */
+  termsAccepted: boolean
 }
 
 /** TelegramInviteResponseDTO { link: String } — deep link para conectar o bot. */
