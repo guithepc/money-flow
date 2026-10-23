@@ -5,6 +5,7 @@ import {
   Settings,
   LogOut,
   TrendingUp,
+  Activity,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { View } from '@/lib/types'
@@ -19,6 +20,8 @@ interface SidebarProps {
   active: View
   onNavigate: (view: View) => void
   onLogout: () => void
+  /** Mostra a aba Admin (volumetria) só para quem é admin. */
+  admin?: boolean
 }
 
 function NavButton({
@@ -50,7 +53,7 @@ function NavButton({
   )
 }
 
-export function Sidebar({ active, onNavigate, onLogout }: SidebarProps) {
+export function Sidebar({ active, onNavigate, onLogout, admin = false }: SidebarProps) {
   return (
     <aside className="flex w-[72px] shrink-0 flex-col items-center gap-8 border-r border-edge bg-background py-6">
       {/* Logo — quadrado lime com a seta de tendência preta */}
@@ -71,6 +74,14 @@ export function Sidebar({ active, onNavigate, onLogout }: SidebarProps) {
       </nav>
 
       <div className="flex w-full flex-col">
+        {admin && (
+          <NavButton
+            icon={Activity}
+            label="Admin"
+            active={active === 'admin'}
+            onClick={() => onNavigate('admin')}
+          />
+        )}
         <NavButton
           icon={Settings}
           label="Configurações"

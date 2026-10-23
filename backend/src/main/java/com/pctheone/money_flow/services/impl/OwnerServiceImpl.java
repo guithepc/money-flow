@@ -49,6 +49,9 @@ public class OwnerServiceImpl implements OwnerService {
     AuthService authService;
 
     @Autowired
+    com.pctheone.money_flow.config.AdminAccess adminAccess;
+
+    @Autowired
     TransactionsRepository transactionsRepository;
 
     @Autowired
@@ -83,7 +86,7 @@ public class OwnerServiceImpl implements OwnerService {
         OwnerEntity owner = ownerRepository.findById(ownerId)
                 .orElseThrow(() -> new InvalidCredentialsException("Owner not found"));
         return new OwnerProfileDTO(owner.getName(), owner.getEmail(), owner.getTelegramChatId() != null,
-                LegalTerms.isCurrent(owner.getTermsVersion()));
+                LegalTerms.isCurrent(owner.getTermsVersion()), adminAccess.isAdmin(ownerId));
     }
 
     //---- Owners created before #28 (or before a new terms version) accept from the dashboard on their next login.

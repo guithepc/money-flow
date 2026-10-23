@@ -11,4 +11,6 @@ public class OwnerProfileDTO {
     private boolean telegramLinked;
     //---- False until the owner accepts the current terms version; the dashboard asks for it before anything else.
     private boolean termsAccepted;
+    //---- True for owners in app.admin-owner-ids; the dashboard shows the Admin (volumetry) tab only to them.
+    private boolean admin;
 }

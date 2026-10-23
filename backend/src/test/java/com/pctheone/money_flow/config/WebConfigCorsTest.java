@@ -40,4 +40,12 @@ class WebConfigCorsTest {
         Assertions.assertNotNull(accounts.checkHttpMethod(HttpMethod.PUT), "PUT must be allowed so renaming works");
         Assertions.assertNotNull(accounts.checkHttpMethod(HttpMethod.DELETE), "DELETE must be allowed so deleting works");
     }
+
+    //---- The admin volumetry tab fetches /api/admin/metrics from the browser.
+    @Test
+    void adminMappingAllowsGet() {
+        CorsConfiguration admin = corsConfigurations().get("/api/admin/**");
+        Assertions.assertNotNull(admin, "No CORS mapping for /api/admin/**");
+        Assertions.assertNotNull(admin.checkHttpMethod(HttpMethod.GET), "GET must be allowed for the metrics endpoint");
+    }
 }

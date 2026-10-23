@@ -1,5 +1,6 @@
 package com.pctheone.money_flow.services.impl;
 
+import com.pctheone.money_flow.config.AdminAccess;
 import com.pctheone.money_flow.dto.OwnerProfileDTO;
 import com.pctheone.money_flow.entities.OwnerEntity;
 import com.pctheone.money_flow.exceptions.InvalidCredentialsException;
@@ -32,13 +33,25 @@ public class OwnerProfileTest {
         Mockito.when(ownerRepository.findById(1)).thenReturn(Optional.empty());
         OwnerServiceImpl service = new OwnerServiceImpl();
         service.ownerRepository = ownerRepository;
+        service.adminAccess = new AdminAccess("");
         Assertions.assertThrows(InvalidCredentialsException.class, () -> service.getProfile(1));
     }
 
+    @Test
+    void profileReportsAdminFromEnv(){
+        Assertions.assertFalse(serviceWith(owner(1L)).getProfile(1).isAdmin());
+        Assertions.assertTrue(serviceWith(owner(1L), new AdminAccess("1")).getProfile(1).isAdmin());
+    }
+
     private OwnerServiceImpl serviceWith(OwnerEntity owner){
+        return serviceWith(owner, new AdminAccess(""));
+    }
+
+    private OwnerServiceImpl serviceWith(OwnerEntity owner, AdminAccess adminAccess){
         Mockito.when(ownerRepository.findById(1)).thenReturn(Optional.of(owner));
         OwnerServiceImpl service = new OwnerServiceImpl();
         service.ownerRepository = ownerRepository;
+        service.adminAccess = adminAccess;
         return service;
     }
 

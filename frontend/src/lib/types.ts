@@ -66,7 +66,7 @@ export interface MonthlyIncomeExpense {
 }
 
 /** Seções navegáveis da sidebar. */
-export type View = 'dashboard' | 'accounts' | 'reports' | 'settings'
+export type View = 'dashboard' | 'accounts' | 'reports' | 'settings' | 'admin'
 
 /** category_type ENUM do backend. */
 export type CategoryType = 'EXPENSE' | 'INCOME'
@@ -92,6 +92,29 @@ export interface OwnerProfile {
   telegramLinked: boolean
   /** false até o usuário aceitar a versão atual dos termos/política. */
   termsAccepted: boolean
+  /** true para owners em app.admin-owner-ids; libera a aba Admin (volumetria). */
+  admin: boolean
+}
+
+/** AdminMetricsDTO — volumetria global, só para admins. */
+export interface AdminMetrics {
+  totalUsers: number
+  usersWithTelegram: number
+  usersAcceptedTerms: number
+  newUsers7d: number
+  newUsers30d: number
+  activeUsers7d: number
+  activeUsers30d: number
+  totalTransactions: number
+  transactionsToday: number
+  transactions7d: number
+  transactions30d: number
+  expenseCount: number
+  incomeCount: number
+  transferCount: number
+  totalAccounts: number
+  accountsByCurrency: { currency: string; count: number }[]
+  last30Days: { date: string; transactions: number; signups: number }[]
 }
 
 /** TelegramInviteResponseDTO { link: String } — deep link para conectar o bot. */
