@@ -8,10 +8,18 @@ export const authInput =
 
 export const authLabel = 'text-[13px] font-medium text-ink/70'
 
-export function AuthSubmit({ children, disabled }: { children: ReactNode; disabled?: boolean }) {
+interface AuthSubmitProps {
+  children: ReactNode
+  disabled?: boolean
+  /** Com `onClick` vira um botão comum (fora de formulário), com o mesmo visual. */
+  onClick?: () => void
+}
+
+export function AuthSubmit({ children, disabled, onClick }: AuthSubmitProps) {
   return (
     <button
-      type="submit"
+      type={onClick ? 'button' : 'submit'}
+      onClick={onClick}
       disabled={disabled}
       className="mt-2 flex items-center justify-center gap-2.5 bg-brand px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.04em] text-black transition-opacity duration-150 hover:opacity-90 disabled:opacity-50"
     >
@@ -28,6 +36,18 @@ export function AuthError({ message }: { message: string }) {
     </div>
   )
 }
+
+/** Aviso neutro/positivo (ex.: "enviamos o link"), no mesmo formato do AuthError. */
+export function AuthNotice({ children }: { children: ReactNode }) {
+  return (
+    <div role="status" className="border border-ink/12 bg-white px-4 py-3 text-sm text-ink/80">
+      {children}
+    </div>
+  )
+}
+
+/** Botão com cara de link usado para alternar entre as telas de auth. */
+export const authLink = 'font-semibold text-indigo underline-offset-4 hover:underline'
 
 interface AuthShellProps {
   eyebrow: string

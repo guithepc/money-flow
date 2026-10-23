@@ -12,7 +12,15 @@ public final class TelegramBotCommands {
     }
 
     //---- examplePt / exampleEn are null for commands without arguments.
-    private record Entry(String command, String pt, String en, String examplePt, String exampleEn) {
+    //---- commandPt / commandEn differ only for commands with a translated name (both are accepted by the router).
+    private record Entry(String commandPt, String commandEn, String pt, String en, String examplePt, String exampleEn) {
+        Entry(String command, String pt, String en, String examplePt, String exampleEn) {
+            this(command, command, pt, en, examplePt, exampleEn);
+        }
+
+        String command(boolean portuguese) {
+            return portuguese ? commandPt : commandEn;
+        }
     }
 
     private static final List<Entry> ENTRIES = List.of(
@@ -31,12 +39,14 @@ public final class TelegramBotCommands {
             new Entry("transacoes", "Transações dos últimos 7 dias", "Transactions from the last 7 days",
                     null, null),
             new Entry("deletar_transacao", "Apagar uma transação pelo ID", "Delete a transaction by ID",
-                    "/deletar_transacao 42", "/deletar_transacao 42")
+                    "/deletar_transacao 42", "/deletar_transacao 42"),
+            new Entry("redefinir_senha", "reset_password", "Receber um link para redefinir sua senha", "Get a link to reset your password",
+                    null, null)
     );
 
     public static List<TelegramBotCommandDTO> portuguese() {
         List<TelegramBotCommandDTO> commands = new ArrayList<>(ENTRIES.stream()
-                .map(entry -> new TelegramBotCommandDTO(entry.command(), entry.pt()))
+                .map(entry -> new TelegramBotCommandDTO(entry.command(true), entry.pt()))
                 .toList());
         commands.add(new TelegramBotCommandDTO("ajuda", "Mostrar os comandos disponíveis"));
         return commands;
@@ -44,7 +54,7 @@ public final class TelegramBotCommands {
 
     public static List<TelegramBotCommandDTO> english() {
         List<TelegramBotCommandDTO> commands = new ArrayList<>(ENTRIES.stream()
-                .map(entry -> new TelegramBotCommandDTO(entry.command(), entry.en()))
+                .map(entry -> new TelegramBotCommandDTO(entry.command(false), entry.en()))
                 .toList());
         commands.add(new TelegramBotCommandDTO("help", "Show available commands"));
         return commands;
@@ -55,7 +65,7 @@ public final class TelegramBotCommands {
         boolean portuguese = languageCode != null && languageCode.toLowerCase().startsWith("pt");
         StringBuilder text = new StringBuilder(portuguese ? "🤖 Comandos disponíveis\n\n" : "🤖 Available commands\n\n");
         for (Entry entry : ENTRIES) {
-            text.append('/').append(entry.command())
+            text.append('/').append(entry.command(portuguese))
                     .append(" — ")
                     .append(portuguese ? entry.pt() : entry.en())
                     .append('\n');

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { UseAuth } from '@/hooks/useAuth'
 import { AuthError, AuthShell, AuthSubmit, authInput, authLabel } from '@/components/AuthShell'
+import { PASSWORD_MIN_LENGTH } from '@/lib/password'
 
 interface RegisterProps {
   auth: UseAuth
@@ -53,12 +54,14 @@ export function Register({ auth, onSwitchToLogin }: RegisterProps) {
           <input
             type="password"
             required
+            minLength={PASSWORD_MIN_LENGTH}
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className={authInput}
             placeholder="••••••••"
           />
+          <span className="text-xs text-ink/50">Mínimo de 8 caracteres</span>
         </label>
 
         <AuthSubmit disabled={auth.loading}>{auth.loading ? 'Criando…' : 'Criar conta'}</AuthSubmit>

@@ -6,6 +6,7 @@ import com.pctheone.money_flow.exceptions.InvalidCredentialsException;
 import com.pctheone.money_flow.repositories.OwnerRepository;
 import com.pctheone.money_flow.services.AuthService;
 import com.pctheone.money_flow.services.OwnerService;
+import com.pctheone.money_flow.utils.PasswordPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +36,7 @@ public class OwnerServiceImpl implements OwnerService {
 
     @Override
     public Optional<Integer> registerOwner(String name, String email, String pass) {
+        PasswordPolicy.check(pass);
         Optional<OwnerEntity> owner = ownerRepository.findByEmail(email);
         if (owner.isPresent()){
             throw new InvalidCredentialsException("Email already registered");

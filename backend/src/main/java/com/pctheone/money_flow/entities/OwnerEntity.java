@@ -57,4 +57,8 @@ public class OwnerEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "onboarding_draft", columnDefinition = "jsonb")
     private String onboardingDraft;
+
+    //---- Last password reset, truncated to seconds. JWTs issued before it are rejected (AuthService.validateToken).
+    @Column(name = "password_changed_at")
+    private LocalDateTime passwordChangedAt;
 }
