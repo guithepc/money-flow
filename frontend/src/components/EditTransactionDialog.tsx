@@ -21,6 +21,8 @@ export function EditTransactionDialog({ transaction, onClose, onSaved }: EditTra
   const [categoryId, setCategoryId] = useState<number>(transaction.categoryId)
   const [categories, setCategories] = useState<Category[] | null>(null)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const descriptionRef = useRef<HTMLInputElement>(null)
   // Com "ocultar valores" ligado, o valor fica mascarado até a pessoa pedir pra ver.
@@ -97,6 +99,25 @@ export function EditTransactionDialog({ transaction, onClose, onSaved }: EditTra
     }
   }
 
+  async function handleDelete() {
+    // Bloqueia o fechamento enquanto o DELETE está em voo (o saldo já pode ter mudado no backend).
+    savingRef.current = true
+    setDeleting(true)
+    setError(null)
+    try {
+      await transactionsApi.remove(transaction.id)
+      onSavedRef.current()
+    } catch {
+      setError('Não foi possível excluir. Tente novamente.')
+      setConfirmDelete(false)
+    } finally {
+      savingRef.current = false
+      setDeleting(false)
+    }
+  }
+
+  const busy = saving || deleting
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70" onClick={requestClose} aria-hidden />
@@ -120,7 +141,7 @@ export function EditTransactionDialog({ transaction, onClose, onSaved }: EditTra
           <button
             type="button"
             onClick={requestClose}
-            disabled={saving}
+            disabled={busy}
             className="flex size-8 shrink-0 items-center justify-center border border-edge text-fg-muted transition-colors duration-150 hover:border-white/30 hover:text-fg disabled:opacity-50"
             aria-label="Fechar"
           >
@@ -191,22 +212,52 @@ export function EditTransactionDialog({ transaction, onClose, onSaved }: EditTra
           <div className="border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-negative">{error}</div>
         )}
 
-        <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={requestClose}
-            disabled={saving}
-            className="border border-edge px-5 py-3 text-sm font-semibold uppercase tracking-[0.04em] text-fg-muted transition-colors duration-150 hover:border-fg-subtle hover:text-fg disabled:opacity-50"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={saving || categories == null}
-            className="bg-brand px-5 py-3 text-sm font-semibold uppercase tracking-[0.04em] text-black transition-opacity duration-150 hover:opacity-90 disabled:opacity-50"
-          >
-            {saving ? 'Salvando…' : 'Salvar'}
-          </button>
+        {confirmDelete && !error && (
+          <div className="border border-negative/40 bg-negative/10 px-4 py-3 text-sm text-negative">
+            Excluir esta transação? O saldo da conta será revertido e a ação não pode ser desfeita.
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-3">
+          {confirmDelete ? (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="border border-negative/50 bg-negative/10 px-5 py-3 text-sm font-semibold uppercase tracking-[0.04em] text-negative transition-colors duration-150 hover:bg-negative/20 disabled:opacity-50"
+            >
+              {deleting ? 'Excluindo…' : 'Confirmar exclusão'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              disabled={busy}
+              className="text-sm font-semibold uppercase tracking-[0.04em] text-negative transition-colors duration-150 hover:text-negative/80 disabled:opacity-50"
+            >
+              Excluir
+            </button>
+          )}
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={confirmDelete ? () => setConfirmDelete(false) : requestClose}
+              disabled={busy}
+              className="border border-edge px-5 py-3 text-sm font-semibold uppercase tracking-[0.04em] text-fg-muted transition-colors duration-150 hover:border-fg-subtle hover:text-fg disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            {!confirmDelete && (
+              <button
+                type="submit"
+                disabled={busy || categories == null}
+                className="bg-brand px-5 py-3 text-sm font-semibold uppercase tracking-[0.04em] text-black transition-opacity duration-150 hover:opacity-90 disabled:opacity-50"
+              >
+                {saving ? 'Salvando…' : 'Salvar'}
+              </button>
+            )}
+          </div>
         </div>
       </form>
     </div>

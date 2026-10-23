@@ -20,13 +20,14 @@ class WebConfigCorsTest {
         return (Map<String, CorsConfiguration>) ReflectionTestUtils.invokeMethod(registry, "getCorsConfigurations");
     }
 
-    //---- The edit dialog issues PUT /api/transactions/{id}. Without PUT in the CORS mapping the browser
-    //---- preflight is rejected (403 "Invalid CORS request") before reaching the controller.
+    //---- The edit dialog issues PUT (edit) and DELETE (remove) on /api/transactions/{id}. Without them in
+    //---- the CORS mapping the browser preflight is rejected (403 "Invalid CORS request") before the controller.
     @Test
-    void transactionsMappingAllowsPut() {
+    void transactionsMappingAllowsEditAndDelete() {
         CorsConfiguration transactions = corsConfigurations().get("/api/transactions/**");
         Assertions.assertNotNull(transactions, "No CORS mapping for /api/transactions/**");
-        Assertions.assertNotNull(transactions.checkHttpMethod(HttpMethod.PUT), "PUT must be allowed so editing works");
         Assertions.assertNotNull(transactions.checkHttpMethod(HttpMethod.GET), "GET must stay allowed");
+        Assertions.assertNotNull(transactions.checkHttpMethod(HttpMethod.PUT), "PUT must be allowed so editing works");
+        Assertions.assertNotNull(transactions.checkHttpMethod(HttpMethod.DELETE), "DELETE must be allowed so deleting works");
     }
 }
