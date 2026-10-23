@@ -11,7 +11,7 @@ import {
 import { ApiError, authApi } from '@/lib/api'
 
 // `||` (e não `??`): um ARG vazio no build do Docker vira string vazia.
-const SUPPORT_EMAIL = import.meta.env.VITE_SUPPORT_EMAIL || 'suporte@pctheone.com'
+const SUPPORT_EMAIL = import.meta.env.VITE_SUPPORT_EMAIL || 'guilhermepcstore@gmail.com'
 
 interface ForgotPasswordProps {
   onBackToLogin: () => void
