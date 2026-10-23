@@ -221,7 +221,7 @@ public class TelegramBotServicesTest {
     @Test
     void newAccountAcceptsNegativeAndZeroBalance() {
         Mockito.when(accountService.addAccount(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.anyInt()))
-                .thenReturn(new AccountDTO(1, "Card", BigDecimal.ZERO, CurrencyEnum.BRL));
+                .thenReturn(new AccountDTO(1, "Card", BigDecimal.ZERO, CurrencyEnum.BRL, 0));
 
         service.telegramRouter(textUpdate("/nova_conta Card -1.500,50 BRL"));
         service.telegramRouter(textUpdate("/add-conta Empty 0 BRL"));
@@ -487,7 +487,7 @@ public class TelegramBotServicesTest {
     @Test
     void newAccountCommandAndAliasBehaveTheSame() {
         Mockito.when(accountService.addAccount(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.anyInt()))
-                .thenReturn(new AccountDTO(1, "Wallet", BigDecimal.TEN, CurrencyEnum.BRL));
+                .thenReturn(new AccountDTO(1, "Wallet", BigDecimal.TEN, CurrencyEnum.BRL, 0));
 
         service.telegramRouter(textUpdate("/nova_conta Wallet 10 BRL"));
         service.telegramRouter(textUpdate("/add-conta Wallet 10 BRL"));
@@ -647,8 +647,8 @@ public class TelegramBotServicesTest {
     @Test
     void accountsAndTransactionsListUseEachAccountCurrency() {
         Mockito.when(accountService.listAllAccounts(OWNER_ID)).thenReturn(List.of(
-                new AccountDTO(1, "Nubank", new BigDecimal("470"), CurrencyEnum.BRL),
-                new AccountDTO(2, "Revolut", new BigDecimal("681.03"), CurrencyEnum.EUR)));
+                new AccountDTO(1, "Nubank", new BigDecimal("470"), CurrencyEnum.BRL, 0),
+                new AccountDTO(2, "Revolut", new BigDecimal("681.03"), CurrencyEnum.EUR, 0)));
         Mockito.when(transactionsService.listAllTransactions(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.isNull(), ArgumentMatchers.isNull(), ArgumentMatchers.eq(OWNER_ID)))
                 .thenReturn(new ArrayList<>(List.of(
                         new TransactionDTO(10, "feira", new BigDecimal("30"), java.time.LocalDate.now(), "Mercado", OperationTypeEnum.EXPENSE, CurrencyEnum.BRL, 1),

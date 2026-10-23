@@ -16,4 +16,9 @@ public interface RecurringPaymentRepository extends JpaRepository<RecurringPayme
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = "DELETE FROM recurring_payment WHERE owner_id = :ownerId", nativeQuery = true)
     int deleteAllByOwnerId(@Param("ownerId") Integer ownerId);
+
+    //---- Cascade delete of a single account: runs after that account's transactions are gone.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM recurring_payment WHERE account_id = :accountId AND owner_id = :ownerId", nativeQuery = true)
+    int deleteByAccountIdAndOwnerId(@Param("accountId") Integer accountId, @Param("ownerId") Integer ownerId);
 }
