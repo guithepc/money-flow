@@ -14,11 +14,11 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        //---- PUT for editing a transaction (amount/description/category); without it the browser's
-        //---- CORS preflight on the edit dialog is rejected with 403 "Invalid CORS request".
+        //---- PUT edits a transaction, DELETE removes it; without them the browser's CORS preflight
+        //---- on the edit dialog is rejected with 403 "Invalid CORS request".
         registry.addMapping("/api/transactions/**")
                 .allowedOrigins(allowedOrigins)
-                .allowedMethods("GET", "PUT");
+                .allowedMethods("GET", "PUT", "DELETE");
         registry.addMapping("/api/accounts/**")
                 .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET");

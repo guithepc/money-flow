@@ -219,6 +219,9 @@ export const transactionsApi = {
 
   /** Edita descrição, categoria e valor; o backend ajusta o saldo da conta pela diferença. */
   update: (id: number, body: TransactionUpdate) => put<Transaction>(`/transactions/${id}`, body),
+
+  /** Exclui a transação; o backend reverte o saldo da conta (gasto devolve, entrada tira). */
+  remove: (id: number) => del<void>(`/transactions/${id}`, undefined),
 }
 
 export const categoriesApi = {

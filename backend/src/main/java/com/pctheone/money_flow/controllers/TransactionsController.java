@@ -89,6 +89,17 @@ public class TransactionsController {
         return ResponseEntity.ok(transactionsService.updateTransaction(id, request, ownerId));
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTransaction(@PathVariable Integer id){
+        Integer ownerId = getOwnerId();
+        log.info("Transaction delete requested: id={}, ownerId={}", id, ownerId);
+        //---- The service reverses the balance (an expense gives the money back, income takes it) and
+        //---- throws FORBIDDEN when the transaction isn't the caller's. Empty means it doesn't exist.
+        return transactionsService.deleteTransaction(id, ownerId)
+                .map(deleted -> ResponseEntity.noContent().<Void>build())
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @GetMapping
     public ResponseEntity<List<TransactionDTO>> listAllTransactions(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate, @RequestParam(required = false) Integer accountId, @RequestParam(required = false) CurrencyEnum currency){
         Integer ownerId = getOwnerId();
