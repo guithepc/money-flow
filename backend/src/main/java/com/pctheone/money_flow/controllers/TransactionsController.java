@@ -33,7 +33,7 @@ public class TransactionsController {
         Integer ownerId = getOwnerId();
         log.info("Total spent by category requested: startDate={}, endDate={}, categoryId={}, ownerId={}", startDate, endDate, categoryId, ownerId);
         BigDecimal result = transactionsService.totalSpentByCategoryAndTime(startDate, endDate, categoryId, ownerId);
-        log.info("Total spent by category processed - Amount: {}", result);
+        log.info("Total spent by category processed.");
         TotalAmountDTO totalDto = new TotalAmountDTO(result);
 
         return ResponseEntity.ok(totalDto);
@@ -44,7 +44,7 @@ public class TransactionsController {
         Integer ownerId = getOwnerId();
         log.info("Total recurring by time requested: startDate={}, endDate={}, accountId={}, currency={}, ownerId={}", startDate, endDate, accountId, currency, ownerId);
         BigDecimal result = transactionsService.totalRecurringByTime(startDate, endDate, accountId, currency, ownerId);
-        log.info("Total recurring by time processed - Amount: {}", result);
+        log.info("Total recurring by time processed.");
         TotalAmountDTO totalDto = new TotalAmountDTO(result);
 
         return ResponseEntity.ok(totalDto);
@@ -55,7 +55,7 @@ public class TransactionsController {
         Integer ownerId = getOwnerId();
         log.info("Total income by time requested: startDate={}, endDate={}, accountId={}, currency={}, ownerId={}", startDate, endDate, accountId, currency, ownerId);
         BigDecimal result = transactionsService.totalIncomeByTime(startDate, endDate, accountId, currency, ownerId);
-        log.info("Total income processed - Amount: {}", result);
+        log.info("Total income processed.");
         TotalAmountDTO totalDto = new TotalAmountDTO(result);
 
         return ResponseEntity.ok(totalDto);
@@ -66,7 +66,7 @@ public class TransactionsController {
         Integer ownerId = getOwnerId();
         log.info("Total Spent by time requested: startDate={}, endDate={}, accountId={}, currency={}, ownerId={}", startDate, endDate, accountId, currency, ownerId);
         BigDecimal result = transactionsService.totalSpentByTime(startDate, endDate, accountId, currency, ownerId);
-        log.info("Total Spent processed - Amount: {}", result);
+        log.info("Total Spent processed.");
         TotalAmountDTO totalDto = new TotalAmountDTO(result);
 
         return ResponseEntity.ok(totalDto);
@@ -77,7 +77,7 @@ public class TransactionsController {
         Integer ownerId = getOwnerId();
         log.info("Total spent ranked by category requested: startDate={}, endDate={}, accountId={}, currency={}, ownerId={}", startDate, endDate, accountId, currency, ownerId);
         List<AmountAndCategoryDTO> result = transactionsService.totalSpentInMonthByCategoryDesc(startDate, endDate, accountId, currency, ownerId);
-        log.info("Total spent ranked by category - Total spent ranked by category {}", result);
+        log.info("Total spent ranked by category processed - {} categories.", result.size());
 
         return ResponseEntity.ok(result);
     }

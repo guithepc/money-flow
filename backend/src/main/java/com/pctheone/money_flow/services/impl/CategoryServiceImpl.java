@@ -57,11 +57,11 @@ public class CategoryServiceImpl implements CategoryService {
         String categoryDescriptionFormatted = formatDescription(categoryDescription.trim());
         boolean created = categoryRepository.insertIfAbsent(ownerId, categoryDescriptionFormatted, type.name()) == 1;
         CategoryEntity category = categoryRepository.findByOwnerOwnerIdAndDescription(ownerId, categoryDescriptionFormatted)
-                .orElseThrow(() -> new IllegalStateException("Category missing right after insert: " + categoryDescriptionFormatted));
+                .orElseThrow(() -> new IllegalStateException("Category missing right after insert for owner " + ownerId));
         if (created)
-            log.info("Category {} ({}) created for owner {}", categoryDescriptionFormatted, type, ownerId);
+            log.info("Category {} ({}) created for owner {}", category.getCategoryId(), type, ownerId);
         else
-            log.info("Category {} already exists for owner {} with type {}", categoryDescriptionFormatted, ownerId, category.getType());
+            log.info("Category {} already exists for owner {} with type {}", category.getCategoryId(), ownerId, category.getType());
         return new CategoryCreationResultDTO(category, created);
     }
 

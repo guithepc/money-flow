@@ -1,0 +1,8 @@
+[Unit]
+Description=Money Flow encrypted database backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/money-flow/ops/backup-db.sh daily

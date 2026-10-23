@@ -241,7 +241,7 @@ public class TelegramBotServices {
                     return false;
                 log.info("Expense being registered.");
                 TransactionRegistrationResultDTO expense = withAccountErrors(() -> transactionsService.registerExpense(ownerId, command.get(1), parseId(command.getLast(), INVALID_ACCOUNT_MESSAGE), parseTransactionAmount(command.get(command.size() - 2)), transactionDescription(command)));
-                log.info("Expense registered successfully, amount:  {} -  Actual balance: {}", expense.getAmount(), expense.getNewBalance());
+                log.info("Expense registered for owner {}.", ownerId);
                 sendReply(chatId, BotMessageFormat.transactionConfirmation(messages, language, OperationTypeEnum.EXPENSE, expense));
                 return true;
             }
@@ -250,7 +250,7 @@ public class TelegramBotServices {
                     return false;
                 log.info("Income being registered.");
                 TransactionRegistrationResultDTO income = withAccountErrors(() -> transactionsService.registerIncome(ownerId, command.get(1), parseId(command.getLast(), INVALID_ACCOUNT_MESSAGE), parseTransactionAmount(command.get(command.size() - 2)), transactionDescription(command)));
-                log.info("Income registered successfully, amount:  {} -  Actual balance: {}", income.getAmount(), income.getNewBalance());
+                log.info("Income registered for owner {}.", ownerId);
                 sendReply(chatId, BotMessageFormat.transactionConfirmation(messages, language, OperationTypeEnum.INCOME, income));
                 return true;
             }
@@ -419,7 +419,8 @@ public class TelegramBotServices {
 
     //---- GPT returns the transaction, {"error": "CATEGORY_NOT_FOUND", "category": ..., "operationType": ...} or {"error": "NOT_UNDERSTOOD"}.
     boolean proccessTranscriptedMessage(String response, Long chatId, Integer ownerId, LanguageEnum language){
-        log.info("GPT parser response: {}", response);
+        //---- Never log the response itself: it carries descriptions and amounts.
+        log.info("GPT parser response received ({} chars) for owner {}.", response == null ? 0 : response.length(), ownerId);
 
         JsonNode node = Json.MAPPER.readTree(response);
         if (node.hasNonNull("error")) {
@@ -434,9 +435,8 @@ public class TelegramBotServices {
         }
 
         OpenAITransactionDTO transactionDTO = Json.MAPPER.treeToValue(node, OpenAITransactionDTO.class);
-        log.info("Parsed transaction - operation: {}, category: {}, description: {}, amount: {}, accountId: {}",
-                transactionDTO.getOperationType(), transactionDTO.getCategory(), transactionDTO.getDescription(),
-                transactionDTO.getAmount(), transactionDTO.getAccountId());
+        log.info("Parsed voice transaction - operation: {}, accountId: {}, owner: {}",
+                transactionDTO.getOperationType(), transactionDTO.getAccountId(), ownerId);
 
         OperationTypeEnum operationType = transactionDTO.getOperationType();
         if (operationType != OperationTypeEnum.EXPENSE && operationType != OperationTypeEnum.INCOME) {
@@ -487,7 +487,7 @@ public class TelegramBotServices {
 
     //---- "Couldn't find 'Pharmacy'. Create it as expense? [Yes] [No]"
     private void offerCategoryCreation(Long chatId, LanguageEnum language, String category, CategoryTypeEnum type){
-        log.info("Category '{}' not found, offering to create it", category);
+        log.info("Voice category not found, offering to create it ({}).", type);
         String typeLabel = messages.get(language, "category.type." + type.name());
         Optional<List<List<TelegramInlineButtonDTO>>> buttons = CategoryCallbackHandler.createButtons(category, type,
                 messages.get(language, "voice.createCategory.yes"), messages.get(language, "voice.createCategory.no"));
