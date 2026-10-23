@@ -4,8 +4,8 @@ import {
   BarChart3,
   Settings,
   LogOut,
-  TrendingUp,
 } from 'lucide-react'
+import { LogoMark } from '@/components/Logo'
 import { cn } from '@/lib/utils'
 import type { View } from '@/lib/types'
 
@@ -53,10 +53,7 @@ function NavButton({
 export function Sidebar({ active, onNavigate, onLogout }: SidebarProps) {
   return (
     <aside className="flex w-[72px] shrink-0 flex-col items-center gap-8 border-r border-edge bg-background py-6">
-      {/* Logo — quadrado lime com a seta de tendência preta */}
-      <div className="flex size-7 items-center justify-center bg-brand">
-        <TrendingUp className="size-4 text-black" strokeWidth={2.6} />
-      </div>
+      <LogoMark className="text-fg" />
 
       <nav className="flex w-full flex-1 flex-col">
         {NAV.map(({ icon, label, view }) => (
