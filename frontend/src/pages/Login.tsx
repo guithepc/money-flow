@@ -5,9 +5,10 @@ import { AuthError, AuthShell, AuthSubmit, authInput, authLabel } from '@/compon
 interface LoginProps {
   auth: UseAuth
   onSwitchToRegister: () => void
+  onForgotPassword: () => void
 }
 
-export function Login({ auth, onSwitchToRegister }: LoginProps) {
+export function Login({ auth, onSwitchToRegister, onForgotPassword }: LoginProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
@@ -46,6 +47,15 @@ export function Login({ auth, onSwitchToRegister }: LoginProps) {
             placeholder="••••••••"
           />
         </label>
+
+        {/* Fora do <label> para não entrar no nome acessível do campo de senha. */}
+        <button
+          type="button"
+          onClick={onForgotPassword}
+          className="-mt-2 self-end text-[13px] font-semibold text-indigo underline-offset-4 hover:underline"
+        >
+          Esqueci minha senha
+        </button>
 
         <AuthSubmit disabled={auth.loading}>{auth.loading ? 'Entrando…' : 'Entrar'}</AuthSubmit>
 

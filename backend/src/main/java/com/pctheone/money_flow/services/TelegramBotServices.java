@@ -64,6 +64,9 @@ public class TelegramBotServices {
     static final String VOICE_ERROR_MESSAGE = "error.voice";
     static final String NOT_LINKED_MESSAGE = "error.notLinked";
 
+    //---- Both names work in any language.
+    static final List<String> RESET_PASSWORD_COMMANDS = List.of("/redefinir_senha", "/reset_password");
+
     @Value("classpath:prompts/voice-parser.txt")
     Resource voiceParserPrompt;
 
@@ -102,6 +105,9 @@ public class TelegramBotServices {
 
     @Autowired
     BotMessages messages;
+
+    @Autowired
+    PasswordResetService passwordResetService;
 
     public void telegramRouter(Update update){
         try {
@@ -200,7 +206,9 @@ public class TelegramBotServices {
         LanguageEnum language = LanguageEnum.resolve(owner.get().getLanguage(), telegramLanguage);
 
         //---- While onboarding is not DONE, the onboarding flow gets the message first.
-        if (onboardingStep != OnboardingStepEnum.DONE) {
+        //---- Password reset goes through at any step: a locked-out owner may not have finished onboarding.
+        boolean resetPassword = !command.isEmpty() && RESET_PASSWORD_COMMANDS.contains(normalizeCommand(command.getFirst()));
+        if (onboardingStep != OnboardingStepEnum.DONE && !resetPassword) {
             String voiceFileId = message.getVoice() != null ? message.getVoice().getFileId() : null;
             if (onboardingService.handleMessage(ownerId, chatId, new OnboardingService.Input(text, voiceFileId, telegramLanguage)))
                 return;
@@ -212,7 +220,7 @@ public class TelegramBotServices {
         } else if (command.isEmpty()) {
             log.info("No text in message.");
         } else {
-            transactionRegistered = routeCommand(command, chatId, ownerId, language);
+            transactionRegistered = routeCommand(command, chatId, owner.get(), language);
         }
 
         //---- The first transaction during the onboarding tutorial finishes onboarding.
@@ -221,7 +229,8 @@ public class TelegramBotServices {
     }
 
     //---- /gasto mercado carne moida 25,90 1. Returns true when a transaction was registered.
-    private boolean routeCommand(List<String> command, Long chatId, Integer ownerId, LanguageEnum language){
+    private boolean routeCommand(List<String> command, Long chatId, OwnerEntity owner, LanguageEnum language){
+        Integer ownerId = owner.getOwnerId();
         switch (normalizeCommand(command.getFirst())){
             case "/gasto":{
                 if (isCommandToShort(command, 5, chatId, language))
@@ -319,6 +328,11 @@ public class TelegramBotServices {
             }
             case "/ajuda", "/help":{
                 sendReply(chatId, TelegramBotCommands.helpText(language.code()));
+                return false;
+            }
+            case "/redefinir_senha", "/reset_password":{
+                log.info("Password reset requested from the bot.");
+                passwordResetService.requestResetFromBot(owner, chatId, language);
                 return false;
             }
             case "/cancelar", "/cancel":{

@@ -14,7 +14,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
+import com.pctheone.money_flow.utils.MutableClock;
+
 import javax.crypto.SecretKey;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 
 public class AuthServiceTest {
@@ -103,5 +110,48 @@ public class AuthServiceTest {
         Assertions.assertEquals(ownerId.toString(), subject);
 
 
+    }
+
+    //---- Session revocation (#26): JWTs issued before password_changed_at are rejected.
+
+    @Test
+    void tokenIssuedBeforePasswordChangeIsRejectedAndAfterIsAccepted() {
+        MutableClock clock = new MutableClock(Instant.now().truncatedTo(ChronoUnit.SECONDS).plusMillis(250));
+        AuthService service = jwtService(clock);
+        OwnerEntity owner = new OwnerEntity();
+        owner.setOwnerId(1);
+        Mockito.when(ownerRepository.findById(1)).thenReturn(Optional.of(owner));
+
+        String before = service.generateToken(1);
+        Assertions.assertEquals(Optional.of(1), service.validateToken(before));
+
+        clock.advance(Duration.ofSeconds(1));
+        owner.setPasswordChangedAt(LocalDateTime.now(clock).truncatedTo(ChronoUnit.SECONDS));
+        clock.advance(Duration.ofMillis(500));
+        String sameSecond = service.generateToken(1);
+        clock.advance(Duration.ofSeconds(1));
+        String after = service.generateToken(1);
+
+        Assertions.assertEquals(Optional.empty(), service.validateToken(before));
+        Assertions.assertEquals(Optional.of(1), service.validateToken(sameSecond));
+        Assertions.assertEquals(Optional.of(1), service.validateToken(after));
+    }
+
+    @Test
+    void tokenOfDeletedOwnerOrGarbageIsRejected() {
+        AuthService service = jwtService(Clock.systemUTC());
+        Mockito.when(ownerRepository.findById(ArgumentMatchers.any())).thenReturn(Optional.empty());
+
+        Assertions.assertEquals(Optional.empty(), service.validateToken(service.generateToken(1)));
+        Assertions.assertEquals(Optional.empty(), service.validateToken("not-a-jwt"));
+        Assertions.assertEquals(Optional.empty(), service.validateToken(""));
+    }
+
+    private AuthService jwtService(Clock clock) {
+        AuthService service = new AuthService(new BCryptPasswordEncoder(), ownerRepository);
+        service.jwtExpiration = 3600000L;
+        service.jwtSecret = "tmpGFRC21ovxZhKhbd11YOC3Kw8YDyg5KcBb1dlMY0c=";
+        service.clock = clock;
+        return service;
     }
 }

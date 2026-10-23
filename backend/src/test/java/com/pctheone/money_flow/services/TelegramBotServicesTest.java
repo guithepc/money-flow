@@ -66,6 +66,7 @@ public class TelegramBotServicesTest {
     OwnerService ownerService;
     OnboardingService onboardingService;
     VoiceTranscriptionService voiceTranscriptionService;
+    PasswordResetService passwordResetService;
     BotMessages messages = new BotMessages();
     RecordingHandler handler;
 
@@ -83,6 +84,7 @@ public class TelegramBotServicesTest {
         ownerService = Mockito.mock(OwnerService.class);
         onboardingService = Mockito.mock(OnboardingService.class);
         voiceTranscriptionService = Mockito.mock(VoiceTranscriptionService.class);
+        passwordResetService = Mockito.mock(PasswordResetService.class);
 
         Mockito.when(processedUpdateService.markAsProcessed(ArgumentMatchers.anyLong())).thenReturn(true);
         OwnerEntity owner = new OwnerEntity();
@@ -108,6 +110,7 @@ public class TelegramBotServicesTest {
         service.onboardingService = onboardingService;
         service.voiceTranscriptionService = voiceTranscriptionService;
         service.messages = messages;
+        service.passwordResetService = passwordResetService;
     }
 
     //---- Error handling
@@ -480,6 +483,57 @@ public class TelegramBotServicesTest {
         InOrder order = Mockito.inOrder(telegramApiClient);
         order.verify(telegramApiClient).sendMessage(CHAT_ID, TelegramBotCommands.helpText("en"));
         order.verify(telegramApiClient).sendMessage(CHAT_ID, messages.get(LanguageEnum.EN, TelegramBotServices.NOT_LINKED_MESSAGE));
+    }
+
+    //---- Password reset (#26)
+
+    @Test
+    void resetPasswordCommandWorksWithBothNames() {
+        service.telegramRouter(textUpdate("/redefinir_senha"));
+        service.telegramRouter(textUpdate("/reset_password@MoneyFlowBot", "en"));
+
+        Mockito.verify(passwordResetService).requestResetFromBot(ArgumentMatchers.argThat(o -> o.getOwnerId() == OWNER_ID), ArgumentMatchers.eq(CHAT_ID), ArgumentMatchers.eq(LanguageEnum.PT));
+        Mockito.verify(passwordResetService).requestResetFromBot(ArgumentMatchers.argThat(o -> o.getOwnerId() == OWNER_ID), ArgumentMatchers.eq(CHAT_ID), ArgumentMatchers.eq(LanguageEnum.EN));
+    }
+
+    @Test
+    void resetPasswordCommandWorksDuringOnboarding() {
+        OwnerEntity onboarding = new OwnerEntity();
+        onboarding.setOwnerId(OWNER_ID);
+        onboarding.setOnboardingStep(OnboardingStepEnum.ACCOUNT);
+        onboarding.setLanguage("en");
+        Mockito.when(ownerRepository.findByTelegramChatId(CHAT_ID)).thenReturn(Optional.of(onboarding));
+        Mockito.when(onboardingService.handleMessage(ArgumentMatchers.eq(OWNER_ID), ArgumentMatchers.eq(CHAT_ID), ArgumentMatchers.any())).thenReturn(true);
+
+        service.telegramRouter(textUpdate("/redefinir_senha"));
+
+        Mockito.verify(passwordResetService).requestResetFromBot(onboarding, CHAT_ID, LanguageEnum.EN);
+        Mockito.verify(onboardingService, Mockito.never()).handleMessage(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any());
+    }
+
+    @Test
+    void resetPasswordFromUnlinkedChatGetsLinkInstructions() {
+        Mockito.when(ownerRepository.findByTelegramChatId(CHAT_ID)).thenReturn(Optional.empty());
+
+        service.telegramRouter(textUpdate("/reset_password", "en"));
+
+        assertSingleReply(messages.get(LanguageEnum.EN, TelegramBotServices.NOT_LINKED_MESSAGE));
+        Mockito.verifyNoInteractions(passwordResetService);
+    }
+
+    @Test
+    void resetPasswordIsInTheMenuAndHelpWithTheLanguageName() {
+        List<String> pt = TelegramBotCommands.portuguese().stream().map(c -> c.getCommand()).toList();
+        List<String> en = TelegramBotCommands.english().stream().map(c -> c.getCommand()).toList();
+
+        Assertions.assertTrue(pt.contains("redefinir_senha"));
+        Assertions.assertFalse(pt.contains("reset_password"));
+        Assertions.assertTrue(en.contains("reset_password"));
+        Assertions.assertFalse(en.contains("redefinir_senha"));
+        //---- Other commands keep one name in both menus.
+        Assertions.assertTrue(en.contains("gasto") && en.contains("nova_conta"));
+        Assertions.assertTrue(TelegramBotCommands.helpText("pt").contains("/redefinir_senha — Receber um link para redefinir sua senha"));
+        Assertions.assertTrue(TelegramBotCommands.helpText("en").contains("/reset_password — Get a link to reset your password"));
     }
 
     //---- Currency-formatted replies (#8)

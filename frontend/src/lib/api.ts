@@ -77,6 +77,50 @@ async function send<T>(method: 'POST' | 'PUT', path: string, body: unknown): Pro
 const post = <T>(path: string, body: unknown) => send<T>('POST', path, body)
 const put = <T>(path: string, body: unknown) => send<T>('PUT', path, body)
 
+/** Erro de API com o status HTTP e o código do corpo `{ error }`, quando houver. */
+export class ApiError extends Error {
+  readonly status: number
+  readonly code?: string
+
+  constructor(status: number, message: string, code?: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.code = code
+  }
+}
+
+/**
+ * POST para os endpoints públicos de `/auth`: não manda Authorization, não
+ * dispara logout no 401 e lança `ApiError` com o `code` do corpo. Respostas
+ * sem corpo (202/204) retornam `undefined` em vez de tentar parsear JSON.
+ */
+async function postPublic<T = void>(path: string, body: unknown): Promise<T> {
+  const url = new URL(`${BASE_URL}${path}`)
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+    })
+  } catch {
+    throw new ApiError(0, `Network error — ${path}`)
+  }
+  if (!res.ok) {
+    let code: string | undefined
+    try {
+      const data = (await res.json()) as { error?: unknown }
+      if (typeof data.error === 'string') code = data.error
+    } catch {
+      // Corpo vazio ou não-JSON: fica só o status.
+    }
+    throw new ApiError(res.status, `${res.status} ${res.statusText} — ${path}`, code)
+  }
+  if (res.status === 202 || res.status === 204) return undefined as T
+  return res.json() as Promise<T>
+}
+
 /** Escopo das agregações: conta específica e/ou moeda (nunca soma moedas diferentes). */
 export interface ReportScope {
   accountId?: number
@@ -149,8 +193,16 @@ export const accountsApi = {
 export const authApi = {
   login: (email: string, password: string) =>
     post<{ token: string }>('/auth/login', { email, password }),
+  // postPublic para expor o código WEAK_PASSWORD do backend.
   register: (name: string, email: string, password: string) =>
-    post<{ token: string }>('/auth/register', { name, email, password }),
+    postPublic<{ token: string }>('/auth/register', { name, email, password }),
+
+  /** Sempre 202 (não revela se o email existe); 429 quando passa do limite. */
+  requestPasswordReset: (email: string) => postPublic('/auth/password-reset/request', { email }),
+
+  /** 204 no sucesso; 400 com TOKEN_INVALID | TOKEN_EXPIRED | TOKEN_USED | WEAK_PASSWORD. */
+  confirmPasswordReset: (token: string, newPassword: string) =>
+    postPublic('/auth/password-reset/confirm', { token, newPassword }),
 }
 
 export const ownerApi = {
