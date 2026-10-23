@@ -15,6 +15,7 @@ import com.pctheone.money_flow.services.telegram.BotMessages;
 import com.pctheone.money_flow.services.telegram.TelegramBotCommands;
 import com.pctheone.money_flow.services.telegram.TelegramCallbackRegistry;
 import com.pctheone.money_flow.services.telegram.TelegramReplySender;
+import com.pctheone.money_flow.services.telegram.VoiceUsageService;
 import com.pctheone.money_flow.utils.AmountParser;
 import com.pctheone.money_flow.utils.CurrencyParser;
 import com.pctheone.money_flow.utils.MoneyFormat;
@@ -70,6 +71,9 @@ public class OnboardingStateMachine {
     @Autowired
     BotMessages messages;
 
+    @Autowired
+    VoiceUsageService voiceUsageService;
+
     //---- Sends the current step's question again (after /start or a re-link). Does nothing once DONE.
     @Transactional
     public void resume(Integer ownerId, Long chatId, String telegramLanguageCode) {
@@ -95,7 +99,7 @@ public class OnboardingStateMachine {
             String command = TelegramBotServices.normalizeCommand(text.split("\\s+")[0]);
             switch (command) {
                 case "/ajuda", "/help" -> {
-                    replySender.send(chatId, TelegramBotCommands.helpText(language.code()));
+                    replySender.send(chatId, TelegramBotCommands.helpText(language.code(), voiceUsageService.dailyLimit()));
                     askCurrentStep(owner, chatId, language);
                     return true;
                 }

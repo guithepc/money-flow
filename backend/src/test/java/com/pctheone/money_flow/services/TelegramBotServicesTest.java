@@ -27,6 +27,8 @@ import com.pctheone.money_flow.services.telegram.TelegramCallbackHandler;
 import com.pctheone.money_flow.services.telegram.TelegramCallbackRegistry;
 import com.pctheone.money_flow.services.telegram.TelegramProcessedUpdateService;
 import com.pctheone.money_flow.services.telegram.VoiceTranscriptionService;
+import com.pctheone.money_flow.services.telegram.VoiceUsageService;
+import com.pctheone.money_flow.services.telegram.VoiceUsageTestSupport;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +37,7 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.mockito.InOrder;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -67,6 +70,7 @@ public class TelegramBotServicesTest {
     OnboardingService onboardingService;
     VoiceTranscriptionService voiceTranscriptionService;
     PasswordResetService passwordResetService;
+    VoiceUsageService voiceUsageService;
     BotMessages messages = new BotMessages();
     RecordingHandler handler;
 
@@ -85,6 +89,8 @@ public class TelegramBotServicesTest {
         onboardingService = Mockito.mock(OnboardingService.class);
         voiceTranscriptionService = Mockito.mock(VoiceTranscriptionService.class);
         passwordResetService = Mockito.mock(PasswordResetService.class);
+        voiceUsageService = VoiceUsageTestSupport.spyWithLimit(messages, 20);
+        usedVoiceMessagesToday(1);
 
         Mockito.when(processedUpdateService.markAsProcessed(ArgumentMatchers.anyLong())).thenReturn(true);
         OwnerEntity owner = new OwnerEntity();
@@ -109,8 +115,14 @@ public class TelegramBotServicesTest {
         service.ownerService = ownerService;
         service.onboardingService = onboardingService;
         service.voiceTranscriptionService = voiceTranscriptionService;
+        service.voiceUsageService = voiceUsageService;
         service.messages = messages;
         service.passwordResetService = passwordResetService;
+    }
+
+    //---- Count returned by the atomic upsert for the next voice message, including it.
+    private void usedVoiceMessagesToday(int used) {
+        Mockito.doReturn(new VoiceUsageService.Quota(used, 20)).when(voiceUsageService).consume(OWNER_ID);
     }
 
     //---- Error handling
@@ -285,6 +297,82 @@ public class TelegramBotServicesTest {
         Mockito.verifyNoInteractions(openAITextClient);
     }
 
+    //---- Daily voice limit (#27)
+
+    @Test
+    void twentiethVoiceMessageIsProcessed() throws Exception {
+        service.voiceParserPrompt = new ClassPathResource("prompts/voice-parser.txt");
+        usedVoiceMessagesToday(20);
+        Mockito.when(voiceTranscriptionService.transcribe("file-1")).thenReturn("blah");
+        Mockito.when(openAITextClient.complete(ArgumentMatchers.anyString(), ArgumentMatchers.eq("blah")))
+                .thenReturn(Optional.of("{\"error\": \"NOT_UNDERSTOOD\"}"));
+
+        service.telegramRouter(voiceUpdate("file-1"));
+
+        Mockito.verify(voiceTranscriptionService).transcribe("file-1");
+        Mockito.verify(openAITextClient).complete(ArgumentMatchers.anyString(), ArgumentMatchers.eq("blah"));
+        assertSingleReply(pt("voice.notRecognized"));
+    }
+
+    @Test
+    void twentyFirstVoiceMessageIsRejectedWithoutCallingOpenAI() {
+        usedVoiceMessagesToday(21);
+
+        service.telegramRouter(voiceUpdate("file-1"));
+
+        assertSingleReply("🎙️ Você atingiu o limite de 20 áudios por hoje. Amanhã libera de novo — até lá, dá pra registrar por texto: /gasto …");
+        Mockito.verifyNoInteractions(voiceTranscriptionService, openAITextClient, categoryService, accountService, transactionsService);
+    }
+
+    @Test
+    void limitReplyFollowsTheOwnerLanguage() {
+        OwnerEntity english = new OwnerEntity();
+        english.setOwnerId(OWNER_ID);
+        english.setOnboardingStep(OnboardingStepEnum.DONE);
+        english.setLanguage("en");
+        Mockito.when(ownerRepository.findByTelegramChatId(CHAT_ID)).thenReturn(Optional.of(english));
+        usedVoiceMessagesToday(25);
+
+        service.telegramRouter(voiceUpdate("file-1"));
+
+        assertSingleReply("🎙️ You've reached today's limit of 20 voice messages. It resets tomorrow — meanwhile, type it: /gasto …");
+    }
+
+    @Test
+    void noticeFollowsTheReplyWhenThreeVoiceMessagesAreLeft() throws Exception {
+        usedVoiceMessagesToday(17);
+        Mockito.when(voiceTranscriptionService.transcribe("file-1")).thenThrow(new IOException("telegram down"));
+
+        service.telegramRouter(voiceUpdate("file-1"));
+
+        InOrder order = Mockito.inOrder(telegramApiClient);
+        order.verify(telegramApiClient).sendMessage(CHAT_ID, pt(TelegramBotServices.VOICE_ERROR_MESSAGE));
+        order.verify(telegramApiClient).sendMessage(CHAT_ID, "🎙️ 3 áudios restantes hoje.");
+        order.verifyNoMoreInteractions();
+    }
+
+    @Test
+    void noNoticeAboveOrBelowThreeLeft() throws Exception {
+        Mockito.when(voiceTranscriptionService.transcribe("file-1")).thenThrow(new IOException("telegram down"));
+        for (int used : List.of(16, 18, 20)) {
+            Mockito.reset(telegramApiClient);
+            usedVoiceMessagesToday(used);
+
+            service.telegramRouter(voiceUpdate("file-1"));
+
+            assertSingleReply(pt(TelegramBotServices.VOICE_ERROR_MESSAGE));
+            Mockito.verifyNoMoreInteractions(telegramApiClient);
+        }
+    }
+
+    @Test
+    void textCommandsDoNotCountAsVoice() {
+        service.telegramRouter(textUpdate("/categorias"));
+        service.telegramRouter(textUpdate("/gasto mercado carne 25 1"));
+
+        Mockito.verify(voiceUsageService, Mockito.never()).consume(ArgumentMatchers.any());
+    }
+
     //---- Idempotency
 
     @Test
@@ -441,15 +529,15 @@ public class TelegramBotServicesTest {
 
     @Test
     void helpPutsEachCommandNextToItsDescription() {
-        String pt = TelegramBotCommands.helpText("pt");
-        String en = TelegramBotCommands.helpText("en");
+        String pt = TelegramBotCommands.helpText("pt", 20);
+        String en = TelegramBotCommands.helpText("en", 20);
 
         for (String line : List.of("/gasto — Registrar um gasto", "/entrada — Registrar uma entrada", "/contas — ",
                 "/nova_conta — ", "/categorias — ", "/nova_categoria — ", "/transacoes — ", "/deletar_transacao — ",
-                "/cancelar — ", "/ajuda — Mostrar esta lista", "Ex.: /gasto mercado carne 25,90 1"))
+                "/cancelar — ", "/ajuda — Mostrar esta lista", "Ex.: /gasto mercado carne 25,90 1", "(até 20 por dia)"))
             Assertions.assertTrue(pt.contains(line), line);
         for (String line : List.of("/gasto — Register an expense", "/entrada — Register an income", "/help — Show this list",
-                "e.g. /gasto groceries meat 25,90 1"))
+                "e.g. /gasto groceries meat 25,90 1", "(up to 20 a day)"))
             Assertions.assertTrue(en.contains(line), line);
         //---- English help has no Portuguese descriptions or argument names left.
         for (String portuguese : List.of("Registrar", "<categoria>", "descrição", "Ex.:"))
@@ -471,7 +559,7 @@ public class TelegramBotServicesTest {
 
         service.telegramRouter(textUpdate("/ajuda", "pt-br"));
 
-        Mockito.verify(telegramApiClient).sendMessage(CHAT_ID, TelegramBotCommands.helpText("en"));
+        Mockito.verify(telegramApiClient).sendMessage(CHAT_ID, TelegramBotCommands.helpText("en", 20));
     }
 
     @Test
@@ -481,7 +569,7 @@ public class TelegramBotServicesTest {
         service.telegramRouter(textUpdate("/help", "en"));
 
         InOrder order = Mockito.inOrder(telegramApiClient);
-        order.verify(telegramApiClient).sendMessage(CHAT_ID, TelegramBotCommands.helpText("en"));
+        order.verify(telegramApiClient).sendMessage(CHAT_ID, TelegramBotCommands.helpText("en", 20));
         order.verify(telegramApiClient).sendMessage(CHAT_ID, messages.get(LanguageEnum.EN, TelegramBotServices.NOT_LINKED_MESSAGE));
     }
 
@@ -532,8 +620,8 @@ public class TelegramBotServicesTest {
         Assertions.assertFalse(en.contains("redefinir_senha"));
         //---- Other commands keep one name in both menus.
         Assertions.assertTrue(en.contains("gasto") && en.contains("nova_conta"));
-        Assertions.assertTrue(TelegramBotCommands.helpText("pt").contains("/redefinir_senha — Receber um link para redefinir sua senha"));
-        Assertions.assertTrue(TelegramBotCommands.helpText("en").contains("/reset_password — Get a link to reset your password"));
+        Assertions.assertTrue(TelegramBotCommands.helpText("pt", 20).contains("/redefinir_senha — Receber um link para redefinir sua senha"));
+        Assertions.assertTrue(TelegramBotCommands.helpText("en", 20).contains("/reset_password — Get a link to reset your password"));
     }
 
     //---- Currency-formatted replies (#8)

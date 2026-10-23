@@ -15,6 +15,8 @@ import com.pctheone.money_flow.services.telegram.BotMessages;
 import com.pctheone.money_flow.services.telegram.TelegramApiClient;
 import com.pctheone.money_flow.services.telegram.TelegramReplySender;
 import com.pctheone.money_flow.services.telegram.VoiceTranscriptionService;
+import com.pctheone.money_flow.services.telegram.VoiceUsageService;
+import com.pctheone.money_flow.services.telegram.VoiceUsageTestSupport;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,6 +45,7 @@ public class OnboardingServiceTest {
     TelegramApiClient telegramApiClient;
     AccountMessageParser accountMessageParser;
     VoiceTranscriptionService voiceTranscriptionService;
+    VoiceUsageService voiceUsageService;
     BotMessages messages = new BotMessages();
 
     @BeforeEach
@@ -56,6 +59,8 @@ public class OnboardingServiceTest {
         telegramApiClient = Mockito.mock(TelegramApiClient.class);
         accountMessageParser = Mockito.mock(AccountMessageParser.class);
         voiceTranscriptionService = Mockito.mock(VoiceTranscriptionService.class);
+        voiceUsageService = VoiceUsageTestSupport.spyWithLimit(messages, 20);
+        usedVoiceMessagesToday(1);
 
         Mockito.when(ownerRepository.findByIdForUpdate(OWNER_ID)).thenReturn(Optional.of(owner));
         Mockito.when(accountService.addAccount(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.anyInt()))
@@ -76,12 +81,14 @@ public class OnboardingServiceTest {
         stateMachine.replySender = replySender;
         stateMachine.messages = messages;
         stateMachine.dashboardUrl = DASHBOARD;
+        stateMachine.voiceUsageService = voiceUsageService;
 
         service = new OnboardingService();
         service.stateMachine = stateMachine;
         service.ownerRepository = ownerRepository;
         service.accountMessageParser = accountMessageParser;
         service.voiceTranscriptionService = voiceTranscriptionService;
+        service.voiceUsageService = voiceUsageService;
         service.replySender = replySender;
         service.messages = messages;
     }
@@ -291,6 +298,60 @@ public class OnboardingServiceTest {
 
         Mockito.verify(telegramApiClient).sendMessage(CHAT_ID, pt("error.voice"));
         Assertions.assertEquals(OnboardingStepEnum.ACCOUNT, owner.getOnboardingStep());
+    }
+
+    //---- Daily voice limit (#27): onboarding voice uses the same quota as transactions.
+
+    @Test
+    void onboardingVoiceConsumesTheDailyQuota() throws Exception {
+        atAccountStep();
+        Mockito.when(voiceTranscriptionService.transcribe("voice-1")).thenReturn("Nubank, 50 mil reais");
+        parserReturns("Nubank, 50 mil reais", "Nubank", CurrencyEnum.BRL, "50000");
+
+        service.handleMessage(OWNER_ID, CHAT_ID, new OnboardingService.Input(null, "voice-1", "pt-br"));
+
+        InOrder order = Mockito.inOrder(voiceUsageService, voiceTranscriptionService);
+        order.verify(voiceUsageService).consume(OWNER_ID);
+        order.verify(voiceTranscriptionService).transcribe("voice-1");
+    }
+
+    @Test
+    void onboardingVoiceOverTheLimitIsNotTranscribed() {
+        atAccountStep();
+        usedVoiceMessagesToday(21);
+
+        Assertions.assertTrue(service.handleMessage(OWNER_ID, CHAT_ID, new OnboardingService.Input(null, "voice-1", "pt-br")));
+
+        Mockito.verify(telegramApiClient).sendMessage(CHAT_ID,
+                "🎙️ Você atingiu o limite de 20 áudios por hoje. Amanhã libera de novo — até lá, manda a resposta por texto.");
+        Mockito.verifyNoMoreInteractions(telegramApiClient);
+        Mockito.verifyNoInteractions(voiceTranscriptionService, accountMessageParser);
+        Assertions.assertEquals(OnboardingStepEnum.ACCOUNT, owner.getOnboardingStep());
+    }
+
+    @Test
+    void onboardingNoticeFollowsTheReplyWhenThreeVoiceMessagesAreLeft() throws Exception {
+        atAccountStep();
+        usedVoiceMessagesToday(17);
+        Mockito.when(voiceTranscriptionService.transcribe("voice-1")).thenReturn("Nubank, 50 mil reais");
+        parserReturns("Nubank, 50 mil reais", "Nubank", CurrencyEnum.BRL, "50000");
+
+        service.handleMessage(OWNER_ID, CHAT_ID, new OnboardingService.Input(null, "voice-1", "pt-br"));
+
+        InOrder order = Mockito.inOrder(telegramApiClient);
+        order.verify(telegramApiClient).sendMessageWithInlineKeyboard(ArgumentMatchers.eq(CHAT_ID),
+                ArgumentMatchers.eq("🧐 Nubank · R$ 50.000,00 — está certo?"), ArgumentMatchers.any());
+        order.verify(telegramApiClient).sendMessage(CHAT_ID, "🎙️ 3 áudios restantes hoje.");
+    }
+
+    @Test
+    void typedOnboardingAnswersDoNotCountAsVoice() {
+        atAccountStep();
+        parserReturns("Nubank, 50 mil reais", "Nubank", CurrencyEnum.BRL, "50000");
+
+        service.handleMessage(OWNER_ID, CHAT_ID, text("Nubank, 50 mil reais"));
+
+        Mockito.verify(voiceUsageService, Mockito.never()).consume(ArgumentMatchers.any());
     }
 
     @Test
@@ -593,6 +654,10 @@ public class OnboardingServiceTest {
     }
 
     //---- Helpers
+
+    private void usedVoiceMessagesToday(int used) {
+        Mockito.doReturn(new VoiceUsageService.Quota(used, 20)).when(voiceUsageService).consume(OWNER_ID);
+    }
 
     private void atAccountStep() {
         service.handleCallback(OWNER_ID, CHAT_ID, "lang:pt", "pt-br");
