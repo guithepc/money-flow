@@ -149,10 +149,14 @@ Web interface for financial analytics (pt-BR):
 All endpoints except `/api/auth/*` and the Telegram webhook require `Authorization: Bearer <jwt>`. The owner always comes from the token, never from the request.
 
 ### Auth
+Sessions use a short-lived access JWT (`JWT_EXPIRATION`, 15 min by default) kept only in memory by the dashboard, plus a 30-day refresh token (`JWT_REFRESH_EXPIRATION_DAYS`) in an `HttpOnly; Secure; SameSite=Strict` cookie scoped to `/api/auth`. The refresh token is opaque, stored hashed in `refresh_token` and rotated on every refresh; presenting an already-rotated token revokes the whole session. Set `AUTH_COOKIE_SECURE=false` only for local dev over plain http. A password reset revokes every refresh token of the owner and rejects access tokens issued before it.
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/auth/register` | Create a user and receive JWT |
-| POST | `/api/auth/login` | Authenticate and receive JWT |
+| POST | `/api/auth/register` | Create a user, receive an access JWT and the refresh cookie |
+| POST | `/api/auth/login` | Authenticate, receive an access JWT and the refresh cookie |
+| POST | `/api/auth/refresh` | Exchange the refresh cookie for a new access JWT and rotate the cookie (`401` when missing, expired or revoked) |
+| POST | `/api/auth/logout` | Revoke the session server-side and clear the cookie |
 
 ### Owner
 | Method | Endpoint | Description |

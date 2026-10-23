@@ -156,6 +156,7 @@ public class PasswordResetServiceTest {
         Assertions.assertEquals(now.truncatedTo(ChronoUnit.SECONDS), owner.getPasswordChangedAt());
         Assertions.assertEquals(now, fixture.tokens.values().iterator().next().getUsedAt());
         Mockito.verify(fixture.replySender).send(CHAT_ID, fixture.messages.get(LanguageEnum.EN, "passwordReset.changed"));
+        Mockito.verify(fixture.refreshTokenService).revokeAllSessions(owner.getOwnerId());
     }
 
     @Test
@@ -219,6 +220,7 @@ public class PasswordResetServiceTest {
         Assertions.assertNull(fixture.tokens.values().iterator().next().getUsedAt());
         Assertions.assertNull(owner.getPasswordChangedAt());
         Mockito.verify(fixture.ownerRepository, Mockito.never()).save(ArgumentMatchers.any());
+        Mockito.verifyNoInteractions(fixture.refreshTokenService);
         Assertions.assertDoesNotThrow(() -> service.confirmReset(token, NEW_PASSWORD));
     }
 

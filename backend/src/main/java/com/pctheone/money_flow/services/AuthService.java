@@ -80,8 +80,8 @@ public class AuthService {
                     .getPayload();
 
             Integer ownerId = Integer.valueOf(claims.getSubject());
-            //---- PK lookup per request: a password reset ends every session issued before it.
-            //---- Refresh tokens from #24 must also be checked/revoked once they exist.
+            //---- PK lookup per request: a password reset ends every session issued before it
+            //---- (the refresh tokens are revoked by PasswordResetService at the same time).
             Optional<OwnerEntity> owner = ownerRepository.findById(ownerId);
             if (owner.isEmpty() || issuedBeforePasswordChange(claims.getIssuedAt(), owner.get().getPasswordChangedAt()))
                 return Optional.empty();

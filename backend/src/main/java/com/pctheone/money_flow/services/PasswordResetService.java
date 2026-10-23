@@ -67,6 +67,9 @@ public class PasswordResetService {
     BotMessages messages;
 
     @Autowired
+    RefreshTokenService refreshTokenService;
+
+    @Autowired
     Clock clock;
 
     TransactionTemplate transactionTemplate;
@@ -122,9 +125,10 @@ public class PasswordResetService {
                 .orElseThrow(() -> new PasswordResetException(PasswordResetException.Reason.TOKEN_INVALID));
         owner.setPasswordHash(passwordEncoder.encode(newPassword));
         //---- JWT iat has second precision: a login right after the reset (same second) must still be accepted.
-        //---- Refresh tokens from #24 must also be revoked here once they exist.
         owner.setPasswordChangedAt(now.truncatedTo(ChronoUnit.SECONDS));
         ownerRepository.save(owner);
+        //---- Same transaction: the refresh cookies (#24) die with the access tokens, so no browser silently logs back in.
+        refreshTokenService.revokeAllSessions(owner.getOwnerId());
 
         resetToken.setUsedAt(now);
         tokenRepository.saveAndFlush(resetToken);

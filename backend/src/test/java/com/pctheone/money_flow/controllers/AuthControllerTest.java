@@ -3,6 +3,7 @@ package com.pctheone.money_flow.controllers;
 import com.pctheone.money_flow.services.AuthService;
 import com.pctheone.money_flow.services.PasswordResetTestFixture;
 import com.pctheone.money_flow.services.OwnerService;
+import com.pctheone.money_flow.services.RefreshTokenService;
 import com.pctheone.money_flow.utils.PasswordPolicy;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,10 +51,15 @@ public class AuthControllerTest {
             return Optional.of(9);
         });
 
+        //---- Register also starts a session (#24): the refresh token itself is covered by AuthSessionControllerTest.
+        RefreshTokenService refreshTokenService = Mockito.mock(RefreshTokenService.class);
+        Mockito.when(refreshTokenService.issue(ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn("refresh");
+
         AuthController controller = new AuthController();
         controller.authService = authService;
         controller.ownerService = ownerService;
         controller.passwordResetService = fixture.service;
+        controller.refreshTokenService = refreshTokenService;
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 

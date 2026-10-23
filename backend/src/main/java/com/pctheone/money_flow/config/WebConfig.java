@@ -20,9 +20,11 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/api/accounts/**")
                 .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET");
+        //---- Credentials so the HttpOnly refresh cookie travels on cross-origin dev setups (localhost:5173 -> :8080).
         registry.addMapping("/api/auth/**")
                 .allowedOrigins(allowedOrigins)
-                .allowedMethods("POST");
+                .allowedMethods("POST")
+                .allowCredentials(true);
         registry.addMapping("/api/owner/**")
                 .allowedOrigins(allowedOrigins)
                 .allowedMethods("POST");
