@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { Account } from '@/lib/types'
-import { cn } from '@/lib/utils'
+import { CURRENCIES, cn, type Currency } from '@/lib/utils'
 import { useCountUp } from '@/hooks/useCountUp'
 import { useCurrency } from '@/contexts/CurrencyContext'
 
@@ -10,8 +10,11 @@ interface AccountSwitcherProps {
   selectedId: number | null
   onSelect: (id: number | null) => void
   loading?: boolean
-  /** Moeda filtrada — exibida ao lado da contagem quando o usuário tem mais de uma. */
-  currencyLabel?: string
+  /** Todas as contas do usuário (todas as moedas) — usadas nas abas de moeda. */
+  allAccounts: Account[]
+  /** Moeda filtrada no dashboard. */
+  currency: Currency
+  onCurrencyChange: (currency: Currency) => void
 }
 
 /** Final mascarado decorativo derivado do id — estética de "cartão". */
@@ -24,7 +27,9 @@ export function AccountSwitcher({
   selectedId,
   onSelect,
   loading = false,
-  currencyLabel,
+  allAccounts,
+  currency,
+  onCurrencyChange,
 }: AccountSwitcherProps) {
   const total = useMemo(() => accounts.reduce((acc, a) => acc + a.amount, 0), [accounts])
 
@@ -39,14 +44,53 @@ export function AccountSwitcher({
   const { format } = useCurrency()
   const animatedAmount = useCountUp(selected.amount)
 
+  // Sem câmbio, cada moeda é um "bolso" separado: as abas deixam visível que
+  // existem contas em outras moedas (antes ficavam escondidas num seletor no topo).
+  const currencyTabs = useMemo(
+    () =>
+      CURRENCIES.map((c) => ({
+        ...c,
+        count: allAccounts.filter((a) => a.currency === c.code).length,
+      })).filter((c) => c.count > 0),
+    [allAccounts],
+  )
+
   return (
     <section className="flex h-full min-h-[300px] flex-col justify-between gap-6 border border-edge bg-surface p-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <span className="eyebrow">Saldo acumulado</span>
-        <span className="font-mono text-[11px] text-fg-subtle">
-          {accounts.length} {accounts.length === 1 ? 'conta' : 'contas'}
-          {currencyLabel && ` · ${currencyLabel}`}
-        </span>
+        {currencyTabs.length > 1 ? (
+          <div role="tablist" aria-label="Moeda" className="flex flex-wrap gap-1.5">
+            {currencyTabs.map((c) => {
+              const active = c.code === currency
+              return (
+                <button
+                  key={c.code}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => onCurrencyChange(c.code)}
+                  title={`${c.count} ${c.count === 1 ? 'conta' : 'contas'} em ${c.label}`}
+                  className={cn(
+                    'flex items-center gap-1.5 border px-2.5 py-1 font-mono text-[11px] transition-colors duration-150',
+                    active
+                      ? 'border-brand bg-brand-soft text-brand'
+                      : 'border-edge text-fg-muted hover:border-white/30 hover:text-fg',
+                  )}
+                >
+                  <span>
+                    {c.symbol} {c.code}
+                  </span>
+                  <span className={active ? 'text-brand/70' : 'text-fg-subtle'}>{c.count}</span>
+                </button>
+              )
+            })}
+          </div>
+        ) : (
+          <span className="font-mono text-[11px] text-fg-subtle">
+            {accounts.length} {accounts.length === 1 ? 'conta' : 'contas'}
+          </span>
+        )}
       </div>
 
       {loading ? (
