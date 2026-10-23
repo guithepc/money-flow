@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Money Flow encrypted database backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
