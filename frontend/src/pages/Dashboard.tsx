@@ -8,7 +8,6 @@ import { IncomeExpenseChart } from '@/components/IncomeExpenseChart'
 import { RecentTransactions } from '@/components/RecentTransactions'
 import { EditTransactionDialog } from '@/components/EditTransactionDialog'
 import { PeriodPicker } from '@/components/PeriodPicker'
-import { CurrencySelector } from '@/components/CurrencySelector'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { useReports } from '@/hooks/useReports'
 import { useTransactions } from '@/hooks/useTransactions'
@@ -31,7 +30,7 @@ export function Dashboard() {
     accountsError,
     refreshAccounts,
     currency,
-    currencies,
+    setCurrency,
   } = useCurrency()
   // Saldos frescos ao voltar pro dashboard (o bot pode ter registrado algo).
   useEffect(() => refreshAccounts(), [refreshAccounts])
@@ -99,7 +98,6 @@ export function Dashboard() {
               setAppliedRange(r)
             }}
           />
-          <CurrencySelector />
         </div>
       </header>
 
@@ -116,7 +114,9 @@ export function Dashboard() {
           selectedId={activeAccountId}
           onSelect={setSelectedAccountId}
           loading={accountsLoading}
-          currencyLabel={currencies.length > 1 ? currency : undefined}
+          allAccounts={accounts}
+          currency={currency}
+          onCurrencyChange={setCurrency}
         />
         <BalanceHistoryChart
           data={data?.balanceHistory}
