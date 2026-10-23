@@ -30,6 +30,9 @@ import com.pctheone.money_flow.services.telegram.VoiceTranscriptionService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
@@ -47,6 +50,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+@ExtendWith(OutputCaptureExtension.class)
 public class TelegramBotServicesTest {
 
     private static final ObjectMapper UPDATE_MAPPER = new ObjectMapper()
@@ -754,6 +758,30 @@ public class TelegramBotServicesTest {
         Assertions.assertFalse(registered);
         assertSingleReply(pt("voice.categoryTypeMismatch", "Salário", "entrada"));
         Mockito.verifyNoInteractions(transactionsService);
+    }
+
+    //---- Logs must not carry financial data (descriptions, amounts, balances, categories, GPT output) — #25.
+    @Test
+    void financialDataNeverReachesTheLogs(CapturedOutput output) {
+        CategoryEntity secret = new CategoryEntity();
+        secret.setDescription("Categoriasecreta");
+        secret.setType(CategoryTypeEnum.EXPENSE);
+        Mockito.when(categoryService.findByDescription("Categoriasecreta", OWNER_ID)).thenReturn(Optional.of(secret));
+        Mockito.when(transactionsService.registerExpense(OWNER_ID, "Categoriasecreta", 1, "4321,98", "descricaosecreta"))
+                .thenReturn(new TransactionRegistrationResultDTO(new BigDecimal("4321.98"), new BigDecimal("98765.43"), CurrencyEnum.BRL, "Bancosecreto", "Categoriasecreta"));
+        Mockito.when(transactionsService.registerExpense(OWNER_ID, "categoriasecreta", 1, "4321,98", "descricaosecreta"))
+                .thenReturn(new TransactionRegistrationResultDTO(new BigDecimal("4321.98"), new BigDecimal("98765.43"), CurrencyEnum.BRL, "Bancosecreto", "Categoriasecreta"));
+
+        service.proccessTranscriptedMessage(
+                "{\"operationType\": \"EXPENSE\", \"category\": \"Categoriasecreta\", \"description\": \"descricaosecreta\", \"amount\": \"4321,98\", \"accountId\": 1}", CHAT_ID, OWNER_ID, LanguageEnum.PT);
+        service.telegramRouter(textUpdate("/gasto categoriasecreta descricaosecreta 4321,98 1"));
+        service.proccessTranscriptedMessage(
+                "{\"error\": \"CATEGORY_NOT_FOUND\", \"category\": \"Outrasecreta\", \"operationType\": \"EXPENSE\"}", CHAT_ID, OWNER_ID, LanguageEnum.PT);
+
+        String logs = output.getAll().toLowerCase();
+        Assertions.assertTrue(logs.contains("registered"), "sanity: the flow was logged");
+        for (String leak : List.of("descricaosecreta", "categoriasecreta", "outrasecreta", "bancosecreto", "4321", "98765"))
+            Assertions.assertFalse(logs.contains(leak), leak);
     }
 
     @Test

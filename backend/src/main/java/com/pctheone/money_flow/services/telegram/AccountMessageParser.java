@@ -58,7 +58,7 @@ public class AccountMessageParser {
 
         log.info("Sending account message to GPT for parsing");
         String json = openAITextClient.complete(prompt, text).orElse("{}");
-        log.info("GPT account parser response: {}", json);
+        log.info("GPT account parser response received ({} chars).", json.length());
         return fromJson(json);
     }
 

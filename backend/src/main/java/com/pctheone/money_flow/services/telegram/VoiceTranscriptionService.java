@@ -40,7 +40,7 @@ public class VoiceTranscriptionService {
                             .build());
 
             String transcription = result.asTranscription().text();
-            log.info("Whisper transcription result: {}", transcription);
+            log.info("Whisper transcription received ({} chars).", transcription == null ? 0 : transcription.length());
             return transcription;
         } finally {
             deleteTempFile(tempFile);
