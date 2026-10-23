@@ -22,6 +22,7 @@ import com.pctheone.money_flow.services.telegram.TelegramCallbackHandler;
 import com.pctheone.money_flow.services.telegram.TelegramCallbackRegistry;
 import com.pctheone.money_flow.services.telegram.TelegramProcessedUpdateService;
 import com.pctheone.money_flow.services.telegram.VoiceTranscriptionService;
+import com.pctheone.money_flow.services.telegram.VoiceUsageService;
 import com.pctheone.money_flow.utils.BotMessageFormat;
 import com.pctheone.money_flow.utils.Json;
 import com.pctheone.money_flow.utils.MoneyFormat;
@@ -84,6 +85,9 @@ public class TelegramBotServices {
 
     @Autowired
     VoiceTranscriptionService voiceTranscriptionService;
+
+    @Autowired
+    VoiceUsageService voiceUsageService;
 
     @Autowired
     TransactionsService transactionsService;
@@ -197,7 +201,7 @@ public class TelegramBotServices {
             LanguageEnum unlinkedLanguage = LanguageEnum.fromTelegram(telegramLanguage);
             //---- The command list is useful before linking too; the link instructions follow it.
             if (!command.isEmpty() && List.of("/ajuda", "/help").contains(normalizeCommand(command.getFirst())))
-                sendReply(chatId, TelegramBotCommands.helpText(unlinkedLanguage.code()));
+                sendReply(chatId, TelegramBotCommands.helpText(unlinkedLanguage.code(), voiceUsageService.dailyLimit()));
             sendReply(chatId, messages.get(unlinkedLanguage, NOT_LINKED_MESSAGE));
             return;
         }
@@ -327,7 +331,7 @@ public class TelegramBotServices {
                 return false;
             }
             case "/ajuda", "/help":{
-                sendReply(chatId, TelegramBotCommands.helpText(language.code()));
+                sendReply(chatId, TelegramBotCommands.helpText(language.code(), voiceUsageService.dailyLimit()));
                 return false;
             }
             case "/redefinir_senha", "/reset_password":{
@@ -386,6 +390,13 @@ public class TelegramBotServices {
         log.info("Voice message received from chatId: {}", chatId);
         String fileId = update.getMessage().getVoice().getFileId();
 
+        //---- Counted before the download: over the daily limit, OpenAI is never called.
+        VoiceUsageService.Quota quota = voiceUsageService.consume(ownerId);
+        if (!quota.allowed()) {
+            sendReply(chatId, voiceUsageService.limitReachedMessage(language, false));
+            return false;
+        }
+
         try{
             String transcription = voiceTranscriptionService.transcribe(fileId);
 
@@ -401,6 +412,8 @@ public class TelegramBotServices {
                 Thread.currentThread().interrupt();
             handleError(chatId, language, e, VOICE_ERROR_MESSAGE);
             return false;
+        } finally {
+            voiceUsageService.lowQuotaNotice(quota, language).ifPresent(notice -> sendReply(chatId, notice));
         }
     }
 

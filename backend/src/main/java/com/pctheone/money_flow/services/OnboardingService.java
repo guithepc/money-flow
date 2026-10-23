@@ -2,6 +2,7 @@ package com.pctheone.money_flow.services;
 
 import com.pctheone.money_flow.dto.OnboardingAccountDraftDTO;
 import com.pctheone.money_flow.entities.OwnerEntity;
+import com.pctheone.money_flow.enums.LanguageEnum;
 import com.pctheone.money_flow.enums.OnboardingStepEnum;
 import com.pctheone.money_flow.exceptions.DuplicateAccountNameException;
 import com.pctheone.money_flow.repositories.OwnerRepository;
@@ -9,6 +10,7 @@ import com.pctheone.money_flow.services.telegram.AccountMessageParser;
 import com.pctheone.money_flow.services.telegram.BotMessages;
 import com.pctheone.money_flow.services.telegram.TelegramReplySender;
 import com.pctheone.money_flow.services.telegram.VoiceTranscriptionService;
+import com.pctheone.money_flow.services.telegram.VoiceUsageService;
 import com.pctheone.money_flow.utils.AmountParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +44,9 @@ public class OnboardingService {
     VoiceTranscriptionService voiceTranscriptionService;
 
     @Autowired
+    VoiceUsageService voiceUsageService;
+
+    @Autowired
     TelegramReplySender replySender;
 
     @Autowired
@@ -59,19 +64,33 @@ public class OnboardingService {
         if (snapshot.getOnboardingStep() == OnboardingStepEnum.DONE)
             return false;
 
-        OnboardingStateMachine.PreparedAccountInput prepared = null;
-        if (snapshot.getOnboardingStep() == OnboardingStepEnum.ACCOUNT && !isCommand(input.text())) {
-            String text = input.text();
-            if (input.voiceFileId() != null) {
-                text = transcribe(input.voiceFileId());
+        if (snapshot.getOnboardingStep() == OnboardingStepEnum.ACCOUNT && !isCommand(input.text()) && input.voiceFileId() != null) {
+            //---- Same daily voice quota as transactions, counted before the download.
+            LanguageEnum language = OnboardingStateMachine.language(snapshot, input.telegramLanguageCode());
+            VoiceUsageService.Quota quota = voiceUsageService.consume(ownerId);
+            if (!quota.allowed()) {
+                replySender.send(chatId, voiceUsageService.limitReachedMessage(language, true));
+                return true;
+            }
+            try {
+                String text = transcribe(input.voiceFileId());
                 if (text == null) {
-                    replySender.send(chatId, messages.get(OnboardingStateMachine.language(snapshot, input.telegramLanguageCode()), "error.voice"));
+                    replySender.send(chatId, messages.get(language, "error.voice"));
                     return true;
                 }
+                return apply(ownerId, chatId, input, prepare(text, OnboardingDrafts.read(snapshot).getAwaiting()));
+            } finally {
+                voiceUsageService.lowQuotaNotice(quota, language).ifPresent(notice -> replySender.send(chatId, notice));
             }
-            prepared = prepare(text, OnboardingDrafts.read(snapshot).getAwaiting());
         }
 
+        OnboardingStateMachine.PreparedAccountInput prepared = null;
+        if (snapshot.getOnboardingStep() == OnboardingStepEnum.ACCOUNT && !isCommand(input.text()))
+            prepared = prepare(input.text(), OnboardingDrafts.read(snapshot).getAwaiting());
+        return apply(ownerId, chatId, input, prepared);
+    }
+
+    private boolean apply(Integer ownerId, Long chatId, Input input, OnboardingStateMachine.PreparedAccountInput prepared) {
         try {
             return stateMachine.handleMessage(ownerId, chatId, input, prepared);
         } catch (DuplicateAccountNameException e) {

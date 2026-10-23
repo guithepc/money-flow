@@ -61,7 +61,8 @@ public final class TelegramBotCommands {
     }
 
     //---- languageCode is the resolved language ("pt" / "en") or a Telegram code ("pt-br"). Anything not Portuguese gets English.
-    public static String helpText(String languageCode) {
+    //---- voiceDailyLimit is voice.daily-limit, shown next to the voice tip.
+    public static String helpText(String languageCode, int voiceDailyLimit) {
         boolean portuguese = languageCode != null && languageCode.toLowerCase().startsWith("pt");
         StringBuilder text = new StringBuilder(portuguese ? "🤖 Comandos disponíveis\n\n" : "🤖 Available commands\n\n");
         for (Entry entry : ENTRIES) {
@@ -77,9 +78,9 @@ public final class TelegramBotCommands {
                 ? "/cancelar — Sair da configuração inicial\n/ajuda — Mostrar esta lista\n"
                 : "/cancelar — Leave the initial setup\n/help — Show this list\n");
         text.append(portuguese
-                ? "\n🎙️ Você também pode mandar um áudio: \"gastei 30 no mercado na Nubank\"."
+                ? "\n🎙️ Você também pode mandar um áudio: \"gastei 30 no mercado na Nubank\" (até " + voiceDailyLimit + " por dia)."
                 + "\n💡 Valores com vírgula nos centavos: 25,90 ou 1.250,90. O ID da conta aparece em /contas."
-                : "\n🎙️ You can also send a voice message: \"spent 30 on groceries at Nubank\"."
+                : "\n🎙️ You can also send a voice message: \"spent 30 on groceries at Nubank\" (up to " + voiceDailyLimit + " a day)."
                 + "\n💡 Amounts use a comma for cents: 25,90 or 1.250,90. The account ID is shown in /contas.");
         return text.toString();
     }
