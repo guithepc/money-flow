@@ -6,7 +6,7 @@ Database backups are encrypted with [age](https://age-encryption.org) before the
 - The server only has the age **public** key (`/root/.config/money-flow/backup-recipients.txt`). Anyone with access to the VPS can create backups but cannot read them.
 - The **private** key lives off the server, with the owner (`~/.config/money-flow/backup-age-key.txt`). Keep a copy in a password manager: without it the backups cannot be restored.
 - Backups go to `/root/backups/money-flow-<UTC timestamp>-<label>.sql.age`, mode `600`.
-- A systemd timer runs a `daily` backup at 03:30 UTC. Daily backups older than 30 days are deleted. Labelled backups (`pre-deploy`, `manual`, …) are kept until removed by hand.
+- A systemd timer runs a `daily` backup at 03:30 UTC. Daily backups older than 14 days are deleted. Labelled backups (`pre-deploy`, `manual`, …) are kept until removed by hand.
 
 ## Setup on the VPS (once)
 

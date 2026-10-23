@@ -190,16 +190,11 @@ Every query takes `startDate` / `endDate` and an optional `accountId`.
 
 ## Backups
 
-A daily Postgres dump runs on the VPS at 03:30 via a systemd timer (the VPS has no cron) and is kept for 14 days in `/root/backups` (`money-flow-daily-*.sql.gz`). Manual pre-deploy dumps in the same folder are not rotated.
+Backups are **encrypted** with [age](https://age-encryption.org): `ops/backup-db.sh` pipes `pg_dump` straight into `age`, and only the public key lives on the VPS, so whoever has the server can create backups but not read them.
 
-```bash
-chmod +x /opt/money-flow/ops/backup-postgres.sh
-cp /opt/money-flow/ops/money-flow-backup.{service,timer} /etc/systemd/system/
-systemctl daemon-reload && systemctl enable --now money-flow-backup.timer
-/opt/money-flow/ops/backup-postgres.sh   # first run by hand
-```
-
-Restore: `gunzip -c <file>.sql.gz | docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" "$POSTGRES_DB"'` (into an empty database).
+- Daily at 03:30 UTC via a systemd timer (the VPS has no cron), kept for 14 days: `/root/backups/money-flow-<UTC>-daily.sql.age`.
+- Before a deploy: `/opt/money-flow/ops/backup-db.sh pre-deploy` (labelled backups are not rotated).
+- Setup, restore and key rotation: [docs/backups.md](docs/backups.md).
 
 ## Roadmap
 
