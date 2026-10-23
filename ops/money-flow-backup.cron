@@ -1,5 +1,0 @@
-# Install: cp ops/money-flow-backup.cron /etc/cron.d/money-flow-backup
-# Daily Postgres backup at 03:30 server time, kept 14 days.
-SHELL=/bin/bash
-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-30 3 * * * root /opt/money-flow/ops/backup-postgres.sh >> /var/log/money-flow-backup.log 2>&1

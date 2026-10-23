@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#---- Daily Postgres backup for the VPS. Runs from cron (see ops/money-flow-backup.cron).
+#---- Daily Postgres backup for the VPS. Runs from a systemd timer (see ops/money-flow-backup.timer).
 #---- Dumps the database through the running compose service, gzips it and keeps the last RETENTION_DAYS days.
 set -euo pipefail
 

@@ -190,11 +190,12 @@ Every query takes `startDate` / `endDate` and an optional `accountId`.
 
 ## Backups
 
-A daily Postgres dump runs on the VPS at 03:30 via cron and is kept for 14 days in `/root/backups` (`money-flow-daily-*.sql.gz`). Manual pre-deploy dumps in the same folder are not rotated.
+A daily Postgres dump runs on the VPS at 03:30 via a systemd timer (the VPS has no cron) and is kept for 14 days in `/root/backups` (`money-flow-daily-*.sql.gz`). Manual pre-deploy dumps in the same folder are not rotated.
 
 ```bash
 chmod +x /opt/money-flow/ops/backup-postgres.sh
-cp /opt/money-flow/ops/money-flow-backup.cron /etc/cron.d/money-flow-backup
+cp /opt/money-flow/ops/money-flow-backup.{service,timer} /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now money-flow-backup.timer
 /opt/money-flow/ops/backup-postgres.sh   # first run by hand
 ```
 
