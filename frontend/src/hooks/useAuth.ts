@@ -6,7 +6,7 @@ import { PASSWORD_RULE_MESSAGE, validatePassword } from '@/lib/password'
 // Depois do cadastro mandamos a pessoa pro tutorial (não pro painel), pra ela entender o fluxo
 // do bot antes de usar. O cookie de refresh já foi setado pelo register, então ao voltar pro app
 // (pelo CTA do tutorial) ela continua logada.
-const SIGNUP_REDIRECT_URL = 'https://landing-page-money-flow.vercel.app/comandos'
+const SIGNUP_REDIRECT_URL = 'https://landing-page-money-flow.vercel.app/tutorial'
 
 interface AuthState {
   isAuthenticated: boolean
