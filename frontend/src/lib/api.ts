@@ -1,4 +1,5 @@
 import type {
+  AdminMetrics,
   Account,
   Currency,
   AmountAndCategory,
@@ -297,4 +298,9 @@ export const ownerApi = {
    * Depois disso, chame `authApi.logout()` para apagar o cookie de refresh também em dev cross-origin.
    */
   deleteAccount: (password: string) => del<void>('/owner', { password }),
+}
+
+export const adminApi = {
+  /** Volumetria global. 403 se o owner não estiver em app.admin-owner-ids. */
+  metrics: () => get<AdminMetrics>('/admin/metrics'),
 }

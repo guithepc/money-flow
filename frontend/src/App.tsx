@@ -3,6 +3,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { Dashboard } from '@/pages/Dashboard'
 import { Accounts } from '@/pages/Accounts'
 import { Settings } from '@/pages/Settings'
+import { Admin } from '@/pages/Admin'
 import { Login } from '@/pages/Login'
 import { Register } from '@/pages/Register'
 import { ForgotPassword } from '@/pages/ForgotPassword'
@@ -29,13 +30,16 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
   const [view, setView] = useState<View>('dashboard')
   // null = verificando. Se a consulta falhar, não bloqueia o painel (o backend não depende do aceite).
   const [termsAccepted, setTermsAccepted] = useState<boolean | null>(null)
+  const [admin, setAdmin] = useState(false)
 
   useEffect(() => {
     let active = true
     ownerApi
       .me()
       .then((profile) => {
-        if (active) setTermsAccepted(profile.termsAccepted)
+        if (!active) return
+        setTermsAccepted(profile.termsAccepted)
+        setAdmin(profile.admin)
       })
       .catch(() => {
         if (active) setTermsAccepted(true)
@@ -58,11 +62,12 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
   return (
     <CurrencyProvider>
       <div className="flex h-screen bg-background text-fg">
-        <Sidebar active={view} onNavigate={setView} onLogout={onLogout} />
+        <Sidebar active={view} onNavigate={setView} onLogout={onLogout} admin={admin} />
         {view === 'dashboard' && <Dashboard />}
         {view === 'accounts' && <Accounts />}
         {view === 'reports' && <Placeholder title="Relatórios" />}
         {view === 'settings' && <Settings />}
+        {view === 'admin' && admin && <Admin />}
       </div>
     </CurrencyProvider>
   )

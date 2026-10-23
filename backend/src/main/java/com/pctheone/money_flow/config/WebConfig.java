@@ -32,5 +32,9 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/api/owner/**")
                 .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "POST", "DELETE");
+        //---- Admin volumetry dashboard (read-only, gated by app.admin-owner-ids in the controller).
+        registry.addMapping("/api/admin/**")
+                .allowedOrigins(allowedOrigins)
+                .allowedMethods("GET");
     }
 }
