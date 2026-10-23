@@ -98,12 +98,12 @@ public class OnboardingServiceTest {
     @Test
     void languageQuestionIsAskedInTelegramLanguageWithItFirst() {
         service.resume(OWNER_ID, CHAT_ID, "en");
-        List<List<TelegramInlineButtonDTO>> english = lastKeyboard(en("onboarding.language.question"));
+        List<List<TelegramInlineButtonDTO>> english = lastKeyboard(en("onboarding.language.question", DASHBOARD + "/privacy"));
         Assertions.assertEquals("onb:lang:en", english.getFirst().getFirst().getCallbackData());
 
         Mockito.reset(telegramApiClient);
         service.resume(OWNER_ID, CHAT_ID, "pt-br");
-        List<List<TelegramInlineButtonDTO>> portuguese = lastKeyboard(pt("onboarding.language.question"));
+        List<List<TelegramInlineButtonDTO>> portuguese = lastKeyboard(pt("onboarding.language.question", DASHBOARD + "/privacy"));
         Assertions.assertEquals("onb:lang:pt", portuguese.getFirst().getFirst().getCallbackData());
         Assertions.assertEquals("onb:lang:en", portuguese.getFirst().get(1).getCallbackData());
     }
@@ -140,7 +140,7 @@ public class OnboardingServiceTest {
         service.handleMessage(OWNER_ID, CHAT_ID, text("oi"));
 
         Assertions.assertEquals(OnboardingStepEnum.LANGUAGE, owner.getOnboardingStep());
-        lastKeyboard(pt("onboarding.language.question"));
+        lastKeyboard(pt("onboarding.language.question", DASHBOARD + "/privacy"));
         Mockito.verifyNoInteractions(categoryService);
     }
 

@@ -106,7 +106,11 @@ interface RequestOptions {
   body?: unknown
 }
 
-async function request<T>(method: 'GET' | 'POST' | 'PUT', path: string, options: RequestOptions = {}): Promise<T> {
+async function request<T>(
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
   const url = new URL(`${BASE_URL}${path}`)
   for (const [key, value] of Object.entries(options.params ?? {})) {
     url.searchParams.set(key, value)
@@ -138,20 +142,23 @@ async function request<T>(method: 'GET' | 'POST' | 'PUT', path: string, options:
     const renewed = current !== null && current !== sentWith ? true : await refreshSession()
     if (!renewed) {
       signalUnauthorized()
-      throw new Error(`401 Unauthorized — ${path}`)
+      throw new ApiError(401, `401 Unauthorized — ${path}`)
     }
     res = await call(getToken())
   }
 
   if (!res.ok) {
-    throw new Error(`${res.status} ${res.statusText} — ${path}`)
+    throw new ApiError(res.status, `${res.status} ${res.statusText} — ${path}`)
   }
+  // 204 No Content: não há corpo para ler.
+  if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }
 
 const get = <T>(path: string, params: Record<string, string> = {}) => request<T>('GET', path, { params })
 const post = <T>(path: string, body: unknown) => request<T>('POST', path, { body })
 const put = <T>(path: string, body: unknown) => request<T>('PUT', path, { body })
+const del = <T>(path: string, body: unknown) => request<T>('DELETE', path, { body })
 
 /** Escopo das agregações: conta específica e/ou moeda (nunca soma moedas diferentes). */
 export interface ReportScope {
@@ -248,8 +255,9 @@ export const authApi = {
   login: (email: string, password: string) =>
     authPost<{ token: string }>('/auth/login', { email, password }),
   // authPost lança ApiError com o código WEAK_PASSWORD do backend.
-  register: (name: string, email: string, password: string) =>
-    authPost<{ token: string }>('/auth/register', { name, email, password }),
+  /** acceptedTermsVersion: versão dos termos aceita no checkbox do cadastro (obrigatória no backend). */
+  register: (name: string, email: string, password: string, acceptedTermsVersion: string) =>
+    authPost<{ token: string }>('/auth/register', { name, email, password, acceptedTermsVersion }),
   /** Revoga a sessão no servidor e apaga o cookie de refresh. */
   logout: async (): Promise<void> => {
     await authFetch('/auth/logout')
@@ -267,4 +275,12 @@ export const ownerApi = {
   // ownerId sai do JWT no backend — nada é enviado no corpo.
   me: () => get<OwnerProfile>('/owner/me'),
   telegramInvite: () => post<TelegramInvite>('/owner/telegram-invite', {}),
+  acceptTerms: (termsVersion: string) => post<void>('/owner/terms-acceptance', { termsVersion }),
+  /** Tudo que o backend guarda do usuário (perfil, contas, categorias, transações), em JSON. */
+  exportData: () => get<unknown>('/owner/export'),
+  /**
+   * Exclui a conta e todos os dados (as sessões vão junto, em cascata). 403 = senha errada.
+   * Depois disso, chame `authApi.logout()` para apagar o cookie de refresh também em dev cross-origin.
+   */
+  deleteAccount: (password: string) => del<void>('/owner', { password }),
 }

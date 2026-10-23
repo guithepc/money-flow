@@ -3,6 +3,7 @@ package com.pctheone.money_flow.services.impl;
 import com.pctheone.money_flow.exceptions.WeakPasswordException;
 import com.pctheone.money_flow.repositories.OwnerRepository;
 import com.pctheone.money_flow.services.AuthService;
+import com.pctheone.money_flow.utils.LegalTerms;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
@@ -20,7 +21,7 @@ public class OwnerRegistrationTest {
         OwnerServiceImpl service = service();
 
         for (String weak : new String[]{null, "", "        ", "1234567", "a".repeat(73)})
-            Assertions.assertThrows(WeakPasswordException.class, () -> service.registerOwner("G", "g@example.com", weak), String.valueOf(weak));
+            Assertions.assertThrows(WeakPasswordException.class, () -> service.registerOwner("G", "g@example.com", weak, LegalTerms.CURRENT_VERSION), String.valueOf(weak));
 
         Mockito.verifyNoInteractions(authService);
     }
@@ -28,9 +29,9 @@ public class OwnerRegistrationTest {
     @Test
     void validPasswordRegisters() {
         Mockito.when(ownerRepository.findByEmail("g@example.com")).thenReturn(Optional.empty());
-        Mockito.when(authService.register(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(Optional.of(1));
+        Mockito.when(authService.register(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(Optional.of(1));
 
-        Assertions.assertEquals(Optional.of(1), service().registerOwner("G", "g@example.com", "12345678"));
+        Assertions.assertEquals(Optional.of(1), service().registerOwner("G", "g@example.com", "12345678", LegalTerms.CURRENT_VERSION));
     }
 
     private OwnerServiceImpl service() {

@@ -67,6 +67,9 @@ public class OnboardingFlowIntegrationTest {
     @Autowired
     BotMessages messages;
 
+    @Autowired
+    OnboardingStateMachine stateMachine;
+
     long chatId = ThreadLocalRandom.current().nextLong(1_000_000_000L, 9_000_000_000L);
     int updateId = ThreadLocalRandom.current().nextInt(1_000_000_000, 2_000_000_000);
     Integer ownerId;
@@ -117,7 +120,7 @@ public class OnboardingFlowIntegrationTest {
         route(text("/start " + invite()));
         Mockito.verify(telegramApiClient).sendMessage(chatId, messages.get(LanguageEnum.PT, "link.success"));
         Mockito.verify(telegramApiClient).sendMessageWithInlineKeyboard(ArgumentMatchers.eq(chatId),
-                ArgumentMatchers.eq(messages.get(LanguageEnum.PT, "onboarding.language.question")), ArgumentMatchers.any());
+                ArgumentMatchers.eq(messages.get(LanguageEnum.PT, "onboarding.language.question", stateMachine.privacyUrl())), ArgumentMatchers.any());
 
         //---- Double click on the language button: categories seeded once
         route(callback("onb:lang:pt"));

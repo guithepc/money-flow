@@ -13,7 +13,7 @@ interface AuthState {
 
 export interface UseAuth extends AuthState {
   login: (email: string, password: string) => Promise<void>
-  register: (name: string, email: string, password: string) => Promise<void>
+  register: (name: string, email: string, password: string, acceptedTermsVersion: string) => Promise<void>
   logout: () => void
   clearError: () => void
 }
@@ -82,7 +82,7 @@ export function useAuth(): UseAuth {
     }
   }, [])
 
-  const register = useCallback(async (name: string, email: string, password: string) => {
+  const register = useCallback(async (name: string, email: string, password: string, acceptedTermsVersion: string) => {
     const weak = validatePassword(password)
     if (weak) {
       setState({ isAuthenticated: false, restoring: false, loading: false, error: weak })
@@ -90,7 +90,7 @@ export function useAuth(): UseAuth {
     }
     setState((s) => ({ ...s, loading: true, error: null }))
     try {
-      const { token } = await authApi.register(name, email, password)
+      const { token } = await authApi.register(name, email, password, acceptedTermsVersion)
       setToken(token)
       setState({ isAuthenticated: true, restoring: false, loading: false, error: null })
     } catch (e) {

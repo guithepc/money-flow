@@ -25,8 +25,9 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedOrigins(allowedOrigins)
                 .allowedMethods("POST")
                 .allowCredentials(true);
+        //---- GET /me and /export, POST invite and terms acceptance, DELETE for account deletion.
         registry.addMapping("/api/owner/**")
                 .allowedOrigins(allowedOrigins)
-                .allowedMethods("POST");
+                .allowedMethods("GET", "POST", "DELETE");
     }
 }

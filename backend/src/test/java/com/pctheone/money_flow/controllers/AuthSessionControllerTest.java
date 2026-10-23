@@ -2,6 +2,7 @@ package com.pctheone.money_flow.controllers;
 
 import com.pctheone.money_flow.services.AuthService;
 import com.pctheone.money_flow.services.telegram.TelegramApiClient;
+import com.pctheone.money_flow.utils.LegalTerms;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -64,7 +65,7 @@ public class AuthSessionControllerTest {
     @BeforeEach
     void setUp() {
         email = "auth-" + UUID.randomUUID() + "@test.local";
-        ownerId = authService.register("auth", email, PASSWORD).orElseThrow();
+        ownerId = authService.register("auth", email, PASSWORD, LegalTerms.CURRENT_VERSION).orElseThrow();
     }
 
     @AfterEach

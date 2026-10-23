@@ -23,4 +23,9 @@ public interface CategoryRepository extends JpaRepository<CategoryEntity, Intege
     @Query(value = "INSERT INTO category (owner_id, description, type) VALUES (:ownerId, :description, CAST(:type AS category_type)) " +
             "ON CONFLICT (owner_id, description) DO NOTHING", nativeQuery = true)
     int insertIfAbsent(@Param("ownerId") Integer ownerId, @Param("description") String description, @Param("type") String type);
+
+    //---- Account deletion: runs after the owner's transactions and recurring payments are gone.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM category WHERE owner_id = :ownerId", nativeQuery = true)
+    int deleteAllByOwnerId(@Param("ownerId") Integer ownerId);
 }

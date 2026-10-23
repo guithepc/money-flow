@@ -9,4 +9,6 @@ public class OwnerProfileDTO {
     private String name;
     private String email;
     private boolean telegramLinked;
+    //---- False until the owner accepts the current terms version; the dashboard asks for it before anything else.
+    private boolean termsAccepted;
 }

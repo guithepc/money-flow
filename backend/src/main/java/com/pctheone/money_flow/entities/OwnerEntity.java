@@ -61,4 +61,12 @@ public class OwnerEntity {
     //---- Last password reset, truncated to seconds. JWTs issued before it are rejected (AuthService.validateToken).
     @Column(name = "password_changed_at")
     private LocalDateTime passwordChangedAt;
+
+    //---- Consent record: when the owner accepted the terms/privacy policy and which version (LegalTerms.CURRENT_VERSION).
+    //---- Null for owners created before #28; they are asked to accept on their next login.
+    @Column(name = "terms_accepted_at")
+    private LocalDateTime termsAcceptedAt;
+
+    @Column(name = "terms_version", length = 20)
+    private String termsVersion;
 }

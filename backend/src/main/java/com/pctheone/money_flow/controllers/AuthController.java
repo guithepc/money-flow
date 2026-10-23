@@ -78,7 +78,7 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<LoginResponseDTO> register (@RequestBody RegisterRequestDTO registerRequestDTO, HttpServletRequest request){
         log.info("Register requested.");
-        Integer ownerId = ownerService.registerOwner(registerRequestDTO.getName(), registerRequestDTO.getEmail(), registerRequestDTO.getPassword()).orElseThrow(() -> new InvalidCredentialsException("Invalid credentials"));
+        Integer ownerId = ownerService.registerOwner(registerRequestDTO.getName(), registerRequestDTO.getEmail(), registerRequestDTO.getPassword(), registerRequestDTO.getAcceptedTermsVersion()).orElseThrow(() -> new InvalidCredentialsException("Invalid credentials"));
         return startSession(ownerId, request);
     }
 
@@ -127,13 +127,22 @@ public class AuthController {
     }
 
     private ResponseCookie clearRefreshCookie() {
-        return baseCookie("").maxAge(Duration.ZERO).build();
+        return clearRefreshCookie(cookieSecure);
+    }
+
+    //---- Also used by OwnerController: deleting the account ends the session in the browser too.
+    static ResponseCookie clearRefreshCookie(boolean secure) {
+        return baseCookie("", secure).maxAge(Duration.ZERO).build();
     }
 
     private ResponseCookie.ResponseCookieBuilder baseCookie(String value) {
+        return baseCookie(value, cookieSecure);
+    }
+
+    private static ResponseCookie.ResponseCookieBuilder baseCookie(String value, boolean secure) {
         return ResponseCookie.from(REFRESH_COOKIE, value)
                 .httpOnly(true)
-                .secure(cookieSecure)
+                .secure(secure)
                 .sameSite("Strict")
                 .path(REFRESH_COOKIE_PATH);
     }

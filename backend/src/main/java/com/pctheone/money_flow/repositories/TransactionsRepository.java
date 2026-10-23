@@ -24,6 +24,14 @@ public interface TransactionsRepository extends JpaRepository<TransactionsEntity
     @Query("SELECT t FROM TransactionsEntity t WHERE t.transactionsId = :id")
     Optional<TransactionsEntity> findByIdForUpdate(@Param("id") Integer id);
 
+    //---- Data export: every transaction of the owner, oldest first.
+    List<TransactionsEntity> findByOwnerOwnerIdOrderByTimestampAscTransactionsIdAsc(Integer ownerId);
+
+    //---- Account deletion. Native so it runs as one DELETE, without loading the rows.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM transactions WHERE owner_id = :ownerId", nativeQuery = true)
+    int deleteAllByOwnerId(@Param("ownerId") Integer ownerId);
+
 
 
     @Query("SELECT new com.pctheone.money_flow.dto.AmountAndCategoryDTO(SUM(t.amount), t.category.description) from TransactionsEntity as t " +

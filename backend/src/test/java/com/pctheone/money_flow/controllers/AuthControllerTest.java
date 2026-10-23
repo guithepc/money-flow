@@ -4,6 +4,7 @@ import com.pctheone.money_flow.services.AuthService;
 import com.pctheone.money_flow.services.PasswordResetTestFixture;
 import com.pctheone.money_flow.services.OwnerService;
 import com.pctheone.money_flow.services.RefreshTokenService;
+import com.pctheone.money_flow.utils.LegalTerms;
 import com.pctheone.money_flow.utils.PasswordPolicy;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +47,7 @@ public class AuthControllerTest {
         Mockito.when(authService.generateToken(ArgumentMatchers.any())).thenReturn("jwt");
         //---- Real rule check (OwnerServiceImpl applies PasswordPolicy), the rest of registration mocked.
         ownerService = Mockito.mock(OwnerService.class);
-        Mockito.when(ownerService.registerOwner(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any())).thenAnswer(invocation -> {
+        Mockito.when(ownerService.registerOwner(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any())).thenAnswer(invocation -> {
             PasswordPolicy.check(invocation.getArgument(2));
             return Optional.of(9);
         });
@@ -147,6 +148,7 @@ public class AuthControllerTest {
 
     private ResultActions register(String password) throws Exception {
         return mockMvc.perform(post(REGISTER_URL).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\": \"G\", \"email\": \"new@example.com\", \"password\": \"" + password + "\"}"));
+                .content("{\"name\": \"G\", \"email\": \"new@example.com\", \"password\": \"" + password
+                        + "\", \"acceptedTermsVersion\": \"" + LegalTerms.CURRENT_VERSION + "\"}"));
     }
 }

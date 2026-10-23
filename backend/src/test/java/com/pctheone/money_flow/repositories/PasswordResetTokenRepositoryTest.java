@@ -101,7 +101,7 @@ public class PasswordResetTokenRepositoryTest {
 
     private OwnerEntity createOwner(String prefix) {
         String email = prefix + "-" + UUID.randomUUID() + "@reset.test";
-        return ownerRepository.save(new OwnerEntity(null, prefix, email, null, "x".repeat(60), null, null, null, OnboardingStepEnum.DONE, null, null));
+        return ownerRepository.save(new OwnerEntity(null, prefix, email, null, "x".repeat(60), null, null, null, OnboardingStepEnum.DONE, null, null, null, null));
     }
 
     private PasswordResetTokenEntity token(OwnerEntity owner, LocalDateTime usedAt) {
