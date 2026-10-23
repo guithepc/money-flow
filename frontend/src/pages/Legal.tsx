@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, TrendingUp } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
+import { Logo } from '@/components/Logo'
 import { LEGAL_PATHS, LEGAL_UPDATED_AT, TERMS_VERSION } from '@/lib/legal'
 import {
   LEGAL_DOCUMENTS,
@@ -64,11 +65,8 @@ export function Legal({ kind }: { kind: LegalDocumentKind }) {
     <div className="bg-page-grid h-screen overflow-y-auto bg-background text-fg">
       <header className="border-b border-edge">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-5">
-          <a href="/" className="flex items-center gap-2.5">
-            <span className="flex size-7 items-center justify-center bg-brand">
-              <TrendingUp className="size-4 text-black" strokeWidth={2.6} />
-            </span>
-            <span className="font-display text-lg font-semibold tracking-[-0.02em]">money flow</span>
+          <a href="/">
+            <Logo />
           </a>
 
           <div role="group" aria-label="Idioma / Language" className="flex border border-edge">
