@@ -32,6 +32,15 @@ public interface TransactionsRepository extends JpaRepository<TransactionsEntity
     @Query(value = "DELETE FROM transactions WHERE owner_id = :ownerId", nativeQuery = true)
     int deleteAllByOwnerId(@Param("ownerId") Integer ownerId);
 
+    //---- How many transactions a given account holds (drives the delete-account confirmation).
+    @Query("SELECT COUNT(t) FROM TransactionsEntity t WHERE t.account.accountId = :accountId AND t.owner.ownerId = :ownerId")
+    long countByAccount(@Param("accountId") Integer accountId, @Param("ownerId") Integer ownerId);
+
+    //---- Cascade delete of an account: its transactions go first (they reference recurring_payment and account).
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM transactions WHERE account_id = :accountId AND owner_id = :ownerId", nativeQuery = true)
+    int deleteByAccountIdAndOwnerId(@Param("accountId") Integer accountId, @Param("ownerId") Integer ownerId);
+
 
 
     @Query("SELECT new com.pctheone.money_flow.dto.AmountAndCategoryDTO(SUM(t.amount), t.category.description) from TransactionsEntity as t " +

@@ -21,6 +21,8 @@ export interface Account {
   description: string
   amount: number
   currency: Currency
+  /** Quantas transações apontam para esta conta (usado na confirmação de exclusão). */
+  transactionCount: number
 }
 
 /** operation ENUM do backend (EXPENSE, INCOME, TRANSFER). */

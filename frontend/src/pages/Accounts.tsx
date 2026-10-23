@@ -1,7 +1,9 @@
-import { useEffect, useMemo } from 'react'
-import { Wallet } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Pencil, Wallet } from 'lucide-react'
+import { EditAccountDialog } from '@/components/EditAccountDialog'
 import { KpiStrip, type KpiItem } from '@/components/KpiStrip'
 import { useCurrency } from '@/contexts/CurrencyContext'
+import type { Account } from '@/lib/types'
 import { cn, type Currency } from '@/lib/utils'
 
 export function Accounts() {
@@ -14,6 +16,7 @@ export function Accounts() {
     format,
   } = useCurrency()
   useEffect(() => refreshAccounts(), [refreshAccounts])
+  const [editing, setEditing] = useState<Account | null>(null)
 
   // Sem câmbio: um total por moeda, nunca somando moedas diferentes.
   const totals = useMemo(() => {
@@ -96,7 +99,7 @@ export function Accounts() {
               return (
                 <li
                   key={account.accountId}
-                  className="flex h-16 items-center gap-4 border-b border-white/8 px-6 transition-colors duration-150 last:border-b-0 hover:bg-white/[0.03]"
+                  className="group flex h-16 items-center gap-4 border-b border-white/8 px-6 transition-colors duration-150 last:border-b-0 hover:bg-white/[0.03]"
                 >
                   <span className="flex size-8 shrink-0 items-center justify-center border border-edge">
                     <Wallet className="size-4 text-fg-muted" strokeWidth={1.8} />
@@ -118,12 +121,31 @@ export function Accounts() {
                   >
                     {format(account.amount, account.currency)}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(account)}
+                    aria-label={`Editar ${account.description}`}
+                    className="flex size-8 shrink-0 items-center justify-center border border-edge text-fg-muted opacity-0 transition-all duration-150 hover:border-white/30 hover:text-fg group-hover:opacity-100 focus-visible:opacity-100"
+                  >
+                    <Pencil className="size-4" strokeWidth={1.8} />
+                  </button>
                 </li>
               )
             })}
           </ul>
         )}
       </section>
+
+      {editing && (
+        <EditAccountDialog
+          account={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null)
+            refreshAccounts()
+          }}
+        />
+      )}
     </main>
   )
 }

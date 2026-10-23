@@ -228,8 +228,19 @@ export const categoriesApi = {
   list: () => get<Category[]>('/categories'),
 }
 
+export interface AccountDeletionSummary {
+  deletedTransactions: number
+  deletedRecurringPayments: number
+}
+
 export const accountsApi = {
   getAll: () => get<Account[]>('/accounts'),
+
+  /** Renomeia a conta. Lança ApiError 409 se já existir outra conta com esse nome. */
+  rename: (id: number, description: string) => put<Account>(`/accounts/${id}`, { description }),
+
+  /** Exclui a conta e, em cascata, todas as suas transações e recorrentes. */
+  remove: (id: number) => del<AccountDeletionSummary>(`/accounts/${id}`, undefined),
 }
 
 /**

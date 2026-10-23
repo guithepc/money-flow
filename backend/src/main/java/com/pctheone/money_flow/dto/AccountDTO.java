@@ -13,4 +13,6 @@ public class AccountDTO {
     private String description;
     private BigDecimal amount;
     private CurrencyEnum currency;
+    //---- How many transactions reference this account. Drives the "delete account" confirmation.
+    private long transactionCount;
 }

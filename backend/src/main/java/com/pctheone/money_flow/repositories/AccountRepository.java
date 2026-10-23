@@ -33,4 +33,9 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Integer>
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = "DELETE FROM account WHERE owner_id = :ownerId", nativeQuery = true)
     int deleteAllByOwnerId(@Param("ownerId") Integer ownerId);
+
+    //---- Single account: runs after that account's transactions and recurring payments are gone.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM account WHERE account_id = :accountId AND owner_id = :ownerId", nativeQuery = true)
+    int deleteByAccountIdAndOwnerId(@Param("accountId") Integer accountId, @Param("ownerId") Integer ownerId);
 }

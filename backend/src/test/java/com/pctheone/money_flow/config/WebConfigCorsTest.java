@@ -30,4 +30,14 @@ class WebConfigCorsTest {
         Assertions.assertNotNull(transactions.checkHttpMethod(HttpMethod.PUT), "PUT must be allowed so editing works");
         Assertions.assertNotNull(transactions.checkHttpMethod(HttpMethod.DELETE), "DELETE must be allowed so deleting works");
     }
+
+    //---- The accounts tab renames (PUT) and deletes (DELETE) accounts from the browser.
+    @Test
+    void accountsMappingAllowsRenameAndDelete() {
+        CorsConfiguration accounts = corsConfigurations().get("/api/accounts/**");
+        Assertions.assertNotNull(accounts, "No CORS mapping for /api/accounts/**");
+        Assertions.assertNotNull(accounts.checkHttpMethod(HttpMethod.GET), "GET must stay allowed");
+        Assertions.assertNotNull(accounts.checkHttpMethod(HttpMethod.PUT), "PUT must be allowed so renaming works");
+        Assertions.assertNotNull(accounts.checkHttpMethod(HttpMethod.DELETE), "DELETE must be allowed so deleting works");
+    }
 }

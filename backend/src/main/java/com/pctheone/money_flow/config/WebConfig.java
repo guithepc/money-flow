@@ -19,9 +19,10 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/api/transactions/**")
                 .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "PUT", "DELETE");
+        //---- PUT renames an account, DELETE removes it (cascade). GET lists them.
         registry.addMapping("/api/accounts/**")
                 .allowedOrigins(allowedOrigins)
-                .allowedMethods("GET");
+                .allowedMethods("GET", "PUT", "DELETE");
         //---- Credentials so the HttpOnly refresh cookie travels on cross-origin dev setups (localhost:5173 -> :8080).
         registry.addMapping("/api/auth/**")
                 .allowedOrigins(allowedOrigins)

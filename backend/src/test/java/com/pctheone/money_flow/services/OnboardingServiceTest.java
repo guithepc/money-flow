@@ -64,8 +64,8 @@ public class OnboardingServiceTest {
 
         Mockito.when(ownerRepository.findByIdForUpdate(OWNER_ID)).thenReturn(Optional.of(owner));
         Mockito.when(accountService.addAccount(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.anyInt()))
-                .thenAnswer(invocation -> new AccountDTO(1, invocation.getArgument(0), invocation.getArgument(1), invocation.getArgument(2)));
-        Mockito.when(accountService.listAllAccounts(OWNER_ID)).thenReturn(List.of(new AccountDTO(1, "Nubank", BigDecimal.TEN, CurrencyEnum.BRL)));
+                .thenAnswer(invocation -> new AccountDTO(1, invocation.getArgument(0), invocation.getArgument(1), invocation.getArgument(2), 0));
+        Mockito.when(accountService.listAllAccounts(OWNER_ID)).thenReturn(List.of(new AccountDTO(1, "Nubank", BigDecimal.TEN, CurrencyEnum.BRL, 0)));
         Mockito.when(categoryService.listAllCategories(OWNER_ID)).thenReturn(List.of(
                 new CategoryDTO("Mercado", 1, CategoryTypeEnum.EXPENSE),
                 new CategoryDTO("Casa", 2, CategoryTypeEnum.EXPENSE),
