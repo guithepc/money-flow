@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { ArrowRight, ShoppingBag, TrendingUp } from 'lucide-react'
+import { ArrowRight, ShoppingBag } from 'lucide-react'
+import { Logo } from '@/components/Logo'
 import { LEGAL_PATHS } from '@/lib/legal'
 import { cn } from '@/lib/utils'
 
@@ -98,12 +99,7 @@ export function AuthShell({ eyebrow, title, subtitle, children }: AuthShellProps
   return (
     <div className="flex flex-1">
       <main className="flex flex-1 flex-col bg-paper px-8 py-8 text-ink sm:px-16">
-        <div className="flex items-center gap-2.5">
-          <span className="flex size-7 items-center justify-center bg-brand">
-            <TrendingUp className="size-4 text-black" strokeWidth={2.6} />
-          </span>
-          <span className="font-display text-lg font-semibold tracking-[-0.02em]">money flow</span>
-        </div>
+        <Logo />
 
         <div className="flex flex-1 items-center">
           <div className="w-full max-w-sm">
