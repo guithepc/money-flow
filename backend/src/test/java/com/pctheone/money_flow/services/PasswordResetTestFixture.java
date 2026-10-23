@@ -38,6 +38,7 @@ public class PasswordResetTestFixture {
     public final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(4);
     public final BotMessages messages = new BotMessages();
     public final PasswordResetRateLimiter rateLimiter = new PasswordResetRateLimiter();
+    public final RefreshTokenService refreshTokenService = Mockito.mock(RefreshTokenService.class);
     public final PasswordResetService service = new PasswordResetService();
 
     //---- token_hash -> row, i.e. the password_reset_token table.
@@ -55,6 +56,7 @@ public class PasswordResetTestFixture {
         service.passwordEncoder = passwordEncoder;
         service.replySender = replySender;
         service.messages = messages;
+        service.refreshTokenService = refreshTokenService;
         service.clock = clock;
         service.transactionTemplate = new TransactionTemplate(Mockito.mock(PlatformTransactionManager.class));
         service.executor = Runnable::run;

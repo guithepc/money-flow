@@ -44,6 +44,15 @@ export default function App() {
   // Esqueci/redefinir a senha aparecem mesmo logado: abrir o link do bot é uma ação deliberada.
   const inPasswordFlow = authView === 'forgot' || authView === 'reset'
 
+  // Evita piscar a tela de login enquanto o cookie de refresh restaura a sessão.
+  if (auth.restoring) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <p className="font-mono text-xs text-fg-subtle">Carregando…</p>
+      </div>
+    )
+  }
+
   if (!auth.isAuthenticated || inPasswordFlow) {
     return (
       <div className="flex h-screen bg-background text-fg">
