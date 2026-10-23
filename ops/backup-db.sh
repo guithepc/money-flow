@@ -9,7 +9,7 @@ set -euo pipefail
 LABEL="${1:-daily}"
 BACKUP_DIR="${BACKUP_DIR:-/root/backups}"
 RECIPIENTS="${BACKUP_RECIPIENTS:-/root/.config/money-flow/backup-recipients.txt}"
-RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-30}"
+RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-14}"
 COMPOSE_DIR="${COMPOSE_DIR:-/opt/money-flow}"
 
 if [[ ! -s "$RECIPIENTS" ]]; then
@@ -30,6 +30,12 @@ trap 'rm -f "$TMP"' EXIT
 cd "$COMPOSE_DIR"
 docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' \
     | age -R "$RECIPIENTS" -o "$TMP"
+
+#---- A dump of this schema is never this small (age adds ~200 bytes of header); treat it as a failure.
+if [[ "$(wc -c < "$TMP")" -lt 1200 ]]; then
+    echo "backup-db: backup too small, discarded" >&2
+    exit 1
+fi
 mv "$TMP" "$OUT"
 
 # Only scheduled backups rotate; labelled ones (pre-deploy, manual) are kept until removed by hand.

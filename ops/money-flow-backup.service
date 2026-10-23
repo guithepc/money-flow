@@ -1,7 +1,0 @@
-[Unit]
-Description=Money Flow daily Postgres backup
-After=docker.service
-
-[Service]
-Type=oneshot
-ExecStart=/opt/money-flow/ops/backup-postgres.sh
