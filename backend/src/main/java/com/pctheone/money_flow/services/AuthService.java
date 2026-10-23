@@ -50,8 +50,14 @@ public class AuthService {
         return ownerValidated.map(OwnerEntity::getOwnerId);
     }
 
-    public Optional<Integer> register(String name, String email, String pass){
-        OwnerEntity owner = ownerRepository.save(new OwnerEntity(null, name, email, null, this.encodePassword(pass), null, null, null, OnboardingStepEnum.LANGUAGE, null, null));
+    //---- Password check for sensitive actions of a logged-in owner (e.g. account deletion).
+    public boolean passwordMatches(OwnerEntity owner, String pass){
+        return pass != null && passwordEncoder.matches(pass, owner.getPasswordHash());
+    }
+
+    //---- termsVersion is the version the user accepted on the sign-up form (validated by the caller).
+    public Optional<Integer> register(String name, String email, String pass, String termsVersion){
+        OwnerEntity owner = ownerRepository.save(new OwnerEntity(null, name, email, null, this.encodePassword(pass), null, null, null, OnboardingStepEnum.LANGUAGE, null, null, LocalDateTime.now(), termsVersion));
         return Optional.of(owner.getOwnerId());
     }
 

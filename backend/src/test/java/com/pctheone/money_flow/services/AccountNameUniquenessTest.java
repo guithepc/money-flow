@@ -70,6 +70,6 @@ public class AccountNameUniquenessTest {
 
     private Integer createOwner(String prefix) {
         String email = prefix + "-" + UUID.randomUUID() + "@uniqueness.test";
-        return ownerRepository.save(new OwnerEntity(null, prefix, email, null, "x".repeat(60), null, null, null, OnboardingStepEnum.DONE, null, null)).getOwnerId();
+        return ownerRepository.save(new OwnerEntity(null, prefix, email, null, "x".repeat(60), null, null, null, OnboardingStepEnum.DONE, null, null, null, null)).getOwnerId();
     }
 }

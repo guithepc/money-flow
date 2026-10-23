@@ -439,11 +439,16 @@ public class OnboardingStateMachine {
         }
     }
 
+    //---- Linked from the welcome message, before any data is collected.
+    String privacyUrl() {
+        return dashboardUrl + "/privacy";
+    }
+
     //---- Telegram's language is shown first and used for the question itself.
     private void askLanguage(Long chatId, LanguageEnum detected) {
         TelegramInlineButtonDTO portuguese = button("🇧🇷 Português", "lang:" + LanguageEnum.PT.code());
         TelegramInlineButtonDTO english = button("🇬🇧 English", "lang:" + LanguageEnum.EN.code());
-        replySender.sendWithKeyboard(chatId, messages.get(detected, "onboarding.language.question"),
+        replySender.sendWithKeyboard(chatId, messages.get(detected, "onboarding.language.question", privacyUrl()),
                 List.of(detected == LanguageEnum.PT ? List.of(portuguese, english) : List.of(english, portuguese)));
     }
 

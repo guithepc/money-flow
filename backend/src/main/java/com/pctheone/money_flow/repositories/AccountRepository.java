@@ -28,4 +28,9 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Integer>
     Optional<AccountEntity> findByAccountIdAndOwnerOwnerId(Integer accountId, Integer ownerId);
 
     boolean existsByOwnerOwnerIdAndDescriptionIgnoreCase(Integer ownerId, String description);
+
+    //---- Account deletion: runs after the owner's transactions and recurring payments are gone.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM account WHERE owner_id = :ownerId", nativeQuery = true)
+    int deleteAllByOwnerId(@Param("ownerId") Integer ownerId);
 }
