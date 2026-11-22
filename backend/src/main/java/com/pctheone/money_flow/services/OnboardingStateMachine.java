@@ -84,7 +84,7 @@ public class OnboardingStateMachine {
         askCurrentStep(owner, chatId, language(owner, telegramLanguageCode));
     }
 
-    //---- Returns false when the message must go through the normal router (DONE, or a command/voice during TUTORIAL).
+    //---- Returns false when the message must go through the normal router (DONE, or a command/voice/text during TUTORIAL).
     @Transactional
     public boolean handleMessage(Integer ownerId, Long chatId, OnboardingService.Input input, PreparedAccountInput prepared) {
         OwnerEntity owner = lockOwner(ownerId);
@@ -153,8 +153,8 @@ public class OnboardingStateMachine {
                     askCurrentStep(owner, chatId, language);
             }
             case TUTORIAL -> {
-                //---- The first voice message is a normal transaction; the router calls completeTutorial on success.
-                if (input.voiceFileId() != null)
+                //---- The first voice or typed transaction is a normal one; the router calls completeTutorial on success.
+                if (input.voiceFileId() != null || (text != null && !text.isEmpty()))
                     return false;
                 askCurrentStep(owner, chatId, language);
             }
@@ -263,7 +263,7 @@ public class OnboardingStateMachine {
 
     private void chooseLanguage(OwnerEntity owner, Long chatId, LanguageEnum chosen) {
         owner.setLanguage(chosen.code());
-        categoryService.seedBaseCategories(owner.getOwnerId(), chosen);
+        categoryService.seedBaseCategoriesIfNone(owner.getOwnerId(), chosen);
         owner.setOnboardingStep(OnboardingStepEnum.ACCOUNT);
         owner.setOnboardingDraft(null);
         log.info("Owner {} chose language {}", owner.getOwnerId(), chosen.code());
@@ -401,7 +401,7 @@ public class OnboardingStateMachine {
     private void cancel(OwnerEntity owner, Long chatId, LanguageEnum language) {
         if (owner.getLanguage() == null) {
             owner.setLanguage(language.code());
-            categoryService.seedBaseCategories(owner.getOwnerId(), language);
+            categoryService.seedBaseCategoriesIfNone(owner.getOwnerId(), language);
         }
         owner.setOnboardingDraft(null);
         owner.setOnboardingStep(OnboardingStepEnum.DONE);

@@ -3,9 +3,12 @@ import type {
   Account,
   Currency,
   AmountAndCategory,
+  CaptureResponse,
   Category,
+  CategoryType,
   DateRange,
   MonthlyIncomeExpense,
+  OnboardingStatus,
   OwnerProfile,
   TelegramInvite,
   TimeSeriesPoint,
@@ -105,6 +108,8 @@ export function refreshSession(): Promise<boolean> {
 interface RequestOptions {
   params?: Record<string, string>
   body?: unknown
+  /** Multipart (áudio): o navegador define o Content-Type com o boundary. */
+  form?: FormData
 }
 
 async function request<T>(
@@ -112,7 +117,8 @@ async function request<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const url = new URL(`${BASE_URL}${path}`)
+  // Base relativa (`/api`, atrás do proxy do Vite no túnel) precisa da origem da página.
+  const url = new URL(`${BASE_URL}${path}`, globalThis.location?.origin)
   for (const [key, value] of Object.entries(options.params ?? {})) {
     url.searchParams.set(key, value)
   }
@@ -126,7 +132,7 @@ async function request<T>(
           ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
           ...authHeaders(token),
         },
-        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        body: options.form ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
       })
     } catch {
       // Sem resposta do servidor não dá pra saber se a sessão acabou: mantém o usuário logado.
@@ -227,6 +233,46 @@ export const transactionsApi = {
 
 export const categoriesApi = {
   list: () => get<Category[]>('/categories'),
+
+  /** 201 criada, 200 já existia com o mesmo tipo; ApiError 409 se o nome é de uma categoria do outro tipo. */
+  create: (description: string, type: CategoryType) => post<Category>('/categories', { description, type }),
+}
+
+/** Onboarding do PWA (mesmo estado do bot): idioma → contas → primeiro gasto → concluído. */
+export const onboardingApi = {
+  status: () => get<OnboardingStatus>('/onboarding'),
+
+  /** Na primeira vez cria as categorias padrão nesse idioma e avança para as contas. */
+  chooseLanguage: (language: 'pt' | 'en') => post<OnboardingStatus>('/onboarding/language', { language }),
+
+  /** ApiError 409 sem nenhuma conta. */
+  accountsDone: () => post<OnboardingStatus>('/onboarding/accounts-done', {}),
+
+  /** Pula o primeiro gasto. ApiError 409 sem nenhuma conta. */
+  finish: () => post<OnboardingStatus>('/onboarding/finish', {}),
+
+  /** Configurações: só troca o idioma. */
+  changeLanguage: (language: 'pt' | 'en') => put<OnboardingStatus>('/onboarding/language', { language }),
+}
+
+/**
+ * Frase ou áudio → transação, com o mesmo leitor e os mesmos limites diários do bot.
+ * Acima do limite o backend responde 429: vira `ApiError` com status 429.
+ */
+export const captureApi = {
+  text: (text: string) => post<CaptureResponse>('/capture/text', { text }),
+
+  voice: (audio: Blob) => {
+    const form = new FormData()
+    form.append('audio', audio, audioFileName(audio.type))
+    return request<CaptureResponse>('POST', '/capture/voice', { form })
+  },
+}
+
+/** "audio/mp4;codecs=…" → "voz.mp4": o nome só ajuda nos logs, o formato vai no tipo da parte. */
+export function audioFileName(mimeType: string): string {
+  const subtype = mimeType.split(';')[0].split('/')[1] || 'webm'
+  return `voz.${subtype}`
 }
 
 export interface AccountDeletionSummary {
@@ -236,6 +282,10 @@ export interface AccountDeletionSummary {
 
 export const accountsApi = {
   getAll: () => get<Account[]>('/accounts'),
+
+  /** Cria a conta com o saldo atual (pode ser negativo). ApiError 409 se o nome já existe. */
+  create: (description: string, balance: number, currency: Currency) =>
+    post<Account>('/accounts', { description, balance, currency }),
 
   /** Renomeia a conta. Lança ApiError 409 se já existir outra conta com esse nome. */
   rename: (id: number, description: string) => put<Account>(`/accounts/${id}`, { description }),

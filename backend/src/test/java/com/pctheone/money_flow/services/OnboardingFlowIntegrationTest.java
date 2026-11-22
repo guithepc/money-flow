@@ -145,11 +145,12 @@ public class OnboardingFlowIntegrationTest {
         //---- Double click on "Yes": one account, balance set directly, no transaction
         route(callback("onb:ok"));
         route(callback("onb:ok"));
-        List<Map<String, Object>> accounts = jdbcTemplate.queryForList("SELECT account_id, description, balance, currency::text AS currency FROM account WHERE owner_id = ?", ownerId);
+        List<Map<String, Object>> accounts = jdbcTemplate.queryForList("SELECT account_id, display_number, description, balance, currency::text AS currency FROM account WHERE owner_id = ?", ownerId);
         Assertions.assertEquals(1, accounts.size());
         Assertions.assertEquals("Nubank", accounts.getFirst().get("description"));
         Assertions.assertEquals(0, new BigDecimal("50000").compareTo((BigDecimal) accounts.getFirst().get("balance")));
         Assertions.assertEquals(CurrencyEnum.BRL.name(), accounts.getFirst().get("currency"));
+        Assertions.assertEquals(1, accounts.getFirst().get("display_number"));
         Assertions.assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM transactions WHERE owner_id = ?", Integer.class, ownerId));
         Assertions.assertEquals(OnboardingStepEnum.MORE_ACCOUNTS, owner().getOnboardingStep());
         Assertions.assertNull(owner().getOnboardingDraft());
@@ -169,7 +170,8 @@ public class OnboardingFlowIntegrationTest {
         route(callback("onb:next"));
         Assertions.assertEquals(OnboardingStepEnum.TUTORIAL, owner().getOnboardingStep());
         Integer nubankId = (Integer) accounts.getFirst().get("account_id");
-        route(text("/gasto mercado feira 30 " + nubankId));
+        //---- The user types the per-owner number shown by /contas, not the global id.
+        route(text("/gasto mercado feira 30 " + accounts.getFirst().get("display_number")));
         Assertions.assertEquals(OnboardingStepEnum.DONE, owner().getOnboardingStep());
         Assertions.assertEquals(0, new BigDecimal("49970").compareTo(
                 jdbcTemplate.queryForObject("SELECT balance FROM account WHERE account_id = ?", BigDecimal.class, nubankId)));

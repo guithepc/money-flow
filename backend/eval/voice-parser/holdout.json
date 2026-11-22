@@ -1,0 +1,40 @@
+{
+  "categories": [
+    ["Supermercado", "EXPENSE"], ["Comer fora", "EXPENSE"], ["Carro", "EXPENSE"], ["Moradia", "EXPENSE"],
+    ["Saúde", "EXPENSE"], ["Lazer", "EXPENSE"], ["Assinaturas", "EXPENSE"], ["Pets", "EXPENSE"],
+    ["Salário", "INCOME"], ["Freelas", "INCOME"], ["Reembolso", "INCOME"]
+  ],
+  "accounts": [[201, "Itaú", "800.00"], [202, "Santander", "300.00"], [203, "Revolut", "150.00"]],
+  "cases": [
+    {"text": "gastei 42 no pão de açúcar", "op": "EXPENSE", "category": ["Supermercado"], "account": null, "amount": 42},
+    {"text": "compras do mês 610 no itaú", "op": "EXPENSE", "category": ["Supermercado"], "account": 201, "amount": 610},
+    {"text": "hortifruti 33,50 santa", "op": "EXPENSE", "category": ["Supermercado"], "account": 202, "amount": 33.5},
+    {"text": "jantei fora, 120 reais", "op": "EXPENSE", "category": ["Comer fora"], "account": null, "amount": 120},
+    {"text": "burger king 39,90 na revolut", "op": "EXPENSE", "category": ["Comer fora"], "account": 203, "amount": 39.9},
+    {"text": "açaí 18", "op": "EXPENSE", "category": ["Comer fora"], "account": null, "amount": 18},
+    {"text": "abasteci 250", "op": "EXPENSE", "category": ["Carro"], "account": null, "amount": 250},
+    {"text": "troca de óleo 180 no itaú", "op": "EXPENSE", "category": ["Carro"], "account": 201, "amount": 180},
+    {"text": "ipva 1200", "op": "EXPENSE", "category": ["Carro"], "account": null, "amount": 1200},
+    {"text": "paguei o aluguel, 2000", "op": "EXPENSE", "category": ["Moradia"], "account": null, "amount": 2000},
+    {"text": "conta de água 85 santander", "op": "EXPENSE", "category": ["Moradia"], "account": 202, "amount": 85},
+    {"text": "farmácia 64", "op": "EXPENSE", "category": ["Saúde"], "account": null, "amount": 64},
+    {"text": "plano de saúde 450 no itaú", "op": "EXPENSE", "category": ["Saúde"], "account": 201, "amount": 450},
+    {"text": "dentista 200", "op": "EXPENSE", "category": ["Saúde"], "account": null, "amount": 200},
+    {"text": "ingresso do show 300", "op": "EXPENSE", "category": ["Lazer"], "account": null, "amount": 300},
+    {"text": "boliche com os amigos 90", "op": "EXPENSE", "category": ["Lazer"], "account": null, "amount": 90},
+    {"text": "spotify 21,90", "op": "EXPENSE", "category": ["Assinaturas"], "account": null, "amount": 21.9},
+    {"text": "renovei o chatgpt 110 na revolut", "op": "EXPENSE", "category": ["Assinaturas"], "account": 203, "amount": 110},
+    {"text": "ração do cachorro 140", "op": "EXPENSE", "category": ["Pets"], "account": null, "amount": 140},
+    {"text": "veterinário 250 itaú", "op": "EXPENSE", "category": ["Pets"], "account": 201, "amount": 250},
+    {"text": "comprei uma camiseta por 80", "op": "EXPENSE", "category": ["NEW"], "account": null, "amount": 80},
+    {"text": "curso de inglês 350", "op": "EXPENSE", "category": ["NEW"], "account": null, "amount": 350},
+    {"text": "presente de aniversário da ana 150", "op": "EXPENSE", "category": ["NEW"], "account": null, "amount": 150},
+    {"text": "salário caiu 6200 no itaú", "op": "INCOME", "category": ["Salário"], "account": 201, "amount": 6200},
+    {"text": "recebi 900 do cliente do site", "op": "INCOME", "category": ["Freelas"], "account": null, "amount": 900},
+    {"text": "a empresa me devolveu 75 do uber", "op": "INCOME", "category": ["Reembolso"], "account": null, "amount": 75},
+    {"text": "spent 12 on coffee with revolut", "op": "EXPENSE", "category": ["Comer fora"], "account": 203, "amount": 12},
+    {"text": "gas for the car 60", "op": "EXPENSE", "category": ["Carro"], "account": null, "amount": 60},
+    {"text": "bom dia", "error": "NOT_UNDERSTOOD"},
+    {"text": "qual meu saldo no itaú?", "error": "NOT_UNDERSTOOD"}
+  ]
+}

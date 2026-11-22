@@ -1,0 +1,37 @@
+{
+  "categories": [
+    ["Groceries", "EXPENSE"], ["Eating out", "EXPENSE"], ["Transport", "EXPENSE"], ["Home", "EXPENSE"],
+    ["Salary", "INCOME"], ["Side income", "INCOME"]
+  ],
+  "accounts": [[401, "Revolut", "300.00"], [402, "Monzo", "900.00"]],
+  "cases": [
+    {"text": "spent 25 at the supermarket", "op": "EXPENSE", "category": ["Groceries"], "account": null, "amount": 25},
+    {"text": "tesco 42.50 on monzo", "op": "EXPENSE", "category": ["Groceries"], "account": 402, "amount": 42.5},
+    {"text": "bought bread and milk for 6", "op": "EXPENSE", "category": ["Groceries"], "account": null, "amount": 6},
+    {"text": "farmers market 18 revolut", "op": "EXPENSE", "category": ["Groceries"], "account": 401, "amount": 18},
+    {"text": "lunch 14", "op": "EXPENSE", "category": ["Eating out"], "account": null, "amount": 14},
+    {"text": "coffee at starbucks 4.20", "op": "EXPENSE", "category": ["Eating out"], "account": null, "amount": 4.2},
+    {"text": "deliveroo 31 on revolut", "op": "EXPENSE", "category": ["Eating out"], "account": 401, "amount": 31},
+    {"text": "drinks with friends 45", "op": "EXPENSE", "category": ["Eating out"], "account": null, "amount": 45},
+    {"text": "uber home 19", "op": "EXPENSE", "category": ["Transport"], "account": null, "amount": 19},
+    {"text": "train ticket to london 38 monzo", "op": "EXPENSE", "category": ["Transport"], "account": 402, "amount": 38},
+    {"text": "filled up the tank, 70", "op": "EXPENSE", "category": ["Transport"], "account": null, "amount": 70},
+    {"text": "parking 8", "op": "EXPENSE", "category": ["Transport"], "account": null, "amount": 8},
+    {"text": "paid the rent 1200", "op": "EXPENSE", "category": ["Home"], "account": null, "amount": 1200},
+    {"text": "electricity bill 85 on monzo", "op": "EXPENSE", "category": ["Home"], "account": 402, "amount": 85},
+    {"text": "internet 35", "op": "EXPENSE", "category": ["Home"], "account": null, "amount": 35},
+    {"text": "cleaner 60", "op": "EXPENSE", "category": ["Home"], "account": null, "amount": 60},
+    {"text": "got my salary 3200 on monzo", "op": "INCOME", "category": ["Salary"], "account": 402, "amount": 3200},
+    {"text": "payday, 2900", "op": "INCOME", "category": ["Salary"], "account": null, "amount": 2900},
+    {"text": "freelance gig paid 400", "op": "INCOME", "category": ["Side income"], "account": null, "amount": 400},
+    {"text": "sold my old bike for 150", "op": "INCOME", "category": ["Side income"], "account": null, "amount": 150},
+    {"text": "pharmacy 12", "op": "EXPENSE", "category": ["NEW"], "account": null, "amount": 12},
+    {"text": "gym membership 30", "op": "EXPENSE", "category": ["NEW"], "account": null, "amount": 30},
+    {"text": "netflix 11.99", "op": "EXPENSE", "category": ["NEW", "Home"], "account": null, "amount": 11.99},
+    {"text": "new jeans 55", "op": "EXPENSE", "category": ["NEW"], "account": null, "amount": 55},
+    {"text": "gastei 20 no mercado", "op": "EXPENSE", "category": ["Groceries"], "account": null, "amount": 20},
+    {"text": "almocei 30 na revolut", "op": "EXPENSE", "category": ["Eating out"], "account": 401, "amount": 30},
+    {"text": "hello there", "error": "NOT_UNDERSTOOD"},
+    {"text": "how much did I spend this week?", "error": "NOT_UNDERSTOOD"}
+  ]
+}

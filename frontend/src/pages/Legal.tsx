@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
+import { LanguageToggle } from '@/components/LanguageToggle'
 import { Logo } from '@/components/Logo'
+import { browserLang } from '@/lib/i18n'
 import { LEGAL_PATHS, LEGAL_UPDATED_AT, TERMS_VERSION } from '@/lib/legal'
 import {
   LEGAL_DOCUMENTS,
   type LegalDocumentKind,
   type LegalLang,
 } from '@/lib/legalContent'
-import { cn } from '@/lib/utils'
 
 const UI = {
   pt: {
@@ -30,7 +31,7 @@ const UI = {
 function initialLang(): LegalLang {
   const fromQuery = new URLSearchParams(window.location.search).get('lang')
   if (fromQuery === 'pt' || fromQuery === 'en') return fromQuery
-  return navigator.language.toLowerCase().startsWith('pt') ? 'pt' : 'en'
+  return browserLang()
 }
 
 function formatDate(isoDate: string, lang: LegalLang): string {
@@ -69,22 +70,7 @@ export function Legal({ kind }: { kind: LegalDocumentKind }) {
             <Logo />
           </a>
 
-          <div role="group" aria-label="Idioma / Language" className="flex border border-edge">
-            {(['pt', 'en'] as const).map((code) => (
-              <button
-                key={code}
-                type="button"
-                onClick={() => switchLang(code)}
-                aria-pressed={lang === code}
-                className={cn(
-                  'label-mono px-3 py-1.5 transition-colors duration-150',
-                  lang === code ? 'bg-brand text-black' : 'text-fg-muted hover:text-fg',
-                )}
-              >
-                {code}
-              </button>
-            ))}
-          </div>
+          <LanguageToggle value={lang} onChange={switchLang} />
         </div>
       </header>
 

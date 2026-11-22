@@ -131,6 +131,20 @@ public class VoiceUsageIntegrationTest {
     }
 
     @Test
+    void textAndVoiceHaveSeparateCounters() {
+        OwnerEntity owner = owner(OnboardingStepEnum.DONE);
+        for (int i = 0; i < 21; i++)
+            voiceUsageService.consume(owner.getOwnerId());
+        Assertions.assertFalse(voiceUsageService.consume(owner.getOwnerId()).allowed());
+
+        VoiceUsageService.Quota text = voiceUsageService.consumeText(owner.getOwnerId());
+
+        Assertions.assertTrue(text.allowed());
+        Assertions.assertEquals(1, text.used());
+        Assertions.assertEquals(22, usedToday(owner));
+    }
+
+    @Test
     void quotaResetsAtMidnightInLisbon() {
         OwnerEntity owner = owner(OnboardingStepEnum.DONE);
         //---- 22:59 UTC = 23:59 in Lisbon (summer time) on the 23rd; 23:00 UTC is already the 24th there.

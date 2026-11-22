@@ -17,8 +17,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -53,6 +51,20 @@ public class TransactionDeleteTest {
         categoryService.addCategory("salario", CategoryTypeEnum.INCOME, owner);
     }
 
+    //---- The PWA's undo: the id returned at registration (INSERT ... RETURNING) deletes exactly that transaction.
+    @Test
+    void registrationReturnsTheIdThatUndoesIt() {
+        transactionsService.registerExpense(owner, "mercado", account, "10", "pão");
+        Integer expenseId = transactionsService.registerExpense(owner, "mercado", account, "30", "carne").getTransactionId();
+        Integer incomeId = transactionsService.registerIncome(owner, "salario", account, "50", "bônus").getTransactionId();
+
+        Assertions.assertNotNull(incomeId);
+        Assertions.assertEquals("carne", transactionsService.deleteTransaction(expenseId, owner).orElseThrow().getDescription());
+        Assertions.assertEquals("bônus", transactionsService.deleteTransaction(incomeId, owner).orElseThrow().getDescription());
+        Assertions.assertEquals(0, new BigDecimal("90").compareTo(balance()));
+        Assertions.assertEquals(java.util.List.of("pão"), allTransactions().stream().map(t -> t.getDescription()).toList());
+    }
+
     @Test
     void deletingExpenseGivesTheMoneyBack() {
         transactionsService.registerExpense(owner, "mercado", account, "30", "carne");
@@ -79,14 +91,12 @@ public class TransactionDeleteTest {
     }
 
     @Test
-    void anotherOwnerCannotDelete() {
+    void anotherOwnerCannotDeleteAndSeesItAsMissing() {
         transactionsService.registerExpense(owner, "mercado", account, "30", "carne");
         Integer intruder = createOwner("intruder");
         Integer id = onlyTransaction().getId();
 
-        ResponseStatusException e = Assertions.assertThrows(ResponseStatusException.class,
-                () -> transactionsService.deleteTransaction(id, intruder));
-        Assertions.assertEquals(HttpStatus.FORBIDDEN, e.getStatusCode());
+        Assertions.assertTrue(transactionsService.deleteTransaction(id, intruder).isEmpty());
         Assertions.assertEquals(0, new BigDecimal("70").compareTo(balance()));
         Assertions.assertFalse(allTransactions().isEmpty());
     }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { Dashboard } from '@/pages/Dashboard'
+import { Capture } from '@/pages/Capture'
+import { Onboarding } from '@/pages/Onboarding'
 import { Accounts } from '@/pages/Accounts'
 import { Settings } from '@/pages/Settings'
 import { Admin } from '@/pages/Admin'
@@ -12,9 +14,12 @@ import { Legal } from '@/pages/Legal'
 import { AcceptTerms } from '@/pages/AcceptTerms'
 import { useAuth } from '@/hooks/useAuth'
 import { CurrencyProvider } from '@/contexts/CurrencyContext'
-import { ownerApi } from '@/lib/api'
+import { onboardingApi, ownerApi } from '@/lib/api'
+import { LanguageProvider } from '@/components/LanguageProvider'
+import { browserLang, toLang, type Lang } from '@/lib/i18n'
 import { LEGAL_PATHS } from '@/lib/legal'
-import type { View } from '@/lib/types'
+import type { OnboardingStatus, View } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -25,15 +30,41 @@ function Placeholder({ title }: { title: string }) {
   )
 }
 
+/** Tela de gravar: é o `start_url` do PWA salvo na tela de início do iPhone. */
+const CAPTURE_PATH = '/registrar'
+
 /** Painel do usuário logado. Antes dele, pede o aceite dos termos se a versão atual ainda não foi aceita. */
 function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
-  const [view, setView] = useState<View>('dashboard')
+  const [view, setViewState] = useState<View>(() =>
+    window.location.pathname.replace(/\/+$/, '') === CAPTURE_PATH ? 'capture' : 'dashboard',
+  )
+
+  // Só a tela de gravar tem endereço próprio: recarregar (ou abrir o ícone do PWA) volta pra ela.
+  function setView(next: View) {
+    const path = next === 'capture' ? CAPTURE_PATH : '/'
+    if (window.location.pathname !== path) window.history.replaceState(null, '', path)
+    setViewState(next)
+  }
   // null = verificando. Se a consulta falhar, não bloqueia o painel (o backend não depende do aceite).
   const [termsAccepted, setTermsAccepted] = useState<boolean | null>(null)
   const [admin, setAdmin] = useState(false)
+  const [language, setLanguage] = useState<Lang>(browserLang)
+  // null = verificando. Falha na consulta não prende ninguém no onboarding.
+  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null)
 
   useEffect(() => {
     let active = true
+    // Idioma das telas traduzidas: o escolhido no onboarding (bot ou PWA); antes disso, o do navegador.
+    onboardingApi
+      .status()
+      .then((status) => {
+        if (!active) return
+        setLanguage(toLang(status.language) ?? browserLang())
+        setOnboarding(status)
+      })
+      .catch(() => {
+        if (active) setOnboarding({ step: 'DONE', language: null, accounts: 0, categories: [] })
+      })
     ownerApi
       .me()
       .then((profile) => {
@@ -49,7 +80,7 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
     }
   }, [])
 
-  if (termsAccepted === null) return <div className="flex h-screen bg-background" />
+  if (termsAccepted === null || (termsAccepted && onboarding === null)) return <div className="flex h-screen bg-background" />
 
   if (!termsAccepted) {
     return (
@@ -59,17 +90,38 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
     )
   }
 
+  const onboardingPending = onboarding !== null && onboarding.step !== 'DONE'
+
+  // Um provider só para o onboarding e o app: o idioma escolhido no onboarding segue valendo depois.
   return (
-    <CurrencyProvider>
-      <div className="flex h-screen bg-background text-fg">
-        <Sidebar active={view} onNavigate={setView} onLogout={onLogout} admin={admin} />
-        {view === 'dashboard' && <Dashboard />}
-        {view === 'accounts' && <Accounts />}
-        {view === 'reports' && <Placeholder title="Relatórios" />}
-        {view === 'settings' && <Settings />}
-        {view === 'admin' && admin && <Admin />}
-      </div>
-    </CurrencyProvider>
+    <LanguageProvider initial={language}>
+      {onboardingPending ? (
+        <div className="flex h-dvh bg-background text-fg">
+          <Onboarding
+            initial={onboarding}
+            onDone={() => {
+              setOnboarding({ ...onboarding, step: 'DONE' })
+              setView('capture')
+            }}
+          />
+        </div>
+      ) : (
+        <CurrencyProvider>
+          <div className="flex h-dvh bg-background text-fg">
+            {/* No celular a tela de gravar ocupa tudo; o botão "Painel" dela leva ao resto. */}
+            <div className={cn('shrink-0', view === 'capture' ? 'hidden md:flex' : 'flex')}>
+              <Sidebar active={view} onNavigate={setView} onLogout={onLogout} admin={admin} />
+            </div>
+            {view === 'capture' && <Capture onOpenDashboard={() => setView('dashboard')} />}
+            {view === 'dashboard' && <Dashboard />}
+            {view === 'accounts' && <Accounts />}
+            {view === 'reports' && <Placeholder title="Relatórios" />}
+            {view === 'settings' && <Settings />}
+            {view === 'admin' && admin && <Admin />}
+          </div>
+        </CurrencyProvider>
+      )}
+    </LanguageProvider>
   )
 }
 

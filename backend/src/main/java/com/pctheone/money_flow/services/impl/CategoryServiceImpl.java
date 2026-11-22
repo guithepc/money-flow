@@ -82,6 +82,15 @@ public class CategoryServiceImpl implements CategoryService {
         log.info("Seeded {} base categories ({}) for owner {}", inserted, language.code(), ownerId);
     }
 
+    @Override
+    @Transactional
+    public boolean seedBaseCategoriesIfNone(Integer ownerId, LanguageEnum language) {
+        if (categoryRepository.existsByOwnerOwnerId(ownerId))
+            return false;
+        seedBaseCategories(ownerId, language);
+        return true;
+    }
+
     private String formatDescription(String categoryDescription) {
         char firstChar = categoryDescription.charAt(0);
         return String.valueOf(firstChar).toUpperCase() + categoryDescription.substring(1);

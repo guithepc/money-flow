@@ -78,9 +78,9 @@ public final class TelegramBotCommands {
                 ? "/cancelar — Sair da configuração inicial\n/ajuda — Mostrar esta lista\n"
                 : "/cancelar — Leave the initial setup\n/help — Show this list\n");
         text.append(portuguese
-                ? "\n🎙️ Você também pode mandar um áudio: \"gastei 30 no mercado na Nubank\" (até " + voiceDailyLimit + " por dia)."
+                ? "\n🎙️ Você também pode mandar um áudio: \"gastei 30 no supermercado\" (até " + voiceDailyLimit + " por dia), ou escrever a mesma frase. Sem falar a conta, uso a que você mais usa."
                 + "\n💡 Valores com vírgula nos centavos: 25,90 ou 1.250,90. O ID da conta aparece em /contas."
-                : "\n🎙️ You can also send a voice message: \"spent 30 on groceries at Nubank\" (up to " + voiceDailyLimit + " a day)."
+                : "\n🎙️ You can also send a voice message: \"spent 30 at the supermarket\" (up to " + voiceDailyLimit + " a day), or type the same sentence. Without an account, I use the one you use most."
                 + "\n💡 Amounts use a comma for cents: 25,90 or 1.250,90. The account ID is shown in /contas.");
         return text.toString();
     }

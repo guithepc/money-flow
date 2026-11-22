@@ -14,6 +14,8 @@ public interface CategoryRepository extends JpaRepository<CategoryEntity, Intege
 
     List<CategoryEntity> findByOwnerOwnerIdOrderByCategoryIdAsc(Integer ownerId);
 
+    boolean existsByOwnerOwnerId(Integer ownerId);
+
     boolean existsByCategoryIdAndOwnerOwnerId(Integer categoryId, Integer ownerId);
 
     Optional<CategoryEntity> findByCategoryIdAndOwnerOwnerId(Integer categoryId, Integer ownerId);

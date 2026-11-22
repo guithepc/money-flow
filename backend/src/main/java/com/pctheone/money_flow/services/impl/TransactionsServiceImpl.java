@@ -129,11 +129,11 @@ public class TransactionsServiceImpl implements TransactionsService {
 
         BigDecimal amountValue = new BigDecimal(MoneyFormat.format(amount));
 
-        transactionsRepository.insertSingleExpense(ownerId, accountId, category.get().getCategoryId(), description, LocalDate.now(), amountValue);
+        Integer transactionId = transactionsRepository.insertSingleExpense(ownerId, accountId, category.get().getCategoryId(), description, LocalDate.now(), amountValue);
         accountRepository.decrementBalance(accountId, amountValue);
         Optional<AccountEntity> account = accountRepository.findById(accountId);
 
-        return new TransactionRegistrationResultDTO(amountValue, account.get().getBalance(), account.get().getCurrency(), account.get().getDescription(), category.get().getDescription());
+        return new TransactionRegistrationResultDTO(amountValue, account.get().getBalance(), account.get().getCurrency(), account.get().getDescription(), category.get().getDescription(), transactionId);
     }
 
     @Transactional
@@ -148,11 +148,11 @@ public class TransactionsServiceImpl implements TransactionsService {
 
         BigDecimal amountValue = new BigDecimal(MoneyFormat.format(amount));
 
-        transactionsRepository.insertSingleIncome(ownerId, accountId, category.get().getCategoryId(), description, LocalDate.now(), amountValue);
+        Integer transactionId = transactionsRepository.insertSingleIncome(ownerId, accountId, category.get().getCategoryId(), description, LocalDate.now(), amountValue);
         accountRepository.incrementBalance(accountId, amountValue);
         Optional<AccountEntity> account = accountRepository.findById(accountId);
 
-        return new TransactionRegistrationResultDTO(amountValue, account.get().getBalance(), account.get().getCurrency(), account.get().getDescription(), category.get().getDescription());
+        return new TransactionRegistrationResultDTO(amountValue, account.get().getBalance(), account.get().getCurrency(), account.get().getDescription(), category.get().getDescription(), transactionId);
     }
 
     @Override
@@ -206,6 +206,13 @@ public class TransactionsServiceImpl implements TransactionsService {
 
     @Override
     @Transactional
+    public Optional<DeletedTransactionDTO> deleteTransactionByDisplayNumber(Integer displayNumber, Integer ownerId) {
+        return transactionsRepository.findByOwnerOwnerIdAndDisplayNumber(ownerId, displayNumber)
+                .flatMap(transaction -> deleteTransaction(transaction.getTransactionsId(), ownerId));
+    }
+
+    @Override
+    @Transactional
     public Optional<DeletedTransactionDTO> deleteTransaction(Integer id, Integer ownerId) {
         Optional<TransactionsEntity> transactionsEntity = transactionsRepository.findById(id);
         if (transactionsEntity.isEmpty()){
@@ -213,8 +220,9 @@ public class TransactionsServiceImpl implements TransactionsService {
         }
         TransactionsEntity transactions = transactionsEntity.get();
 
+        //---- Someone else's transaction answers exactly like a missing one, so ids can't be probed.
         if (!transactions.getOwner().getOwnerId().equals(ownerId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Transaction does not belong to the authenticated user");
+            return Optional.empty();
         }
 
         if (transactions.getOperationType() == OperationTypeEnum.EXPENSE){
@@ -266,7 +274,8 @@ public class TransactionsServiceImpl implements TransactionsService {
         BigDecimal delta = amount.subtract(transaction.getAmount());
         Integer accountId = transaction.getAccount().getAccountId();
         TransactionDTO result = new TransactionDTO(transaction.getTransactionsId(), description, amount, transaction.getTimestamp(),
-                category.getDescription(), transaction.getOperationType(), transaction.getAccount().getCurrency(), category.getCategoryId());
+                category.getDescription(), transaction.getOperationType(), transaction.getAccount().getCurrency(), category.getCategoryId(),
+                transaction.getDisplayNumber());
 
         transaction.setDescription(description);
         transaction.setAmount(amount);

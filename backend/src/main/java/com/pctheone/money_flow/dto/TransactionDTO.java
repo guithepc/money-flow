@@ -19,4 +19,6 @@ public class TransactionDTO {
     private OperationTypeEnum operationType;
     private CurrencyEnum currency;
     private Integer categoryId;
+    //---- Per-owner number shown by the bot. id stays the key for the API.
+    private Integer displayNumber;
 }

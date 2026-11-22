@@ -23,13 +23,13 @@ public class BotMessageFormat {
 
     //---- "ID: 1 - Nubank | R$ 470,00"
     public static String accountLine(AccountDTO account){
-        return "ID: " + account.getAccountId() + " - " + account.getDescription()
+        return "ID: " + account.getDisplayNumber() + " - " + account.getDescription()
                 + " | " + MoneyFormat.format(account.getAmount(), account.getCurrency());
     }
 
     //---- "ID: 12 - Mercado - R$ 30,00"
     public static String transactionLine(TransactionDTO transaction){
-        return "ID: " + transaction.getId() + " - " + transaction.getDescription()
+        return "ID: " + transaction.getDisplayNumber() + " - " + transaction.getDescription()
                 + " - " + MoneyFormat.format(transaction.getAmount(), transaction.getCurrency());
     }
 }

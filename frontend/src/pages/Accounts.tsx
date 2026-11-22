@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Pencil, Wallet } from 'lucide-react'
+import { Pencil, Plus, Wallet } from 'lucide-react'
+import { NewAccountDialog } from '@/components/NewAccountDialog'
 import { EditAccountDialog } from '@/components/EditAccountDialog'
 import { KpiStrip, type KpiItem } from '@/components/KpiStrip'
 import { useCurrency } from '@/contexts/CurrencyContext'
@@ -17,6 +18,7 @@ export function Accounts() {
   } = useCurrency()
   useEffect(() => refreshAccounts(), [refreshAccounts])
   const [editing, setEditing] = useState<Account | null>(null)
+  const [creating, setCreating] = useState(false)
 
   // Sem câmbio: um total por moeda, nunca somando moedas diferentes.
   const totals = useMemo(() => {
@@ -70,11 +72,20 @@ export function Accounts() {
               Onde está o dinheiro
             </h2>
           </div>
-          {!loading && data.length > 0 && (
-            <span className="font-mono text-[11px] text-fg-subtle">
-              {data.length} {data.length === 1 ? 'conta' : 'contas'}
-            </span>
-          )}
+          <div className="flex items-center gap-4">
+            {!loading && data.length > 0 && (
+              <span className="font-mono text-[11px] text-fg-subtle">
+                {data.length} {data.length === 1 ? 'conta' : 'contas'}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              className="flex items-center gap-2 border border-edge px-3 py-2 text-xs text-fg transition-colors duration-150 hover:border-brand/60"
+            >
+              <Plus className="size-4" strokeWidth={2} /> Nova conta
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -87,7 +98,7 @@ export function Accounts() {
           <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
             <p className="text-sm text-fg-muted">Nenhuma conta cadastrada ainda.</p>
             <p className="font-mono text-xs text-fg-subtle">
-              Mande um áudio para o bot para registrar sua primeira transação.
+              Use “Nova conta” para adicionar a primeira, com o saldo atual.
             </p>
           </div>
         ) : (
@@ -136,6 +147,15 @@ export function Accounts() {
         )}
       </section>
 
+      {creating && (
+        <NewAccountDialog
+          onClose={() => setCreating(false)}
+          onCreated={() => {
+            setCreating(false)
+            refreshAccounts()
+          }}
+        />
+      )}
       {editing && (
         <EditAccountDialog
           account={editing}

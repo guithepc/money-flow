@@ -30,11 +30,14 @@ import com.pctheone.money_flow.services.telegram.VoiceTranscriptionService;
 import com.pctheone.money_flow.services.telegram.VoiceUsageService;
 import com.pctheone.money_flow.services.telegram.VoiceUsageTestSupport;
 import org.junit.jupiter.api.Assertions;
+import org.springframework.core.io.ClassPathResource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
@@ -101,6 +104,9 @@ public class TelegramBotServicesTest {
         owner.setOwnerId(OWNER_ID);
         owner.setOnboardingStep(OnboardingStepEnum.DONE);
         Mockito.when(ownerRepository.findByTelegramChatId(CHAT_ID)).thenReturn(Optional.of(owner));
+        //---- Identity: in these tests the account number the user types equals the account id.
+        Mockito.when(accountService.accountIdByDisplayNumber(ArgumentMatchers.anyInt(), ArgumentMatchers.eq(OWNER_ID)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         handler = new RecordingHandler();
         @SuppressWarnings("unchecked")
@@ -115,7 +121,13 @@ public class TelegramBotServicesTest {
         service.categoryService = categoryService;
         service.accountService = accountService;
         service.ownerRepository = ownerRepository;
-        service.openAITextClient = openAITextClient;
+        TransactionCaptureService capture = new TransactionCaptureService();
+        capture.openAITextClient = openAITextClient;
+        capture.categoryService = categoryService;
+        capture.accountService = accountService;
+        capture.transactionsService = transactionsService;
+        capture.voiceParserPrompt = new ClassPathResource("prompts/voice-parser.txt");
+        service.transactionCaptureService = capture;
         service.ownerService = ownerService;
         service.onboardingService = onboardingService;
         service.voiceTranscriptionService = voiceTranscriptionService;
@@ -160,6 +172,17 @@ public class TelegramBotServicesTest {
     @Test
     void nonNumericAccountIdRepliesInvalidAccount() {
         service.telegramRouter(textUpdate("/entrada salario maio 1000 abc"));
+
+        assertSingleReply(pt(TelegramBotServices.INVALID_ACCOUNT_MESSAGE));
+        Mockito.verifyNoInteractions(transactionsService);
+    }
+
+    @Test
+    void accountNumberTheOwnerDoesNotHaveRepliesInvalidAccount() {
+        Mockito.when(accountService.accountIdByDisplayNumber(3, OWNER_ID))
+                .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+
+        service.telegramRouter(textUpdate("/gasto mercado carne 25 3"));
 
         assertSingleReply(pt(TelegramBotServices.INVALID_ACCOUNT_MESSAGE));
         Mockito.verifyNoInteractions(transactionsService);
@@ -221,7 +244,7 @@ public class TelegramBotServicesTest {
     @Test
     void newAccountAcceptsNegativeAndZeroBalance() {
         Mockito.when(accountService.addAccount(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.anyInt()))
-                .thenReturn(new AccountDTO(1, "Card", BigDecimal.ZERO, CurrencyEnum.BRL, 0));
+                .thenReturn(new AccountDTO(1, "Card", BigDecimal.ZERO, CurrencyEnum.BRL, 0, 1));
 
         service.telegramRouter(textUpdate("/nova_conta Card -1.500,50 BRL"));
         service.telegramRouter(textUpdate("/add-conta Empty 0 BRL"));
@@ -232,7 +255,7 @@ public class TelegramBotServicesTest {
 
     @Test
     void forbiddenFromNonAccountCommandRepliesNotAllowed() {
-        Mockito.when(transactionsService.deleteTransaction(5, OWNER_ID))
+        Mockito.when(transactionsService.deleteTransactionByDisplayNumber(5, OWNER_ID))
                 .thenThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "Transaction does not belong to the authenticated user"));
 
         service.telegramRouter(textUpdate("/deletar_transacao 5"));
@@ -305,7 +328,6 @@ public class TelegramBotServicesTest {
 
     @Test
     void twentiethVoiceMessageIsProcessed() throws Exception {
-        service.voiceParserPrompt = new ClassPathResource("prompts/voice-parser.txt");
         usedVoiceMessagesToday(20);
         Mockito.when(voiceTranscriptionService.transcribe("file-1")).thenReturn("blah");
         Mockito.when(openAITextClient.complete(ArgumentMatchers.anyString(), ArgumentMatchers.eq("blah")))
@@ -375,6 +397,74 @@ public class TelegramBotServicesTest {
         service.telegramRouter(textUpdate("/gasto mercado carne 25 1"));
 
         Mockito.verify(voiceUsageService, Mockito.never()).consume(ArgumentMatchers.any());
+    }
+
+    //---- Free text (PCT-66)
+
+    private void usedTextMessagesToday(int used) {
+        Mockito.doReturn(new VoiceUsageService.Quota(used, 100)).when(voiceUsageService).consumeText(OWNER_ID);
+    }
+
+    @Test
+    void typedSentenceIsParsedAndRegisteredLikeVoice() {
+        usedTextMessagesToday(1);
+        CategoryEntity mercado = new CategoryEntity();
+        mercado.setDescription("Mercado");
+        mercado.setType(CategoryTypeEnum.EXPENSE);
+        Mockito.when(categoryService.findByDescription("Mercado", OWNER_ID)).thenReturn(Optional.of(mercado));
+        Mockito.when(openAITextClient.complete(ArgumentMatchers.anyString(), ArgumentMatchers.eq("gastei 25 no mercado na Nubank")))
+                .thenReturn(Optional.of("{\"operationType\": \"EXPENSE\", \"category\": \"Mercado\", \"description\": \"mercado\", \"amount\": \"25\", \"accountId\": 1}"));
+        Mockito.when(transactionsService.registerExpense(OWNER_ID, "Mercado", 1, "25", "mercado"))
+                .thenReturn(new TransactionRegistrationResultDTO(new BigDecimal("25"), new BigDecimal("475"), CurrencyEnum.BRL, "Nubank", "Mercado"));
+
+        service.telegramRouter(textUpdate("  gastei 25 no mercado na Nubank "));
+
+        assertSingleReply("📉 R$ 25,00 · Mercado · Nubank — saldo R$ 475,00");
+        Mockito.verifyNoInteractions(voiceTranscriptionService);
+        Mockito.verify(voiceUsageService, Mockito.never()).consume(ArgumentMatchers.any());
+    }
+
+    @Test
+    void typedSentenceThatIsNotATransactionShowsAnExample() {
+        usedTextMessagesToday(1);
+        Mockito.when(openAITextClient.complete(ArgumentMatchers.anyString(), ArgumentMatchers.eq("oi")))
+                .thenReturn(Optional.of("{\"error\": \"NOT_UNDERSTOOD\"}"));
+
+        service.telegramRouter(textUpdate("oi"));
+
+        assertSingleReply(pt(TelegramBotServices.TEXT_NOT_RECOGNIZED_MESSAGE));
+        Mockito.verifyNoInteractions(transactionsService);
+    }
+
+    @Test
+    void typedSentenceOverTheDailyLimitNeverCallsOpenAI() {
+        usedTextMessagesToday(101);
+
+        service.telegramRouter(textUpdate("gastei 25 no mercado"));
+
+        assertSingleReply("✍️ Você atingiu o limite de 100 mensagens de texto por hoje. Amanhã libera de novo — até lá, use /gasto …");
+        Mockito.verifyNoInteractions(openAITextClient, transactionsService);
+    }
+
+    @Test
+    void typedSentenceIsAllowedAfterTheVoiceLimit() {
+        usedVoiceMessagesToday(21);
+        usedTextMessagesToday(1);
+        Mockito.when(openAITextClient.complete(ArgumentMatchers.anyString(), ArgumentMatchers.eq("oi")))
+                .thenReturn(Optional.of("{\"error\": \"NOT_UNDERSTOOD\"}"));
+
+        service.telegramRouter(textUpdate("oi"));
+
+        Mockito.verify(openAITextClient).complete(ArgumentMatchers.anyString(), ArgumentMatchers.eq("oi"));
+    }
+
+    @Test
+    void unknownCommandPointsToHelp() {
+        service.telegramRouter(textUpdate("/xpto 12"));
+
+        assertSingleReply("🤷 Não conheço o comando /xpto. Veja /ajuda.");
+        Mockito.verifyNoInteractions(openAITextClient, transactionsService);
+        Mockito.verify(voiceUsageService, Mockito.never()).consumeText(ArgumentMatchers.any());
     }
 
     //---- Idempotency
@@ -487,7 +577,7 @@ public class TelegramBotServicesTest {
     @Test
     void newAccountCommandAndAliasBehaveTheSame() {
         Mockito.when(accountService.addAccount(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.anyInt()))
-                .thenReturn(new AccountDTO(1, "Wallet", BigDecimal.TEN, CurrencyEnum.BRL, 0));
+                .thenReturn(new AccountDTO(1, "Wallet", BigDecimal.TEN, CurrencyEnum.BRL, 0, 1));
 
         service.telegramRouter(textUpdate("/nova_conta Wallet 10 BRL"));
         service.telegramRouter(textUpdate("/add-conta Wallet 10 BRL"));
@@ -497,21 +587,21 @@ public class TelegramBotServicesTest {
 
     @Test
     void deleteTransactionCommandAndAliasBehaveTheSame() {
-        Mockito.when(transactionsService.deleteTransaction(5, OWNER_ID)).thenReturn(Optional.of(new DeletedTransactionDTO("feira", new BigDecimal("30"), CurrencyEnum.BRL)));
+        Mockito.when(transactionsService.deleteTransactionByDisplayNumber(5, OWNER_ID)).thenReturn(Optional.of(new DeletedTransactionDTO("feira", new BigDecimal("30"), CurrencyEnum.BRL)));
 
         service.telegramRouter(textUpdate("/deletar_transacao 5"));
         service.telegramRouter(textUpdate("/deletar-transacao 5"));
 
-        Mockito.verify(transactionsService, Mockito.times(2)).deleteTransaction(5, OWNER_ID);
+        Mockito.verify(transactionsService, Mockito.times(2)).deleteTransactionByDisplayNumber(5, OWNER_ID);
     }
 
     @Test
     void commandWithBotUsernameIsRecognised() {
-        Mockito.when(transactionsService.deleteTransaction(5, OWNER_ID)).thenReturn(Optional.of(new DeletedTransactionDTO("feira", new BigDecimal("30"), CurrencyEnum.BRL)));
+        Mockito.when(transactionsService.deleteTransactionByDisplayNumber(5, OWNER_ID)).thenReturn(Optional.of(new DeletedTransactionDTO("feira", new BigDecimal("30"), CurrencyEnum.BRL)));
 
         service.telegramRouter(textUpdate("/deletar_transacao@MoneyFlowBot 5"));
 
-        Mockito.verify(transactionsService).deleteTransaction(5, OWNER_ID);
+        Mockito.verify(transactionsService).deleteTransactionByDisplayNumber(5, OWNER_ID);
     }
 
     @Test
@@ -646,13 +736,14 @@ public class TelegramBotServicesTest {
 
     @Test
     void accountsAndTransactionsListUseEachAccountCurrency() {
+        //---- Primary keys (788, 789, 9010, 9011) are global; the bot shows the per-owner numbers (1, 2, 10, 11).
         Mockito.when(accountService.listAllAccounts(OWNER_ID)).thenReturn(List.of(
-                new AccountDTO(1, "Nubank", new BigDecimal("470"), CurrencyEnum.BRL, 0),
-                new AccountDTO(2, "Revolut", new BigDecimal("681.03"), CurrencyEnum.EUR, 0)));
+                new AccountDTO(788, "Nubank", new BigDecimal("470"), CurrencyEnum.BRL, 0, 1),
+                new AccountDTO(789, "Revolut", new BigDecimal("681.03"), CurrencyEnum.EUR, 0, 2)));
         Mockito.when(transactionsService.listAllTransactions(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.isNull(), ArgumentMatchers.isNull(), ArgumentMatchers.eq(OWNER_ID)))
                 .thenReturn(new ArrayList<>(List.of(
-                        new TransactionDTO(10, "feira", new BigDecimal("30"), java.time.LocalDate.now(), "Mercado", OperationTypeEnum.EXPENSE, CurrencyEnum.BRL, 1),
-                        new TransactionDTO(11, "us store", new BigDecimal("10"), java.time.LocalDate.now(), "Mercado", OperationTypeEnum.EXPENSE, CurrencyEnum.USD, 1))));
+                        new TransactionDTO(9010, "feira", new BigDecimal("30"), java.time.LocalDate.now(), "Mercado", OperationTypeEnum.EXPENSE, CurrencyEnum.BRL, 1, 10),
+                        new TransactionDTO(9011, "us store", new BigDecimal("10"), java.time.LocalDate.now(), "Mercado", OperationTypeEnum.EXPENSE, CurrencyEnum.USD, 1, 11))));
 
         service.telegramRouter(textUpdate("/contas"));
         service.telegramRouter(textUpdate("/transacoes"));
@@ -764,9 +855,9 @@ public class TelegramBotServicesTest {
 
     @Test
     void deleteTransactionReplyUsesAccountCurrency() {
-        Mockito.when(transactionsService.deleteTransaction(5, OWNER_ID))
+        Mockito.when(transactionsService.deleteTransactionByDisplayNumber(5, OWNER_ID))
                 .thenReturn(Optional.of(new DeletedTransactionDTO("feira", new BigDecimal("30"), CurrencyEnum.EUR)));
-        Mockito.when(transactionsService.deleteTransaction(6, OWNER_ID)).thenReturn(Optional.empty());
+        Mockito.when(transactionsService.deleteTransactionByDisplayNumber(6, OWNER_ID)).thenReturn(Optional.empty());
 
         service.telegramRouter(textUpdate("/deletar_transacao 5"));
         service.telegramRouter(textUpdate("/deletar_transacao 6"));
@@ -895,7 +986,103 @@ public class TelegramBotServicesTest {
         assertSingleReply(pt("voice.notRecognized"));
     }
 
+    //---- GPT answers that used to throw (500 on the PWA, generic error on the bot).
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "[{\"operationType\": \"EXPENSE\", \"category\": \"Mercado\", \"description\": \"a\", \"amount\": \"25,00\", \"accountId\": 1}, {\"operationType\": \"EXPENSE\", \"category\": \"Mercado\", \"description\": \"b\", \"amount\": \"25,00\", \"accountId\": 1}]",
+            "{\"error\": ",
+            "",
+            "\"texto solto\"",
+            "{\"operationType\": \"EXPENSE\", \"category\": \"Mercado\", \"amount\": \"25,00\", \"accountId\": \"Nubank\"}"})
+    void malformedOrMultipleAnswersAreNotUnderstood(String answer) {
+        Mockito.when(categoryService.findByDescription("Mercado", OWNER_ID)).thenReturn(Optional.of(expenseCategory("Mercado")));
+
+        Assertions.assertFalse(service.proccessTranscriptedMessage(answer, CHAT_ID, OWNER_ID, LanguageEnum.PT));
+
+        assertSingleReply(pt("voice.notRecognized"));
+        Mockito.verifyNoInteractions(transactionsService);
+    }
+
+    @Test
+    void answerInsideAMarkdownFenceIsStillRead() {
+        Assertions.assertFalse(service.proccessTranscriptedMessage("```json\n{\"error\": \"CATEGORY_NOT_FOUND\", \"category\": \"Saúde\", \"operationType\": \"EXPENSE\"}\n```", CHAT_ID, OWNER_ID, LanguageEnum.PT));
+
+        lastKeyboard(pt("voice.categoryNotFound", "Saúde", "gasto"));
+    }
+
+    @Test
+    void singleTransactionWrappedInAnArrayIsRegistered() {
+        Mockito.when(categoryService.findByDescription("Mercado", OWNER_ID)).thenReturn(Optional.of(expenseCategory("Mercado")));
+        Mockito.when(transactionsService.registerExpense(OWNER_ID, "Mercado", 1, "25,00", "feira"))
+                .thenReturn(new TransactionRegistrationResultDTO(new BigDecimal("25"), new BigDecimal("475"), CurrencyEnum.BRL, "Nubank", "Mercado"));
+
+        Assertions.assertTrue(service.proccessTranscriptedMessage(
+                "[{\"operationType\": \"EXPENSE\", \"category\": \"Mercado\", \"description\": \"feira\", \"amount\": \"25,00\", \"accountId\": 1}]", CHAT_ID, OWNER_ID, LanguageEnum.PT));
+    }
+
+    //---- Implicit account and category (PCT-77)
+
+    @Test
+    void unsaidAccountUsesTheDefaultAccount() {
+        CategoryEntity mercado = expenseCategory("Mercado");
+        Mockito.when(categoryService.findByDescription("Mercado", OWNER_ID)).thenReturn(Optional.of(mercado));
+        Mockito.when(accountService.defaultAccountId(OWNER_ID)).thenReturn(Optional.of(7));
+        Mockito.when(transactionsService.registerExpense(OWNER_ID, "Mercado", 7, "25,00", "supermercado"))
+                .thenReturn(new TransactionRegistrationResultDTO(new BigDecimal("25"), new BigDecimal("475"), CurrencyEnum.BRL, "Inter", "Mercado"));
+
+        boolean registered = service.proccessTranscriptedMessage(
+                "{\"operationType\": \"EXPENSE\", \"category\": \"Mercado\", \"description\": \"supermercado\", \"amount\": \"25,00\", \"accountId\": null}", CHAT_ID, OWNER_ID, LanguageEnum.PT);
+
+        Assertions.assertTrue(registered);
+        assertSingleReply("📉 R$ 25,00 · Mercado · Inter — saldo R$ 475,00");
+    }
+
+    @Test
+    void unsaidAccountWithoutAnyAccountAsksToCreateOne() {
+        Mockito.when(categoryService.findByDescription("Mercado", OWNER_ID)).thenReturn(Optional.of(expenseCategory("Mercado")));
+        Mockito.when(accountService.defaultAccountId(OWNER_ID)).thenReturn(Optional.empty());
+
+        boolean registered = service.proccessTranscriptedMessage(
+                "{\"operationType\": \"EXPENSE\", \"category\": \"Mercado\", \"description\": \"feira\", \"amount\": \"25,00\", \"accountId\": null}", CHAT_ID, OWNER_ID, LanguageEnum.PT);
+
+        Assertions.assertFalse(registered);
+        assertSingleReply(pt("voice.noAccount"));
+        Mockito.verifyNoInteractions(transactionsService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"\"0\"", "\"0,00\"", "\"\"", "null", "\"25.90\"", "\"-30\"", "\"vinte\""})
+    void missingZeroOrAmbiguousAmountIsNeverRegistered(String amount) {
+        Mockito.when(categoryService.findByDescription("Mercado", OWNER_ID)).thenReturn(Optional.of(expenseCategory("Mercado")));
+
+        boolean registered = service.proccessTranscriptedMessage(
+                "{\"operationType\": \"EXPENSE\", \"category\": \"Mercado\", \"description\": \"feira\", \"amount\": " + amount + ", \"accountId\": 1}", CHAT_ID, OWNER_ID, LanguageEnum.PT);
+
+        Assertions.assertFalse(registered);
+        assertSingleReply(pt("voice.notRecognized"));
+        Mockito.verifyNoInteractions(transactionsService);
+    }
+
+    @Test
+    void categoryOutsideTheListIsOfferedCapitalized() {
+        boolean registered = service.proccessTranscriptedMessage(
+                "{\"operationType\": \"EXPENSE\", \"category\": \"atividade física\", \"description\": \"academia\", \"amount\": \"120,00\", \"accountId\": null}", CHAT_ID, OWNER_ID, LanguageEnum.PT);
+
+        Assertions.assertFalse(registered);
+        List<List<TelegramInlineButtonDTO>> keyboard = lastKeyboard(pt("voice.categoryNotFound", "Atividade física", "gasto"));
+        Assertions.assertEquals("cat:new:E:Atividade física", keyboard.getFirst().get(0).getCallbackData());
+        Mockito.verifyNoInteractions(transactionsService);
+    }
+
     //---- Helpers
+
+    private static CategoryEntity expenseCategory(String description) {
+        CategoryEntity category = new CategoryEntity();
+        category.setDescription(description);
+        category.setType(CategoryTypeEnum.EXPENSE);
+        return category;
+    }
 
     private static CategoryCreationResultDTO categoryResult(String description, CategoryTypeEnum type, boolean created) {
         CategoryEntity category = new CategoryEntity();

@@ -27,7 +27,19 @@ public interface AccountRepository extends JpaRepository<AccountEntity, Integer>
 
     Optional<AccountEntity> findByAccountIdAndOwnerOwnerId(Integer accountId, Integer ownerId);
 
+    Optional<AccountEntity> findByOwnerOwnerIdAndDisplayNumber(Integer ownerId, Integer displayNumber);
+
     boolean existsByOwnerOwnerIdAndDescriptionIgnoreCase(Integer ownerId, String description);
+
+    //---- LEFT JOIN keeps accounts with no recent transactions (count 0); display_number breaks ties.
+    @Query(value = """
+            SELECT a.account_id FROM account a
+            LEFT JOIN transactions t ON t.account_id = a.account_id AND t.timestamp >= CURRENT_DATE - 90
+            WHERE a.owner_id = :ownerId
+            GROUP BY a.account_id, a.display_number
+            ORDER BY COUNT(t.transactions_id) DESC, a.display_number
+            LIMIT 1""", nativeQuery = true)
+    Optional<Integer> findMostUsedAccountId(@Param("ownerId") Integer ownerId);
 
     //---- Account deletion: runs after the owner's transactions and recurring payments are gone.
     @Modifying(flushAutomatically = true, clearAutomatically = true)

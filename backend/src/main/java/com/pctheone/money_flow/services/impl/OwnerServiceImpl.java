@@ -48,6 +48,7 @@ public class OwnerServiceImpl implements OwnerService {
     @Autowired
     AuthService authService;
 
+
     @Autowired
     com.pctheone.money_flow.config.AdminAccess adminAccess;
 

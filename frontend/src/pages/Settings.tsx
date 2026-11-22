@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { ArrowRight, Send, ExternalLink, Clock, Check, Download, Trash2 } from 'lucide-react'
-import { ApiError, authApi, ownerApi } from '@/lib/api'
+import { ArrowRight, Send, ExternalLink, Clock, Check, Download, Trash2, Languages } from 'lucide-react'
+import { ApiError, authApi, onboardingApi, ownerApi } from '@/lib/api'
+import { LanguageToggle } from '@/components/LanguageToggle'
+import { useLanguage, type Lang } from '@/lib/i18n'
 import { clearToken } from '@/lib/auth'
 import { LANDING_URL, LEGAL_PATHS } from '@/lib/legal'
 
@@ -22,6 +24,23 @@ function downloadJson(data: unknown, fileName: string) {
 }
 
 export function Settings() {
+  const { lang, setLang } = useLanguage()
+  const [savingLanguage, setSavingLanguage] = useState(false)
+  const [languageError, setLanguageError] = useState<string | null>(null)
+
+  async function changeLanguage(next: Lang) {
+    if (next === lang) return
+    setSavingLanguage(true)
+    setLanguageError(null)
+    try {
+      await onboardingApi.changeLanguage(next)
+      setLang(next)
+    } catch {
+      setLanguageError(lang === 'pt' ? 'Não consegui trocar o idioma.' : "Couldn't change the language.")
+    } finally {
+      setSavingLanguage(false)
+    }
+  }
   // null = ainda carregando (ou falhou): nesse caso mostra o botão normal de vincular.
   const [telegramLinked, setTelegramLinked] = useState<boolean | null>(null)
   const [link, setLink] = useState<string | null>(null)
@@ -113,6 +132,24 @@ export function Settings() {
       </header>
 
       <div className="flex max-w-xl flex-col gap-6">
+        <section className="flex flex-col gap-4 border border-edge bg-surface p-6">
+          <div className="flex items-start gap-4">
+            <span className="flex size-10 shrink-0 items-center justify-center border border-edge">
+              <Languages className="size-5 text-fg-muted" strokeWidth={1.8} />
+            </span>
+            <div className="flex flex-col gap-1">
+              <h2 className="font-display text-2xl font-normal tracking-[-0.02em] text-fg">Idioma · Language</h2>
+              <p className="text-sm text-fg-muted">
+                {lang === 'pt'
+                  ? 'Tela de gravar, menu e bot do Telegram.'
+                  : 'Record screen, menu and the Telegram bot.'}
+              </p>
+            </div>
+          </div>
+          <LanguageToggle value={lang} onChange={changeLanguage} disabled={savingLanguage} />
+          {languageError && <p className="text-sm text-negative">{languageError}</p>}
+        </section>
+
         <section className="flex flex-col gap-6 border border-edge bg-surface p-6">
           <div className="flex items-start gap-4">
             <span className="flex size-10 shrink-0 items-center justify-center border border-edge">

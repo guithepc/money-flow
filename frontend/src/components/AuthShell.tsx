@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { ArrowRight, ShoppingBag } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { LEGAL_PATHS } from '@/lib/legal'
+import type { Lang } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 /** Classes compartilhadas pelos campos e botões das telas de auth (fundo claro). */
@@ -89,13 +90,15 @@ interface AuthShellProps {
   title: string
   subtitle: string
   children: ReactNode
+  /** Rodapé (links legais); o onboarding em inglês passa `en`. */
+  lang?: Lang
 }
 
 /**
  * Tela dividida: formulário sobre papel à esquerda, painel "Tinta" com um card
  * de saldo de exemplo à direita.
  */
-export function AuthShell({ eyebrow, title, subtitle, children }: AuthShellProps) {
+export function AuthShell({ eyebrow, title, subtitle, children, lang = 'pt' }: AuthShellProps) {
   return (
     <div className="flex flex-1">
       <main className="flex flex-1 flex-col bg-paper px-8 py-8 text-ink sm:px-16">
@@ -115,11 +118,11 @@ export function AuthShell({ eyebrow, title, subtitle, children }: AuthShellProps
         </div>
 
         <footer className="flex flex-wrap gap-x-5 gap-y-2 font-mono text-[11px] uppercase tracking-[0.07em] text-ink/45">
-          <a href={LEGAL_PATHS.terms} className="transition-colors duration-150 hover:text-ink">
-            Termos de uso
+          <a href={`${LEGAL_PATHS.terms}?lang=${lang}`} className="transition-colors duration-150 hover:text-ink">
+            {lang === 'pt' ? 'Termos de uso' : 'Terms of use'}
           </a>
-          <a href={LEGAL_PATHS.privacy} className="transition-colors duration-150 hover:text-ink">
-            Política de privacidade
+          <a href={`${LEGAL_PATHS.privacy}?lang=${lang}`} className="transition-colors duration-150 hover:text-ink">
+            {lang === 'pt' ? 'Política de privacidade' : 'Privacy policy'}
           </a>
         </footer>
       </main>

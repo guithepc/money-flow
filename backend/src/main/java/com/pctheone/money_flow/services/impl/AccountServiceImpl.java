@@ -19,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class AccountServiceImpl implements AccountService {
@@ -120,6 +121,18 @@ public class AccountServiceImpl implements AccountService {
         }
     }
 
+    @Override
+    public Integer accountIdByDisplayNumber(Integer displayNumber, Integer ownerId) {
+        return accountRepository.findByOwnerOwnerIdAndDisplayNumber(ownerId, displayNumber)
+                .map(AccountEntity::getAccountId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+    }
+
+    @Override
+    public Optional<Integer> defaultAccountId(Integer ownerId) {
+        return accountRepository.findMostUsedAccountId(ownerId);
+    }
+
     //---- Case-insensitive: "nubank" and "Nubank" are the same account for the user.
     @Override
     public boolean existsByDescription(String description, Integer ownerId) {
@@ -127,6 +140,6 @@ public class AccountServiceImpl implements AccountService {
     }
 
     private AccountDTO toDTO(AccountEntity accountEntity, long transactionCount) {
-        return new AccountDTO(accountEntity.getAccountId(), accountEntity.getDescription(), accountEntity.getBalance(), accountEntity.getCurrency(), transactionCount);
+        return new AccountDTO(accountEntity.getAccountId(), accountEntity.getDescription(), accountEntity.getBalance(), accountEntity.getCurrency(), transactionCount, accountEntity.getDisplayNumber());
     }
 }
