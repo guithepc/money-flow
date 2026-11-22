@@ -13,6 +13,7 @@ python3 backend/eval/voice-parser/run.py --strict-account --repeats 3 --cases ba
 | `cases.json` | base categories of a new user, Nubank + Inter | yes |
 | `holdout.json` | other names (Supermercado, Comer fora, Saúde, Pets…), Itaú/Santander/Revolut | yes, after the first run |
 | `fresh.json` | Alimentação, Contas, Farmácia, Viagens, Dividendos…, C6/Caixa/Nubank | one structural change only (split category lists by type) |
+| `en.json` | the English base categories (Groceries, Eating out…), Revolut/Monzo, English and a few Portuguese sentences | no |
 
 Results on 2026-11-22 (3 repeats each; old prompt scored with any account accepted when none is said,
 new prompt must return `accountId: null` so the backend picks the most used account):
@@ -23,5 +24,6 @@ new prompt must return `accountId: null` so the backend picks the most used acco
 | holdout | 56% | 100% |
 | fresh, before any change from it | 63% | 89% |
 | fresh, after splitting the lists | | 93% |
+| en (English base categories, PCT-87) | | 100% |
 
 Every cost is a few cents. Add a case whenever a real message is parsed wrong.
