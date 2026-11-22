@@ -129,11 +129,11 @@ public class TransactionsServiceImpl implements TransactionsService {
 
         BigDecimal amountValue = new BigDecimal(MoneyFormat.format(amount));
 
-        transactionsRepository.insertSingleExpense(ownerId, accountId, category.get().getCategoryId(), description, LocalDate.now(), amountValue);
+        Integer transactionId = transactionsRepository.insertSingleExpense(ownerId, accountId, category.get().getCategoryId(), description, LocalDate.now(), amountValue);
         accountRepository.decrementBalance(accountId, amountValue);
         Optional<AccountEntity> account = accountRepository.findById(accountId);
 
-        return new TransactionRegistrationResultDTO(amountValue, account.get().getBalance(), account.get().getCurrency(), account.get().getDescription(), category.get().getDescription());
+        return new TransactionRegistrationResultDTO(amountValue, account.get().getBalance(), account.get().getCurrency(), account.get().getDescription(), category.get().getDescription(), transactionId);
     }
 
     @Transactional
@@ -148,11 +148,11 @@ public class TransactionsServiceImpl implements TransactionsService {
 
         BigDecimal amountValue = new BigDecimal(MoneyFormat.format(amount));
 
-        transactionsRepository.insertSingleIncome(ownerId, accountId, category.get().getCategoryId(), description, LocalDate.now(), amountValue);
+        Integer transactionId = transactionsRepository.insertSingleIncome(ownerId, accountId, category.get().getCategoryId(), description, LocalDate.now(), amountValue);
         accountRepository.incrementBalance(accountId, amountValue);
         Optional<AccountEntity> account = accountRepository.findById(accountId);
 
-        return new TransactionRegistrationResultDTO(amountValue, account.get().getBalance(), account.get().getCurrency(), account.get().getDescription(), category.get().getDescription());
+        return new TransactionRegistrationResultDTO(amountValue, account.get().getBalance(), account.get().getCurrency(), account.get().getDescription(), category.get().getDescription(), transactionId);
     }
 
     @Override

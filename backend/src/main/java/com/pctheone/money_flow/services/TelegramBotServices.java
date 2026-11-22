@@ -15,7 +15,6 @@ import com.pctheone.money_flow.exceptions.TelegramUserInputException;
 import com.pctheone.money_flow.repositories.OwnerRepository;
 import com.pctheone.money_flow.services.telegram.BotMessages;
 import com.pctheone.money_flow.services.telegram.CategoryCallbackHandler;
-import com.pctheone.money_flow.services.telegram.OpenAITextClient;
 import com.pctheone.money_flow.services.telegram.TelegramApiClient;
 import com.pctheone.money_flow.services.telegram.TelegramBotCommands;
 import com.pctheone.money_flow.services.telegram.TelegramCallbackHandler;
@@ -24,13 +23,10 @@ import com.pctheone.money_flow.services.telegram.TelegramProcessedUpdateService;
 import com.pctheone.money_flow.services.telegram.VoiceTranscriptionService;
 import com.pctheone.money_flow.services.telegram.VoiceUsageService;
 import com.pctheone.money_flow.utils.BotMessageFormat;
-import com.pctheone.money_flow.utils.Json;
 import com.pctheone.money_flow.utils.MoneyFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -38,11 +34,9 @@ import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
-import tools.jackson.databind.JsonNode;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
@@ -72,11 +66,11 @@ public class TelegramBotServices {
     //---- Both names work in any language.
     static final List<String> RESET_PASSWORD_COMMANDS = List.of("/redefinir_senha", "/reset_password");
 
-    @Value("classpath:prompts/voice-parser.txt")
-    Resource voiceParserPrompt;
-
     @Autowired
     TelegramApiClient telegramApiClient;
+
+    @Autowired
+    TransactionCaptureService transactionCaptureService;
 
     @Autowired
     TelegramProcessedUpdateService processedUpdateService;
@@ -84,8 +78,6 @@ public class TelegramBotServices {
     @Autowired
     TelegramCallbackRegistry callbackRegistry;
 
-    @Autowired
-    OpenAITextClient openAITextClient;
 
     @Autowired
     VoiceTranscriptionService voiceTranscriptionService;
@@ -438,82 +430,31 @@ public class TelegramBotServices {
     }
 
     private boolean parseAndRegister(String userMessage, Long chatId, Integer ownerId, LanguageEnum language, String notRecognizedKey) throws IOException {
-        String template = new String(voiceParserPrompt.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        String prompt = String.format(template, this.listCategories(ownerId, CategoryTypeEnum.EXPENSE), this.listCategories(ownerId, CategoryTypeEnum.INCOME), this.listAccounts(ownerId));
-        String response = openAITextClient.complete(prompt, userMessage).orElse("{\"error\": \"NOT_UNDERSTOOD\"}");
-        return proccessTranscriptedMessage(response, chatId, ownerId, language, notRecognizedKey);
+        return reply(transactionCaptureService.capture(userMessage, ownerId), chatId, language, notRecognizedKey);
     }
 
     boolean proccessTranscriptedMessage(String response, Long chatId, Integer ownerId, LanguageEnum language){
         return proccessTranscriptedMessage(response, chatId, ownerId, language, VOICE_NOT_RECOGNIZED_MESSAGE);
     }
 
-    //---- GPT returns the transaction (accountId null when unsaid), {"error": "CATEGORY_NOT_FOUND", ...} or {"error": "NOT_UNDERSTOOD"}.
-    //---- A category outside the owner's list is offered for creation, whichever way GPT phrased it.
     boolean proccessTranscriptedMessage(String response, Long chatId, Integer ownerId, LanguageEnum language, String notRecognizedKey){
-        //---- Never log the response itself: it carries descriptions and amounts.
-        log.info("GPT parser response received ({} chars) for owner {}.", response == null ? 0 : response.length(), ownerId);
+        return reply(transactionCaptureService.register(response, ownerId), chatId, language, notRecognizedKey);
+    }
 
-        JsonNode node = Json.MAPPER.readTree(response);
-        if (node.hasNonNull("error")) {
-            String category = node.hasNonNull("category") ? node.get("category").asString().trim() : "";
-            if ("CATEGORY_NOT_FOUND".equals(node.get("error").asString()) && !category.isEmpty()) {
-                offerCategoryCreation(chatId, language, category, operationTypeOf(node));
-                return false;
+    //---- Returns true when a transaction was registered.
+    private boolean reply(TransactionCaptureService.Outcome outcome, Long chatId, LanguageEnum language, String notRecognizedKey){
+        switch (outcome) {
+            case TransactionCaptureService.Registered registered -> {
+                sendReply(chatId, BotMessageFormat.transactionConfirmation(messages, language, registered.operationType(), registered.result()));
+                return true;
             }
-            log.info("GPT could not parse the voice message, notifying user");
-            sendReply(chatId, messages.get(language, notRecognizedKey));
-            return false;
+            case TransactionCaptureService.CategoryNotFound notFound -> offerCategoryCreation(chatId, language, notFound.suggestedName(), notFound.type());
+            case TransactionCaptureService.CategoryTypeMismatch mismatch -> sendReply(chatId, messages.get(language, "voice.categoryTypeMismatch",
+                    mismatch.category(), messages.get(language, "category.type." + mismatch.categoryType().name())));
+            case TransactionCaptureService.NoAccount ignored -> sendReply(chatId, messages.get(language, "voice.noAccount"));
+            case TransactionCaptureService.NotUnderstood ignored -> sendReply(chatId, messages.get(language, notRecognizedKey));
         }
-
-        OpenAITransactionDTO transactionDTO = Json.MAPPER.treeToValue(node, OpenAITransactionDTO.class);
-        log.info("Parsed voice transaction - operation: {}, accountId: {}, owner: {}",
-                transactionDTO.getOperationType(), transactionDTO.getAccountId(), ownerId);
-
-        OperationTypeEnum operationType = transactionDTO.getOperationType();
-        if (operationType != OperationTypeEnum.EXPENSE && operationType != OperationTypeEnum.INCOME) {
-            sendReply(chatId, messages.get(language, notRecognizedKey));
-            return false;
-        }
-        CategoryTypeEnum expectedType = operationType == OperationTypeEnum.INCOME ? CategoryTypeEnum.INCOME : CategoryTypeEnum.EXPENSE;
-
-        //---- Refuse instead of guessing: a missing, zero or "25.90" amount would register the wrong value.
-        if (MoneyFormat.parseBrazilian(transactionDTO.getAmount()).filter(amount -> amount.signum() > 0).isEmpty()) {
-            sendReply(chatId, messages.get(language, notRecognizedKey));
-            return false;
-        }
-
-        Optional<CategoryEntity> category = transactionDTO.getCategory() == null || transactionDTO.getCategory().isBlank()
-                ? Optional.empty()
-                : categoryService.findByDescription(transactionDTO.getCategory(), ownerId);
-        if (category.isEmpty()) {
-            if (transactionDTO.getCategory() == null || transactionDTO.getCategory().isBlank()) {
-                sendReply(chatId, messages.get(language, notRecognizedKey));
-                return false;
-            }
-            offerCategoryCreation(chatId, language, transactionDTO.getCategory().trim(), expectedType);
-            return false;
-        }
-        if (category.get().getType() != expectedType) {
-            sendReply(chatId, messages.get(language, "voice.categoryTypeMismatch",
-                    category.get().getDescription(), messages.get(language, "category.type." + category.get().getType().name())));
-            return false;
-        }
-
-        Optional<Integer> accountId = transactionDTO.getAccountId() != null
-                ? Optional.of(transactionDTO.getAccountId())
-                : accountService.defaultAccountId(ownerId);
-        if (accountId.isEmpty()) {
-            sendReply(chatId, messages.get(language, "voice.noAccount"));
-            return false;
-        }
-
-        TransactionRegistrationResultDTO result = operationType == OperationTypeEnum.EXPENSE
-                ? transactionsService.registerExpense(ownerId, category.get().getDescription(), accountId.get(), transactionDTO.getAmount(), transactionDTO.getDescription())
-                : transactionsService.registerIncome(ownerId, category.get().getDescription(), accountId.get(), transactionDTO.getAmount(), transactionDTO.getDescription());
-        log.info("Voice {} registered successfully", operationType);
-        sendReply(chatId, BotMessageFormat.transactionConfirmation(messages, language, operationType, result));
-        return true;
+        return false;
     }
 
     //---- Created / already exists / name taken by a category of the other type.
@@ -526,14 +467,8 @@ public class TelegramBotServices {
         return messages.get(language, "category.exists", category.getDescription());
     }
 
-    private static CategoryTypeEnum operationTypeOf(JsonNode node){
-        return node.hasNonNull("operationType") && "INCOME".equals(node.get("operationType").asString())
-                ? CategoryTypeEnum.INCOME : CategoryTypeEnum.EXPENSE;
-    }
-
     //---- "Couldn't find 'Pharmacy'. Create it as expense? [Yes] [No]"
-    private void offerCategoryCreation(Long chatId, LanguageEnum language, String suggestedName, CategoryTypeEnum type){
-        String category = suggestedName.substring(0, 1).toUpperCase() + suggestedName.substring(1);
+    private void offerCategoryCreation(Long chatId, LanguageEnum language, String category, CategoryTypeEnum type){
         log.info("Voice category not found, offering to create it ({}).", type);
         String typeLabel = messages.get(language, "category.type." + type.name());
         Optional<List<List<TelegramInlineButtonDTO>>> buttons = CategoryCallbackHandler.createButtons(category, type,
@@ -681,27 +616,4 @@ public class TelegramBotServices {
         }
     }
 
-    private StringBuilder listAccounts(Integer ownerId){
-        List<AccountDTO> accountDTOList = accountService.listAllAccounts(ownerId);
-        StringBuilder accountListText = new StringBuilder();
-        for (AccountDTO accountDTO : accountDTOList){
-            accountListText.append("ID: ")
-                    .append(accountDTO.getAccountId())
-                    .append(" - ")
-                    .append(accountDTO.getDescription())
-                    .append(" - ")
-                    .append(accountDTO.getAmount())
-                    .append("\n");
-        }
-        return accountListText;
-    }
-
-    //---- One list per type: a single tagged list let "Outras entradas" (income) catch expenses with no category.
-    private String listCategories(Integer ownerId, CategoryTypeEnum type){
-        StringBuilder categoryListText = new StringBuilder();
-        for (CategoryDTO categoryDTO : categoryService.listAllCategories(ownerId))
-            if (categoryDTO.getType() == type)
-                categoryListText.append("- ").append(categoryDTO.getCategoryDescription()).append("\n");
-        return categoryListText.isEmpty() ? "(nenhuma)\n" : categoryListText.toString();
-    }
 }

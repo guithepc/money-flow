@@ -30,6 +30,7 @@ import com.pctheone.money_flow.services.telegram.VoiceTranscriptionService;
 import com.pctheone.money_flow.services.telegram.VoiceUsageService;
 import com.pctheone.money_flow.services.telegram.VoiceUsageTestSupport;
 import org.junit.jupiter.api.Assertions;
+import org.springframework.core.io.ClassPathResource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -120,7 +121,13 @@ public class TelegramBotServicesTest {
         service.categoryService = categoryService;
         service.accountService = accountService;
         service.ownerRepository = ownerRepository;
-        service.openAITextClient = openAITextClient;
+        TransactionCaptureService capture = new TransactionCaptureService();
+        capture.openAITextClient = openAITextClient;
+        capture.categoryService = categoryService;
+        capture.accountService = accountService;
+        capture.transactionsService = transactionsService;
+        capture.voiceParserPrompt = new ClassPathResource("prompts/voice-parser.txt");
+        service.transactionCaptureService = capture;
         service.ownerService = ownerService;
         service.onboardingService = onboardingService;
         service.voiceTranscriptionService = voiceTranscriptionService;
@@ -321,7 +328,6 @@ public class TelegramBotServicesTest {
 
     @Test
     void twentiethVoiceMessageIsProcessed() throws Exception {
-        service.voiceParserPrompt = new ClassPathResource("prompts/voice-parser.txt");
         usedVoiceMessagesToday(20);
         Mockito.when(voiceTranscriptionService.transcribe("file-1")).thenReturn("blah");
         Mockito.when(openAITextClient.complete(ArgumentMatchers.anyString(), ArgumentMatchers.eq("blah")))
@@ -401,7 +407,6 @@ public class TelegramBotServicesTest {
 
     @Test
     void typedSentenceIsParsedAndRegisteredLikeVoice() {
-        service.voiceParserPrompt = new ClassPathResource("prompts/voice-parser.txt");
         usedTextMessagesToday(1);
         CategoryEntity mercado = new CategoryEntity();
         mercado.setDescription("Mercado");
@@ -421,7 +426,6 @@ public class TelegramBotServicesTest {
 
     @Test
     void typedSentenceThatIsNotATransactionShowsAnExample() {
-        service.voiceParserPrompt = new ClassPathResource("prompts/voice-parser.txt");
         usedTextMessagesToday(1);
         Mockito.when(openAITextClient.complete(ArgumentMatchers.anyString(), ArgumentMatchers.eq("oi")))
                 .thenReturn(Optional.of("{\"error\": \"NOT_UNDERSTOOD\"}"));
@@ -444,7 +448,6 @@ public class TelegramBotServicesTest {
 
     @Test
     void typedSentenceIsAllowedAfterTheVoiceLimit() {
-        service.voiceParserPrompt = new ClassPathResource("prompts/voice-parser.txt");
         usedVoiceMessagesToday(21);
         usedTextMessagesToday(1);
         Mockito.when(openAITextClient.complete(ArgumentMatchers.anyString(), ArgumentMatchers.eq("oi")))

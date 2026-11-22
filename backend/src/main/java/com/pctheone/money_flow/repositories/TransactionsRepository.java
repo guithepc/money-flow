@@ -96,16 +96,15 @@ public interface TransactionsRepository extends JpaRepository<TransactionsEntity
             "WHERE t.timestamp BETWEEN :startDate AND :endDate AND t.operationType = 'EXPENSE' AND t.owner.ownerId = :ownerId AND t.account.accountId = :accountId")
     BigDecimal totalSpentByTimeAndAccountId(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("ownerId") Integer ownerId, @Param("accountId") Integer accountId);
 
-    @Modifying
-    @Query("INSERT into TransactionsEntity (owner, account, category, description, timestamp, operationType, amount) " +
-            "VALUES (:ownerId, :accountId, :categoryId, :description, :timestamp, 'EXPENSE', :amount)")
-    void insertSingleExpense(@Param("ownerId") Integer ownerId, @Param("accountId") Integer accountId, @Param("categoryId") Integer categoryId, @Param("description") String description,
+    //---- RETURNING hands back the generated id in the same statement: the PWA's undo needs it.
+    @Query(value = "INSERT INTO transactions (owner_id, account_id, category_id, description, timestamp, operation_type, amount) " +
+            "VALUES (:ownerId, :accountId, :categoryId, :description, :timestamp, 'EXPENSE', :amount) RETURNING transactions_id", nativeQuery = true)
+    Integer insertSingleExpense(@Param("ownerId") Integer ownerId, @Param("accountId") Integer accountId, @Param("categoryId") Integer categoryId, @Param("description") String description,
                              @Param("timestamp") LocalDate timestamp, @Param ("amount") BigDecimal amount);
 
-    @Modifying
-    @Query("INSERT into TransactionsEntity (owner, account, category, description, timestamp, operationType, amount) " +
-            "VALUES (:ownerId, :accountId, :categoryId, :description, :timestamp, 'INCOME', :amount)")
-    void insertSingleIncome(@Param("ownerId") Integer ownerId, @Param("accountId") Integer accountId, @Param("categoryId") Integer categoryId, @Param("description") String description,
+    @Query(value = "INSERT INTO transactions (owner_id, account_id, category_id, description, timestamp, operation_type, amount) " +
+            "VALUES (:ownerId, :accountId, :categoryId, :description, :timestamp, 'INCOME', :amount) RETURNING transactions_id", nativeQuery = true)
+    Integer insertSingleIncome(@Param("ownerId") Integer ownerId, @Param("accountId") Integer accountId, @Param("categoryId") Integer categoryId, @Param("description") String description,
                             @Param("timestamp") LocalDate timestamp, @Param ("amount") BigDecimal amount);
 
     @Query("SELECT FUNCTION('date_trunc', 'month', t.timestamp), " +

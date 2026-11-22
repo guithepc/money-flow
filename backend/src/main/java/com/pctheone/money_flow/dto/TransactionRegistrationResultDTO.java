@@ -14,4 +14,10 @@ public class TransactionRegistrationResultDTO {
     private CurrencyEnum currency;
     private String accountDescription;
     private String categoryDescription;
+    //---- Lets the PWA undo the registration (DELETE /api/transactions/{id}). Null where nobody needs it.
+    private Integer transactionId;
+
+    public TransactionRegistrationResultDTO(BigDecimal amount, BigDecimal newBalance, CurrencyEnum currency, String accountDescription, String categoryDescription) {
+        this(amount, newBalance, currency, accountDescription, categoryDescription, null);
+    }
 }

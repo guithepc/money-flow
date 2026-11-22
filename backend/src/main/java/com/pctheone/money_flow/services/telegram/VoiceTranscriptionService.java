@@ -12,7 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-//---- Downloads a Telegram voice message and transcribes it with Whisper. Shared by the voice parser and onboarding.
+//---- Transcribes a voice message with Whisper: a Telegram file (bot and onboarding) or bytes uploaded by the PWA.
 @Service
 public class VoiceTranscriptionService {
 
@@ -26,9 +26,12 @@ public class VoiceTranscriptionService {
     OpenAIClient openAIClient;
 
     public String transcribe(String fileId) throws IOException, InterruptedException {
-        byte[] audio = telegramApiClient.downloadFile(fileId);
+        return transcribe(telegramApiClient.downloadFile(fileId), ".ogg");
+    }
 
-        Path tempFile = Files.createTempFile("voice_", ".ogg");
+    //---- The extension tells the API the format: Telegram sends .ogg, Safari on iPhone records .mp4, Chrome .webm.
+    public String transcribe(byte[] audio, String extension) throws IOException {
+        Path tempFile = Files.createTempFile("voice_", extension);
         try {
             Files.write(tempFile, audio);
 

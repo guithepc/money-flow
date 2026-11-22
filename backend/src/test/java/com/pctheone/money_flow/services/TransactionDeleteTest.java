@@ -51,6 +51,20 @@ public class TransactionDeleteTest {
         categoryService.addCategory("salario", CategoryTypeEnum.INCOME, owner);
     }
 
+    //---- The PWA's undo: the id returned at registration (INSERT ... RETURNING) deletes exactly that transaction.
+    @Test
+    void registrationReturnsTheIdThatUndoesIt() {
+        transactionsService.registerExpense(owner, "mercado", account, "10", "pão");
+        Integer expenseId = transactionsService.registerExpense(owner, "mercado", account, "30", "carne").getTransactionId();
+        Integer incomeId = transactionsService.registerIncome(owner, "salario", account, "50", "bônus").getTransactionId();
+
+        Assertions.assertNotNull(incomeId);
+        Assertions.assertEquals("carne", transactionsService.deleteTransaction(expenseId, owner).orElseThrow().getDescription());
+        Assertions.assertEquals("bônus", transactionsService.deleteTransaction(incomeId, owner).orElseThrow().getDescription());
+        Assertions.assertEquals(0, new BigDecimal("90").compareTo(balance()));
+        Assertions.assertEquals(java.util.List.of("pão"), allTransactions().stream().map(t -> t.getDescription()).toList());
+    }
+
     @Test
     void deletingExpenseGivesTheMoneyBack() {
         transactionsService.registerExpense(owner, "mercado", account, "30", "carne");

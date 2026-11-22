@@ -187,6 +187,19 @@ Every query takes `startDate` / `endDate` and an optional `accountId`.
 | GET | `/api/transactions/income-expense-monthly` | Monthly income vs expense |
 | GET | `/api/transactions/history-balance` | Daily balance history |
 
+### Capture (PWA)
+A typed sentence or a recorded voice note becomes a transaction, with the same parser and daily limits as the bot
+(20 voice notes and 100 texts a day). The response carries only facts (`status`, the registered transaction with its
+`id` for undo, or the category to offer creating); the PWA owns the wording.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/capture/text` | `{"text": "gastei 25 no supermercado"}` (up to 300 characters) |
+| POST | `/api/capture/voice` | Multipart `audio` up to 5MB: `audio/mp4` (Safari on iPhone), `audio/webm` (Chrome), ogg, mp3, wav |
+
+`status` is `REGISTERED`, `NOT_UNDERSTOOD`, `CATEGORY_NOT_FOUND`, `CATEGORY_TYPE_MISMATCH`, `NO_ACCOUNT` or `LIMIT_REACHED` (HTTP 429).
+Undo is `DELETE /api/transactions/{id}`.
+
 ### Integration
 | Method | Endpoint | Description |
 |--------|----------|-------------|
