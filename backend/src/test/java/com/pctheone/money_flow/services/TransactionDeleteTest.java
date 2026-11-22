@@ -17,8 +17,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -79,14 +77,12 @@ public class TransactionDeleteTest {
     }
 
     @Test
-    void anotherOwnerCannotDelete() {
+    void anotherOwnerCannotDeleteAndSeesItAsMissing() {
         transactionsService.registerExpense(owner, "mercado", account, "30", "carne");
         Integer intruder = createOwner("intruder");
         Integer id = onlyTransaction().getId();
 
-        ResponseStatusException e = Assertions.assertThrows(ResponseStatusException.class,
-                () -> transactionsService.deleteTransaction(id, intruder));
-        Assertions.assertEquals(HttpStatus.FORBIDDEN, e.getStatusCode());
+        Assertions.assertTrue(transactionsService.deleteTransaction(id, intruder).isEmpty());
         Assertions.assertEquals(0, new BigDecimal("70").compareTo(balance()));
         Assertions.assertFalse(allTransactions().isEmpty());
     }

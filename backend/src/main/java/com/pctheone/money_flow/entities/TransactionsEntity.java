@@ -1,5 +1,8 @@
 package com.pctheone.money_flow.entities;
 
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
+
 import com.pctheone.money_flow.enums.OperationTypeEnum;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -18,6 +21,11 @@ public class TransactionsEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "transactions_id")
     private Integer transactionsId;
+
+    //---- 1, 2, 3... per owner, filled by a database trigger (V13). What the bot shows and accepts; the PK stays internal.
+    @Generated(event = EventType.INSERT)
+    @Column(name = "display_number", insertable = false, updatable = false)
+    private Integer displayNumber;
 
     @ManyToOne
     @JoinColumn(name = "owner_id", nullable = false)

@@ -14,5 +14,8 @@ public interface AccountService {
     //---- Cascade: removes the account and all of its transactions and recurring payments.
     AccountDeletionSummaryDTO deleteAccount(Integer accountId, Integer ownerId);
     void validateAccountOwnership(Integer accountId, Integer ownerId);
+
+    //---- Account id for the per-owner number the user typed in the bot. NOT_FOUND when the owner has no such account.
+    Integer accountIdByDisplayNumber(Integer displayNumber, Integer ownerId);
     boolean existsByDescription(String description, Integer ownerId);
 }

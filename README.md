@@ -111,15 +111,17 @@ Positional interface for quick logging on the go. The command menu is registered
 
 | Command | Example | Description |
 |---------|---------|-------------|
-| `/gasto` | `/gasto mercado carne moida 25,90 1` | Log an expense: `<category> <description...> <amount> <account id>` (description can have several words) |
+| `/gasto` | `/gasto mercado carne moida 25,90 1` | Log an expense: `<category> <description...> <amount> <account number>` (description can have several words; the number is the one `/contas` shows) |
 | `/entrada` | `/entrada salario salario de maio 3.500,00 1` | Log income, same format as `/gasto` |
 | `/categorias` | `/categorias` | List your categories |
 | `/nova_categoria` | `/nova_categoria freela entrada` | Create a category (type `gasto`/`entrada`, default `gasto`) |
 | `/nova_conta` | `/nova_conta nubank 1000 BRL` | Create an account (currency `BRL`/`EUR`/`USD`, default `EUR`; the balance may be negative, e.g. `-1.500,00` for a credit card) |
 | `/contas` | `/contas` | List accounts with balances |
 | `/transacoes` | `/transacoes` | Transactions from the last 7 days |
-| `/deletar_transacao` | `/deletar_transacao 42` | Delete a transaction by id |
+| `/deletar_transacao` | `/deletar_transacao 4` | Delete a transaction by the number `/transacoes` shows |
 | `/ajuda` / `/help` | `/ajuda` | List the available commands |
+
+Accounts and transactions are numbered per user (1, 2, 3...) in `display_number`, filled by a database trigger (`V13`); the global primary key never reaches the bot. Numbers are not reused after a delete, so an old `/gasto ... 3` can never land on another account.
 
 The old hyphenated names (`/add-categoria`, `/add-conta`, `/deletar-transacao`) still work as aliases for now.
 

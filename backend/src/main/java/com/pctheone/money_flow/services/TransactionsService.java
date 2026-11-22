@@ -21,6 +21,9 @@ public interface TransactionsService {
     List<DailyBalanceDTO> dailyBalance(LocalDate startTime, LocalDate endTime, Integer accountId, CurrencyEnum currency, Integer ownerId);
     //---- Empty when the transaction does not exist.
     Optional<DeletedTransactionDTO> deleteTransaction(Integer id, Integer ownerId);
+
+    //---- The bot's /deletar_transacao takes the per-owner number, not the primary key.
+    Optional<DeletedTransactionDTO> deleteTransactionByDisplayNumber(Integer displayNumber, Integer ownerId);
     TransactionDTO updateTransaction(Integer id, TransactionUpdateRequestDTO request, Integer ownerId);
 
 }

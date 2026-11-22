@@ -101,6 +101,9 @@ public class TelegramBotServicesTest {
         owner.setOwnerId(OWNER_ID);
         owner.setOnboardingStep(OnboardingStepEnum.DONE);
         Mockito.when(ownerRepository.findByTelegramChatId(CHAT_ID)).thenReturn(Optional.of(owner));
+        //---- Identity: in these tests the account number the user types equals the account id.
+        Mockito.when(accountService.accountIdByDisplayNumber(ArgumentMatchers.anyInt(), ArgumentMatchers.eq(OWNER_ID)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         handler = new RecordingHandler();
         @SuppressWarnings("unchecked")
@@ -166,6 +169,17 @@ public class TelegramBotServicesTest {
     }
 
     @Test
+    void accountNumberTheOwnerDoesNotHaveRepliesInvalidAccount() {
+        Mockito.when(accountService.accountIdByDisplayNumber(3, OWNER_ID))
+                .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+
+        service.telegramRouter(textUpdate("/gasto mercado carne 25 3"));
+
+        assertSingleReply(pt(TelegramBotServices.INVALID_ACCOUNT_MESSAGE));
+        Mockito.verifyNoInteractions(transactionsService);
+    }
+
+    @Test
     void accountOfAnotherOwnerRepliesInvalidAccount() {
         Mockito.when(transactionsService.registerExpense(OWNER_ID, "mercado", 99, "25", "carne"))
                 .thenThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "Account does not belong to the authenticated user"));
@@ -221,7 +235,7 @@ public class TelegramBotServicesTest {
     @Test
     void newAccountAcceptsNegativeAndZeroBalance() {
         Mockito.when(accountService.addAccount(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.anyInt()))
-                .thenReturn(new AccountDTO(1, "Card", BigDecimal.ZERO, CurrencyEnum.BRL, 0));
+                .thenReturn(new AccountDTO(1, "Card", BigDecimal.ZERO, CurrencyEnum.BRL, 0, 1));
 
         service.telegramRouter(textUpdate("/nova_conta Card -1.500,50 BRL"));
         service.telegramRouter(textUpdate("/add-conta Empty 0 BRL"));
@@ -232,7 +246,7 @@ public class TelegramBotServicesTest {
 
     @Test
     void forbiddenFromNonAccountCommandRepliesNotAllowed() {
-        Mockito.when(transactionsService.deleteTransaction(5, OWNER_ID))
+        Mockito.when(transactionsService.deleteTransactionByDisplayNumber(5, OWNER_ID))
                 .thenThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "Transaction does not belong to the authenticated user"));
 
         service.telegramRouter(textUpdate("/deletar_transacao 5"));
@@ -558,7 +572,7 @@ public class TelegramBotServicesTest {
     @Test
     void newAccountCommandAndAliasBehaveTheSame() {
         Mockito.when(accountService.addAccount(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.anyInt()))
-                .thenReturn(new AccountDTO(1, "Wallet", BigDecimal.TEN, CurrencyEnum.BRL, 0));
+                .thenReturn(new AccountDTO(1, "Wallet", BigDecimal.TEN, CurrencyEnum.BRL, 0, 1));
 
         service.telegramRouter(textUpdate("/nova_conta Wallet 10 BRL"));
         service.telegramRouter(textUpdate("/add-conta Wallet 10 BRL"));
@@ -568,21 +582,21 @@ public class TelegramBotServicesTest {
 
     @Test
     void deleteTransactionCommandAndAliasBehaveTheSame() {
-        Mockito.when(transactionsService.deleteTransaction(5, OWNER_ID)).thenReturn(Optional.of(new DeletedTransactionDTO("feira", new BigDecimal("30"), CurrencyEnum.BRL)));
+        Mockito.when(transactionsService.deleteTransactionByDisplayNumber(5, OWNER_ID)).thenReturn(Optional.of(new DeletedTransactionDTO("feira", new BigDecimal("30"), CurrencyEnum.BRL)));
 
         service.telegramRouter(textUpdate("/deletar_transacao 5"));
         service.telegramRouter(textUpdate("/deletar-transacao 5"));
 
-        Mockito.verify(transactionsService, Mockito.times(2)).deleteTransaction(5, OWNER_ID);
+        Mockito.verify(transactionsService, Mockito.times(2)).deleteTransactionByDisplayNumber(5, OWNER_ID);
     }
 
     @Test
     void commandWithBotUsernameIsRecognised() {
-        Mockito.when(transactionsService.deleteTransaction(5, OWNER_ID)).thenReturn(Optional.of(new DeletedTransactionDTO("feira", new BigDecimal("30"), CurrencyEnum.BRL)));
+        Mockito.when(transactionsService.deleteTransactionByDisplayNumber(5, OWNER_ID)).thenReturn(Optional.of(new DeletedTransactionDTO("feira", new BigDecimal("30"), CurrencyEnum.BRL)));
 
         service.telegramRouter(textUpdate("/deletar_transacao@MoneyFlowBot 5"));
 
-        Mockito.verify(transactionsService).deleteTransaction(5, OWNER_ID);
+        Mockito.verify(transactionsService).deleteTransactionByDisplayNumber(5, OWNER_ID);
     }
 
     @Test
@@ -717,13 +731,14 @@ public class TelegramBotServicesTest {
 
     @Test
     void accountsAndTransactionsListUseEachAccountCurrency() {
+        //---- Primary keys (788, 789, 9010, 9011) are global; the bot shows the per-owner numbers (1, 2, 10, 11).
         Mockito.when(accountService.listAllAccounts(OWNER_ID)).thenReturn(List.of(
-                new AccountDTO(1, "Nubank", new BigDecimal("470"), CurrencyEnum.BRL, 0),
-                new AccountDTO(2, "Revolut", new BigDecimal("681.03"), CurrencyEnum.EUR, 0)));
+                new AccountDTO(788, "Nubank", new BigDecimal("470"), CurrencyEnum.BRL, 0, 1),
+                new AccountDTO(789, "Revolut", new BigDecimal("681.03"), CurrencyEnum.EUR, 0, 2)));
         Mockito.when(transactionsService.listAllTransactions(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.isNull(), ArgumentMatchers.isNull(), ArgumentMatchers.eq(OWNER_ID)))
                 .thenReturn(new ArrayList<>(List.of(
-                        new TransactionDTO(10, "feira", new BigDecimal("30"), java.time.LocalDate.now(), "Mercado", OperationTypeEnum.EXPENSE, CurrencyEnum.BRL, 1),
-                        new TransactionDTO(11, "us store", new BigDecimal("10"), java.time.LocalDate.now(), "Mercado", OperationTypeEnum.EXPENSE, CurrencyEnum.USD, 1))));
+                        new TransactionDTO(9010, "feira", new BigDecimal("30"), java.time.LocalDate.now(), "Mercado", OperationTypeEnum.EXPENSE, CurrencyEnum.BRL, 1, 10),
+                        new TransactionDTO(9011, "us store", new BigDecimal("10"), java.time.LocalDate.now(), "Mercado", OperationTypeEnum.EXPENSE, CurrencyEnum.USD, 1, 11))));
 
         service.telegramRouter(textUpdate("/contas"));
         service.telegramRouter(textUpdate("/transacoes"));
@@ -835,9 +850,9 @@ public class TelegramBotServicesTest {
 
     @Test
     void deleteTransactionReplyUsesAccountCurrency() {
-        Mockito.when(transactionsService.deleteTransaction(5, OWNER_ID))
+        Mockito.when(transactionsService.deleteTransactionByDisplayNumber(5, OWNER_ID))
                 .thenReturn(Optional.of(new DeletedTransactionDTO("feira", new BigDecimal("30"), CurrencyEnum.EUR)));
-        Mockito.when(transactionsService.deleteTransaction(6, OWNER_ID)).thenReturn(Optional.empty());
+        Mockito.when(transactionsService.deleteTransactionByDisplayNumber(6, OWNER_ID)).thenReturn(Optional.empty());
 
         service.telegramRouter(textUpdate("/deletar_transacao 5"));
         service.telegramRouter(textUpdate("/deletar_transacao 6"));

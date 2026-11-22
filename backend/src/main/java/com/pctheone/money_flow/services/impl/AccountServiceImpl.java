@@ -120,6 +120,13 @@ public class AccountServiceImpl implements AccountService {
         }
     }
 
+    @Override
+    public Integer accountIdByDisplayNumber(Integer displayNumber, Integer ownerId) {
+        return accountRepository.findByOwnerOwnerIdAndDisplayNumber(ownerId, displayNumber)
+                .map(AccountEntity::getAccountId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+    }
+
     //---- Case-insensitive: "nubank" and "Nubank" are the same account for the user.
     @Override
     public boolean existsByDescription(String description, Integer ownerId) {
@@ -127,6 +134,6 @@ public class AccountServiceImpl implements AccountService {
     }
 
     private AccountDTO toDTO(AccountEntity accountEntity, long transactionCount) {
-        return new AccountDTO(accountEntity.getAccountId(), accountEntity.getDescription(), accountEntity.getBalance(), accountEntity.getCurrency(), transactionCount);
+        return new AccountDTO(accountEntity.getAccountId(), accountEntity.getDescription(), accountEntity.getBalance(), accountEntity.getCurrency(), transactionCount, accountEntity.getDisplayNumber());
     }
 }

@@ -15,4 +15,6 @@ public class AccountDTO {
     private CurrencyEnum currency;
     //---- How many transactions reference this account. Drives the "delete account" confirmation.
     private long transactionCount;
+    //---- Per-owner number shown by the bot ("ID: 1"). accountId stays the key for the API.
+    private Integer displayNumber;
 }

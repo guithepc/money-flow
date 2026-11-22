@@ -246,7 +246,7 @@ public class TelegramBotServices {
                 if (isCommandToShort(command, 5, chatId, language))
                     return false;
                 log.info("Expense being registered.");
-                TransactionRegistrationResultDTO expense = withAccountErrors(() -> transactionsService.registerExpense(ownerId, command.get(1), parseId(command.getLast(), INVALID_ACCOUNT_MESSAGE), parseTransactionAmount(command.get(command.size() - 2)), transactionDescription(command)));
+                TransactionRegistrationResultDTO expense = withAccountErrors(() -> transactionsService.registerExpense(ownerId, command.get(1), accountService.accountIdByDisplayNumber(parseId(command.getLast(), INVALID_ACCOUNT_MESSAGE), ownerId), parseTransactionAmount(command.get(command.size() - 2)), transactionDescription(command)));
                 log.info("Expense registered for owner {}.", ownerId);
                 sendReply(chatId, BotMessageFormat.transactionConfirmation(messages, language, OperationTypeEnum.EXPENSE, expense));
                 return true;
@@ -255,7 +255,7 @@ public class TelegramBotServices {
                 if (isCommandToShort(command, 5, chatId, language))
                     return false;
                 log.info("Income being registered.");
-                TransactionRegistrationResultDTO income = withAccountErrors(() -> transactionsService.registerIncome(ownerId, command.get(1), parseId(command.getLast(), INVALID_ACCOUNT_MESSAGE), parseTransactionAmount(command.get(command.size() - 2)), transactionDescription(command)));
+                TransactionRegistrationResultDTO income = withAccountErrors(() -> transactionsService.registerIncome(ownerId, command.get(1), accountService.accountIdByDisplayNumber(parseId(command.getLast(), INVALID_ACCOUNT_MESSAGE), ownerId), parseTransactionAmount(command.get(command.size() - 2)), transactionDescription(command)));
                 log.info("Income registered for owner {}.", ownerId);
                 sendReply(chatId, BotMessageFormat.transactionConfirmation(messages, language, OperationTypeEnum.INCOME, income));
                 return true;
@@ -265,11 +265,10 @@ public class TelegramBotServices {
                 List<CategoryDTO> categoryDTOList = categoryService.listAllCategories(ownerId);
                 log.info("Categories in database:  {}", categoryDTOList.size());
                 StringBuilder telegramMessage = new StringBuilder(messages.get(language, "categories.header")).append("\n");
+                //---- No id: categories are always referred to by name.
                 for (CategoryDTO categoryDTO : categoryDTOList){
                     telegramMessage
-                            .append("ID: ")
-                            .append(categoryDTO.getCategoryId())
-                            .append(" - ")
+                            .append("• ")
                             .append(categoryDTO.getCategoryDescription())
                             .append("\n");
                 }
@@ -299,7 +298,7 @@ public class TelegramBotServices {
                     return false;
                 }
                 AccountDTO account = accountService.addAccount(command.get(1), parseBalance(command.get(2)), currency.get(), ownerId);
-                sendReply(chatId, messages.get(language, "account.added", account.getDescription(), MoneyFormat.format(account.getAmount(), account.getCurrency())));
+                sendReply(chatId, messages.get(language, "account.added", account.getDescription(), MoneyFormat.format(account.getAmount(), account.getCurrency()), String.valueOf(account.getDisplayNumber())));
                 return false;
             }
             case "/contas":{
@@ -329,11 +328,11 @@ public class TelegramBotServices {
                 if (isCommandToShort(command, 2, chatId, language))
                     return false;
                 log.info("Transaction deletion requested");
-                Integer transactionId = parseId(command.get(1), INVALID_TRANSACTION_MESSAGE);
-                Optional<DeletedTransactionDTO> deleted = transactionsService.deleteTransaction(transactionId, ownerId);
+                Integer transactionNumber = parseId(command.get(1), INVALID_TRANSACTION_MESSAGE);
+                Optional<DeletedTransactionDTO> deleted = transactionsService.deleteTransactionByDisplayNumber(transactionNumber, ownerId);
                 sendReply(chatId, deleted
                         .map(transaction -> messages.get(language, "transaction.deleted", transaction.getDescription(), MoneyFormat.format(transaction.getAmount(), transaction.getCurrency())))
-                        .orElseGet(() -> messages.get(language, "transaction.notFound", String.valueOf(transactionId))));
+                        .orElseGet(() -> messages.get(language, "transaction.notFound", String.valueOf(transactionNumber))));
                 return false;
             }
             case "/ajuda", "/help":{
