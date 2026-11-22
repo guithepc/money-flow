@@ -12,6 +12,7 @@ public final class VoiceUsageTestSupport {
         VoiceUsageService service = new VoiceUsageService();
         service.messages = messages;
         service.dailyLimit = dailyLimit;
+        service.textDailyLimit = 100;
         return Mockito.spy(service);
     }
 }

@@ -84,7 +84,7 @@ public class OnboardingStateMachine {
         askCurrentStep(owner, chatId, language(owner, telegramLanguageCode));
     }
 
-    //---- Returns false when the message must go through the normal router (DONE, or a command/voice during TUTORIAL).
+    //---- Returns false when the message must go through the normal router (DONE, or a command/voice/text during TUTORIAL).
     @Transactional
     public boolean handleMessage(Integer ownerId, Long chatId, OnboardingService.Input input, PreparedAccountInput prepared) {
         OwnerEntity owner = lockOwner(ownerId);
@@ -153,8 +153,8 @@ public class OnboardingStateMachine {
                     askCurrentStep(owner, chatId, language);
             }
             case TUTORIAL -> {
-                //---- The first voice message is a normal transaction; the router calls completeTutorial on success.
-                if (input.voiceFileId() != null)
+                //---- The first voice or typed transaction is a normal one; the router calls completeTutorial on success.
+                if (input.voiceFileId() != null || (text != null && !text.isEmpty()))
                     return false;
                 askCurrentStep(owner, chatId, language);
             }

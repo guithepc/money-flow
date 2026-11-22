@@ -40,6 +40,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 import tools.jackson.databind.JsonNode;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -64,6 +65,9 @@ public class TelegramBotServices {
     static final String GENERIC_ERROR_MESSAGE = "error.generic";
     static final String VOICE_ERROR_MESSAGE = "error.voice";
     static final String NOT_LINKED_MESSAGE = "error.notLinked";
+    static final String VOICE_NOT_RECOGNIZED_MESSAGE = "voice.notRecognized";
+    static final String TEXT_NOT_RECOGNIZED_MESSAGE = "text.notRecognized";
+    static final String UNKNOWN_COMMAND_MESSAGE = "command.unknown";
 
     //---- Both names work in any language.
     static final List<String> RESET_PASSWORD_COMMANDS = List.of("/redefinir_senha", "/reset_password");
@@ -223,6 +227,8 @@ public class TelegramBotServices {
             transactionRegistered = audioCommand(update, ownerId, language);
         } else if (command.isEmpty()) {
             log.info("No text in message.");
+        } else if (!command.getFirst().startsWith("/")) {
+            transactionRegistered = textMessage(text.trim(), chatId, ownerId, language);
         } else {
             transactionRegistered = routeCommand(command, chatId, owner.get(), language);
         }
@@ -344,6 +350,7 @@ public class TelegramBotServices {
                 return false;
             }
             default:
+                sendReply(chatId, messages.get(language, UNKNOWN_COMMAND_MESSAGE, command.getFirst()));
                 return false;
         }
     }
@@ -399,14 +406,8 @@ public class TelegramBotServices {
 
         try{
             String transcription = voiceTranscriptionService.transcribe(fileId);
-
-            String template = new String(voiceParserPrompt.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            String prompt = String.format(template, this.listCategories(ownerId), this.listAccounts(ownerId));
-
             log.info("Sending transcription to GPT for parsing");
-            String response = openAITextClient.complete(prompt, transcription).orElse("{\"error\": \"NOT_UNDERSTOOD\"}");
-
-            return proccessTranscriptedMessage(response, chatId, ownerId, language);
+            return parseAndRegister(transcription, chatId, ownerId, language, VOICE_NOT_RECOGNIZED_MESSAGE);
         } catch (Exception e){
             if (e instanceof InterruptedException)
                 Thread.currentThread().interrupt();
@@ -417,8 +418,39 @@ public class TelegramBotServices {
         }
     }
 
-    //---- GPT returns the transaction, {"error": "CATEGORY_NOT_FOUND", "category": ..., "operationType": ...} or {"error": "NOT_UNDERSTOOD"}.
+    //---- "gastei 30 no mercado na Nubank" typed instead of spoken: same parser as voice, without Whisper.
+    //---- Returns true when a transaction was registered.
+    private boolean textMessage(String text, Long chatId, Integer ownerId, LanguageEnum language){
+        log.info("Free text message received from chatId: {}", chatId);
+        VoiceUsageService.Quota quota = voiceUsageService.consumeText(ownerId);
+        if (!quota.allowed()) {
+            sendReply(chatId, voiceUsageService.textLimitReachedMessage(language));
+            return false;
+        }
+        try {
+            log.info("Sending typed message to GPT for parsing");
+            return parseAndRegister(text, chatId, ownerId, language, TEXT_NOT_RECOGNIZED_MESSAGE);
+        } catch (Exception e) {
+            if (e instanceof InterruptedException)
+                Thread.currentThread().interrupt();
+            handleError(chatId, language, e, GENERIC_ERROR_MESSAGE);
+            return false;
+        }
+    }
+
+    private boolean parseAndRegister(String userMessage, Long chatId, Integer ownerId, LanguageEnum language, String notRecognizedKey) throws IOException {
+        String template = new String(voiceParserPrompt.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        String prompt = String.format(template, this.listCategories(ownerId), this.listAccounts(ownerId));
+        String response = openAITextClient.complete(prompt, userMessage).orElse("{\"error\": \"NOT_UNDERSTOOD\"}");
+        return proccessTranscriptedMessage(response, chatId, ownerId, language, notRecognizedKey);
+    }
+
     boolean proccessTranscriptedMessage(String response, Long chatId, Integer ownerId, LanguageEnum language){
+        return proccessTranscriptedMessage(response, chatId, ownerId, language, VOICE_NOT_RECOGNIZED_MESSAGE);
+    }
+
+    //---- GPT returns the transaction, {"error": "CATEGORY_NOT_FOUND", "category": ..., "operationType": ...} or {"error": "NOT_UNDERSTOOD"}.
+    boolean proccessTranscriptedMessage(String response, Long chatId, Integer ownerId, LanguageEnum language, String notRecognizedKey){
         //---- Never log the response itself: it carries descriptions and amounts.
         log.info("GPT parser response received ({} chars) for owner {}.", response == null ? 0 : response.length(), ownerId);
 
@@ -430,7 +462,7 @@ public class TelegramBotServices {
                 return false;
             }
             log.info("GPT could not parse the voice message, notifying user");
-            sendReply(chatId, messages.get(language, "voice.notRecognized"));
+            sendReply(chatId, messages.get(language, notRecognizedKey));
             return false;
         }
 
@@ -440,7 +472,7 @@ public class TelegramBotServices {
 
         OperationTypeEnum operationType = transactionDTO.getOperationType();
         if (operationType != OperationTypeEnum.EXPENSE && operationType != OperationTypeEnum.INCOME) {
-            sendReply(chatId, messages.get(language, "voice.notRecognized"));
+            sendReply(chatId, messages.get(language, notRecognizedKey));
             return false;
         }
         CategoryTypeEnum expectedType = operationType == OperationTypeEnum.INCOME ? CategoryTypeEnum.INCOME : CategoryTypeEnum.EXPENSE;
@@ -450,7 +482,7 @@ public class TelegramBotServices {
                 : categoryService.findByDescription(transactionDTO.getCategory(), ownerId);
         if (category.isEmpty()) {
             if (transactionDTO.getCategory() == null || transactionDTO.getCategory().isBlank()) {
-                sendReply(chatId, messages.get(language, "voice.notRecognized"));
+                sendReply(chatId, messages.get(language, notRecognizedKey));
                 return false;
             }
             offerCategoryCreation(chatId, language, transactionDTO.getCategory().trim(), expectedType);

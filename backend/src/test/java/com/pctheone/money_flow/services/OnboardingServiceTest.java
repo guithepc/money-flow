@@ -553,13 +553,15 @@ public class OnboardingServiceTest {
     //---- TUTORIAL / DONE
 
     @Test
-    void tutorialLetsVoiceAndCommandsThroughToTheRouter() {
+    void tutorialLetsVoiceTextAndCommandsThroughToTheRouter() {
         owner.setLanguage("pt");
         owner.setOnboardingStep(OnboardingStepEnum.TUTORIAL);
 
         Assertions.assertFalse(service.handleMessage(OWNER_ID, CHAT_ID, new OnboardingService.Input(null, "voice-1", "pt-br")));
         Assertions.assertFalse(service.handleMessage(OWNER_ID, CHAT_ID, text("/nova_categoria Academia")));
-        Assertions.assertTrue(service.handleMessage(OWNER_ID, CHAT_ID, text("oi")));
+        Assertions.assertFalse(service.handleMessage(OWNER_ID, CHAT_ID, text("gastei 30 no mercado na Nubank")));
+        //---- A sticker or photo has neither text nor voice: the tutorial question is repeated.
+        Assertions.assertTrue(service.handleMessage(OWNER_ID, CHAT_ID, new OnboardingService.Input(null, null, "pt-br")));
         Mockito.verify(telegramApiClient).sendMessage(CHAT_ID, pt("onboarding.tutorial", "Nubank"));
     }
 

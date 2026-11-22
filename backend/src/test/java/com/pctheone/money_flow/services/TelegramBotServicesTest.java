@@ -377,6 +377,77 @@ public class TelegramBotServicesTest {
         Mockito.verify(voiceUsageService, Mockito.never()).consume(ArgumentMatchers.any());
     }
 
+    //---- Free text (PCT-66)
+
+    private void usedTextMessagesToday(int used) {
+        Mockito.doReturn(new VoiceUsageService.Quota(used, 100)).when(voiceUsageService).consumeText(OWNER_ID);
+    }
+
+    @Test
+    void typedSentenceIsParsedAndRegisteredLikeVoice() {
+        service.voiceParserPrompt = new ClassPathResource("prompts/voice-parser.txt");
+        usedTextMessagesToday(1);
+        CategoryEntity mercado = new CategoryEntity();
+        mercado.setDescription("Mercado");
+        mercado.setType(CategoryTypeEnum.EXPENSE);
+        Mockito.when(categoryService.findByDescription("Mercado", OWNER_ID)).thenReturn(Optional.of(mercado));
+        Mockito.when(openAITextClient.complete(ArgumentMatchers.anyString(), ArgumentMatchers.eq("gastei 25 no mercado na Nubank")))
+                .thenReturn(Optional.of("{\"operationType\": \"EXPENSE\", \"category\": \"Mercado\", \"description\": \"mercado\", \"amount\": \"25\", \"accountId\": 1}"));
+        Mockito.when(transactionsService.registerExpense(OWNER_ID, "Mercado", 1, "25", "mercado"))
+                .thenReturn(new TransactionRegistrationResultDTO(new BigDecimal("25"), new BigDecimal("475"), CurrencyEnum.BRL, "Nubank", "Mercado"));
+
+        service.telegramRouter(textUpdate("  gastei 25 no mercado na Nubank "));
+
+        assertSingleReply("📉 R$ 25,00 · Mercado · Nubank — saldo R$ 475,00");
+        Mockito.verifyNoInteractions(voiceTranscriptionService);
+        Mockito.verify(voiceUsageService, Mockito.never()).consume(ArgumentMatchers.any());
+    }
+
+    @Test
+    void typedSentenceThatIsNotATransactionShowsAnExample() {
+        service.voiceParserPrompt = new ClassPathResource("prompts/voice-parser.txt");
+        usedTextMessagesToday(1);
+        Mockito.when(openAITextClient.complete(ArgumentMatchers.anyString(), ArgumentMatchers.eq("oi")))
+                .thenReturn(Optional.of("{\"error\": \"NOT_UNDERSTOOD\"}"));
+
+        service.telegramRouter(textUpdate("oi"));
+
+        assertSingleReply(pt(TelegramBotServices.TEXT_NOT_RECOGNIZED_MESSAGE));
+        Mockito.verifyNoInteractions(transactionsService);
+    }
+
+    @Test
+    void typedSentenceOverTheDailyLimitNeverCallsOpenAI() {
+        usedTextMessagesToday(101);
+
+        service.telegramRouter(textUpdate("gastei 25 no mercado"));
+
+        assertSingleReply("✍️ Você atingiu o limite de 100 mensagens de texto por hoje. Amanhã libera de novo — até lá, use /gasto …");
+        Mockito.verifyNoInteractions(openAITextClient, transactionsService);
+    }
+
+    @Test
+    void typedSentenceIsAllowedAfterTheVoiceLimit() {
+        service.voiceParserPrompt = new ClassPathResource("prompts/voice-parser.txt");
+        usedVoiceMessagesToday(21);
+        usedTextMessagesToday(1);
+        Mockito.when(openAITextClient.complete(ArgumentMatchers.anyString(), ArgumentMatchers.eq("oi")))
+                .thenReturn(Optional.of("{\"error\": \"NOT_UNDERSTOOD\"}"));
+
+        service.telegramRouter(textUpdate("oi"));
+
+        Mockito.verify(openAITextClient).complete(ArgumentMatchers.anyString(), ArgumentMatchers.eq("oi"));
+    }
+
+    @Test
+    void unknownCommandPointsToHelp() {
+        service.telegramRouter(textUpdate("/xpto 12"));
+
+        assertSingleReply("🤷 Não conheço o comando /xpto. Veja /ajuda.");
+        Mockito.verifyNoInteractions(openAITextClient, transactionsService);
+        Mockito.verify(voiceUsageService, Mockito.never()).consumeText(ArgumentMatchers.any());
+    }
+
     //---- Idempotency
 
     @Test

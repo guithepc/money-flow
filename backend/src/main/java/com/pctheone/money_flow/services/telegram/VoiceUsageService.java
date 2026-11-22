@@ -13,8 +13,10 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Optional;
 
-//---- Daily cap on voice messages per owner (#27): each one costs a Whisper transcription plus a GPT parse.
-//---- Single check point for every voice path (transactions and onboarding), called before the audio is downloaded.
+//---- Daily caps per owner on messages that cost OpenAI calls.
+//---- Voice (#27): a Whisper transcription plus a GPT parse, checked before the audio is downloaded, on every voice path.
+//---- Text (PCT-66): a GPT parse of a typed message without a command. Separate and higher cap, so typing stays the
+//---- fallback when the voice cap is reached.
 @Service
 public class VoiceUsageService {
 
@@ -30,9 +32,13 @@ public class VoiceUsageService {
     static final String LIMIT_REACHED_MESSAGE = "voice.dailyLimitReached";
     static final String LIMIT_REACHED_ONBOARDING_MESSAGE = "voice.dailyLimitReached.onboarding";
     static final String REMAINING_MESSAGE = "voice.remainingToday";
+    static final String TEXT_LIMIT_REACHED_MESSAGE = "text.dailyLimitReached";
 
     @Value("${voice.daily-limit:20}")
     int dailyLimit;
+
+    @Value("${text.daily-limit:100}")
+    int textDailyLimit;
 
     @Autowired
     JdbcTemplate jdbcTemplate;
@@ -66,6 +72,24 @@ public class VoiceUsageService {
             log.info("Owner {} is over the daily voice limit ({}/{}), voice message skipped before transcription.",
                     ownerId, quota.used(), quota.limit());
         return quota;
+    }
+
+    //---- Same as consume, for typed messages parsed by GPT.
+    public Quota consumeText(Integer ownerId) {
+        Integer used = jdbcTemplate.queryForObject("""
+                INSERT INTO voice_usage (owner_id, usage_date, text_count) VALUES (?, ?, 1)
+                ON CONFLICT (owner_id, usage_date) DO UPDATE SET text_count = voice_usage.text_count + 1
+                RETURNING text_count
+                """, Integer.class, ownerId, LocalDate.now(clock));
+        Quota quota = new Quota(used == null ? 0 : used, textDailyLimit);
+        if (!quota.allowed())
+            log.info("Owner {} is over the daily text limit ({}/{}), text message skipped before parsing.",
+                    ownerId, quota.used(), quota.limit());
+        return quota;
+    }
+
+    public String textLimitReachedMessage(LanguageEnum language) {
+        return messages.get(language, TEXT_LIMIT_REACHED_MESSAGE, textDailyLimit);
     }
 
     public int dailyLimit() {

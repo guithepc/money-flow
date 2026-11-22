@@ -104,6 +104,8 @@ All bot replies are in the owner's language (`messages/bot_pt.properties` / `bot
 ### Voice messages
 Send a voice note like *"gastei 25 reais no mercado com carne no Nubank"*. The audio is transcribed by Whisper and parsed by GPT using **your** categories and accounts, then registered as an expense or income. Expenses only match expense categories and income only income categories. When the category doesn't exist the bot offers to create it (*"Não encontrei a categoria "Farmácia". Quer criar como gasto?"* with Yes/No buttons).
 
+Typing the same sentence works too (*"gastei 25 no mercado na Nubank"*): any message without a leading `/` goes through the same GPT parser, skipping Whisper. Text has its own daily cap (`text.daily-limit`, 100 by default), separate from the voice one, so typing stays available after the voice limit. An unknown `/command` gets a pointer to `/ajuda` instead of silence.
+
 ### Commands
 Positional interface for quick logging on the go. The command menu is registered on startup via `setMyCommands` (Portuguese by default, English for `en` clients).
 
