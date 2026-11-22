@@ -13,7 +13,9 @@ import { Legal } from '@/pages/Legal'
 import { AcceptTerms } from '@/pages/AcceptTerms'
 import { useAuth } from '@/hooks/useAuth'
 import { CurrencyProvider } from '@/contexts/CurrencyContext'
-import { ownerApi } from '@/lib/api'
+import { onboardingApi, ownerApi } from '@/lib/api'
+import { LanguageProvider } from '@/components/LanguageProvider'
+import { browserLang, toLang, type Lang } from '@/lib/i18n'
 import { LEGAL_PATHS } from '@/lib/legal'
 import type { View } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -45,9 +47,17 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
   // null = verificando. Se a consulta falhar, não bloqueia o painel (o backend não depende do aceite).
   const [termsAccepted, setTermsAccepted] = useState<boolean | null>(null)
   const [admin, setAdmin] = useState(false)
+  const [language, setLanguage] = useState<Lang>(browserLang)
 
   useEffect(() => {
     let active = true
+    // Idioma das telas traduzidas: o escolhido no onboarding (bot ou PWA); antes disso, o do navegador.
+    onboardingApi
+      .status()
+      .then((status) => {
+        if (active) setLanguage(toLang(status.language) ?? browserLang())
+      })
+      .catch(() => {})
     ownerApi
       .me()
       .then((profile) => {
@@ -74,6 +84,7 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
   }
 
   return (
+    <LanguageProvider initial={language}>
     <CurrencyProvider>
       <div className="flex h-dvh bg-background text-fg">
         {/* No celular a tela de gravar ocupa tudo; o botão "Painel" dela leva ao resto. */}
@@ -88,6 +99,7 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
         {view === 'admin' && admin && <Admin />}
       </div>
     </CurrencyProvider>
+    </LanguageProvider>
   )
 }
 

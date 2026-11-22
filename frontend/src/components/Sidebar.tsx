@@ -8,15 +8,21 @@ import {
   Activity,
 } from 'lucide-react'
 import { LogoMark } from '@/components/Logo'
+import { useLanguage } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import type { View } from '@/lib/types'
 
-const NAV: { icon: typeof LayoutGrid; label: string; view: View }[] = [
-  { icon: Mic, label: 'Registrar', view: 'capture' },
-  { icon: LayoutGrid, label: 'Dashboard', view: 'dashboard' },
-  { icon: Wallet, label: 'Contas', view: 'accounts' },
-  { icon: BarChart3, label: 'Relatórios', view: 'reports' },
+const NAV: { icon: typeof LayoutGrid; view: View }[] = [
+  { icon: Mic, view: 'capture' },
+  { icon: LayoutGrid, view: 'dashboard' },
+  { icon: Wallet, view: 'accounts' },
+  { icon: BarChart3, view: 'reports' },
 ]
+
+const LABELS = {
+  pt: { capture: 'Registrar', dashboard: 'Dashboard', accounts: 'Contas', reports: 'Relatórios', settings: 'Configurações', admin: 'Admin', logout: 'Sair' },
+  en: { capture: 'Register', dashboard: 'Dashboard', accounts: 'Accounts', reports: 'Reports', settings: 'Settings', admin: 'Admin', logout: 'Log out' },
+} as const
 
 interface SidebarProps {
   active: View
@@ -56,16 +62,17 @@ function NavButton({
 }
 
 export function Sidebar({ active, onNavigate, onLogout, admin = false }: SidebarProps) {
+  const labels = LABELS[useLanguage().lang]
   return (
     <aside className="flex w-[72px] shrink-0 flex-col items-center gap-8 border-r border-edge bg-background py-6">
       <LogoMark className="text-fg" />
 
       <nav className="flex w-full flex-1 flex-col">
-        {NAV.map(({ icon, label, view }) => (
+        {NAV.map(({ icon, view }) => (
           <NavButton
             key={view}
             icon={icon}
-            label={label}
+            label={labels[view as keyof typeof labels]}
             active={active === view}
             onClick={() => onNavigate(view)}
           />
@@ -76,21 +83,21 @@ export function Sidebar({ active, onNavigate, onLogout, admin = false }: Sidebar
         {admin && (
           <NavButton
             icon={Activity}
-            label="Admin"
+            label={labels.admin}
             active={active === 'admin'}
             onClick={() => onNavigate('admin')}
           />
         )}
         <NavButton
           icon={Settings}
-          label="Configurações"
+          label={labels.settings}
           active={active === 'settings'}
           onClick={() => onNavigate('settings')}
         />
         <button
           type="button"
-          title="Sair"
-          aria-label="Sair"
+          title={labels.logout}
+          aria-label={labels.logout}
           onClick={onLogout}
           className="flex h-12 w-full items-center justify-center text-fg-subtle transition-colors duration-150 hover:text-negative"
         >

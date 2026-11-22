@@ -8,6 +8,7 @@ import type {
   CategoryType,
   DateRange,
   MonthlyIncomeExpense,
+  OnboardingStatus,
   OwnerProfile,
   TelegramInvite,
   TimeSeriesPoint,
@@ -235,6 +236,23 @@ export const categoriesApi = {
 
   /** 201 criada, 200 já existia com o mesmo tipo; ApiError 409 se o nome é de uma categoria do outro tipo. */
   create: (description: string, type: CategoryType) => post<Category>('/categories', { description, type }),
+}
+
+/** Onboarding do PWA (mesmo estado do bot): idioma → contas → primeiro gasto → concluído. */
+export const onboardingApi = {
+  status: () => get<OnboardingStatus>('/onboarding'),
+
+  /** Na primeira vez cria as categorias padrão nesse idioma e avança para as contas. */
+  chooseLanguage: (language: 'pt' | 'en') => post<OnboardingStatus>('/onboarding/language', { language }),
+
+  /** ApiError 409 sem nenhuma conta. */
+  accountsDone: () => post<OnboardingStatus>('/onboarding/accounts-done', {}),
+
+  /** Pula o primeiro gasto. ApiError 409 sem nenhuma conta. */
+  finish: () => post<OnboardingStatus>('/onboarding/finish', {}),
+
+  /** Configurações: só troca o idioma. */
+  changeLanguage: (language: 'pt' | 'en') => put<OnboardingStatus>('/onboarding/language', { language }),
 }
 
 /**

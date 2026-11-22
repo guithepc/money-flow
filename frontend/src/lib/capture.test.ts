@@ -53,6 +53,23 @@ describe('describeCapture', () => {
     )
   })
 
+  it('speaks English to English users', () => {
+    const registered = describeCapture(
+      response({
+        status: 'REGISTERED',
+        transaction: { id: 9, operationType: 'EXPENSE', amount: 12, currency: 'EUR', account: 'Revolut', category: 'Eating out', newBalance: 288 },
+      }),
+      'en',
+    )
+    expect(registered.detail).toBe('Balance € 288,00')
+    expect(describeCapture(response({ status: 'CATEGORY_NOT_FOUND', category: { name: 'Health', type: 'EXPENSE' } }), 'en').detail).toBe(
+      'Create “Health” (expense) and register it?',
+    )
+    expect(describeCapture(response({ transcription: 'hello' }), 'en').detail).toBe(
+      'I heard: “hello”. Try something like “spent 30 at the supermarket”.',
+    )
+  })
+
   it('explains the daily limit', () => {
     expect(describeCapture(response({ status: 'LIMIT_REACHED' })).title).toBe('Limite de hoje atingido.')
   })

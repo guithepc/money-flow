@@ -1,3 +1,4 @@
+import type { Lang } from './i18n'
 import { BACKUP_RETENTION_DAYS, VOICE_DAILY_LIMIT } from './legal'
 import { SUPPORT_EMAIL } from './support'
 
@@ -5,7 +6,7 @@ import { SUPPORT_EMAIL } from './support'
 // Ponto de partida, não parecer jurídico: revisar antes de publicar.
 // Ao mudar o conteúdo de forma relevante, suba TERMS_VERSION em lib/legal.ts e no backend.
 
-export type LegalLang = 'pt' | 'en'
+export type LegalLang = Lang
 
 /** Parágrafo (string) ou lista com marcadores (string[]). */
 export type LegalBlock = string | string[]

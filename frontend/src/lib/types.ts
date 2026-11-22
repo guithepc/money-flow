@@ -157,3 +157,14 @@ export interface CaptureResponse {
   category: { name: string; type: CategoryType } | null
   remainingToday: number | null
 }
+
+/** `GET /api/onboarding`: o mesmo estado do onboarding do bot, em quatro etapas. */
+export type OnboardingStep = 'LANGUAGE' | 'ACCOUNTS' | 'FIRST_TRANSACTION' | 'DONE'
+
+export interface OnboardingStatus {
+  step: OnboardingStep
+  /** `pt` | `en`; null antes de escolher. */
+  language: string | null
+  accounts: number
+  categories: { name: string; type: CategoryType }[]
+}

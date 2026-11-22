@@ -1,4 +1,5 @@
 import type { CaptureResponse } from './types'
+import type { Lang } from './i18n'
 import { formatCurrency } from './utils'
 
 /**
@@ -20,44 +21,65 @@ export interface CaptureMessage {
   detail?: string
 }
 
-const EXAMPLE = 'Tente algo como “gastei 30 no supermercado”.'
+const TEXTS = {
+  pt: {
+    example: 'Tente algo como “gastei 30 no supermercado”.',
+    heard: (t: string) => `Ouvi: “${t}”. `,
+    balance: 'Saldo',
+    kind: { EXPENSE: 'gasto', INCOME: 'entrada' },
+    notFoundTitle: 'Não achei uma categoria para isso.',
+    notFoundDetail: (name: string, kind: string) => `Quer criar “${name}” (${kind}) e registrar?`,
+    mismatchTitle: (name: string, kind: string) => `“${name}” é uma categoria de ${kind}.`,
+    mismatchDetail: 'Diga de novo com outra categoria.',
+    noAccountTitle: 'Você ainda não tem conta.',
+    noAccountDetail: 'Crie uma conta e tente de novo.',
+    limitTitle: 'Limite de hoje atingido.',
+    limitDetail: 'Amanhã libera de novo.',
+    notUnderstood: 'Não entendi.',
+  },
+  en: {
+    example: 'Try something like “spent 30 at the supermarket”.',
+    heard: (t: string) => `I heard: “${t}”. `,
+    balance: 'Balance',
+    kind: { EXPENSE: 'expense', INCOME: 'income' },
+    notFoundTitle: "I couldn't find a category for that.",
+    notFoundDetail: (name: string, kind: string) => `Create “${name}” (${kind}) and register it?`,
+    mismatchTitle: (name: string, kind: string) => `“${name}” is an ${kind} category.`,
+    mismatchDetail: 'Say it again with another category.',
+    noAccountTitle: "You don't have an account yet.",
+    noAccountDetail: 'Create an account and try again.',
+    limitTitle: "Today's limit reached.",
+    limitDetail: 'It resets tomorrow.',
+    notUnderstood: "I didn't get that.",
+  },
+} as const
 
 /** Texto do cartão de resultado. O backend manda só fatos; as palavras são daqui. */
-export function describeCapture(response: CaptureResponse): CaptureMessage {
-  const heard = response.transcription ? `Ouvi: “${response.transcription}”. ` : ''
+export function describeCapture(response: CaptureResponse, lang: Lang = 'pt'): CaptureMessage {
+  const t = TEXTS[lang]
+  const heard = response.transcription ? t.heard(response.transcription) : ''
+  const kind = t.kind[response.category?.type ?? 'EXPENSE']
   switch (response.status) {
     case 'REGISTERED': {
-      const t = response.transaction!
-      const sign = t.operationType === 'INCOME' ? '+' : '−'
+      const tx = response.transaction!
+      const sign = tx.operationType === 'INCOME' ? '+' : '−'
       return {
         tone: 'success',
-        title: `${sign}${formatCurrency(t.amount, t.currency)} · ${t.category} · ${t.account}`,
-        detail: `Saldo ${formatCurrency(t.newBalance, t.currency)}`,
+        title: `${sign}${formatCurrency(tx.amount, tx.currency)} · ${tx.category} · ${tx.account}`,
+        detail: `${t.balance} ${formatCurrency(tx.newBalance, tx.currency)}`,
       }
     }
-    case 'CATEGORY_NOT_FOUND': {
-      const kind = response.category?.type === 'INCOME' ? 'entrada' : 'gasto'
-      return {
-        tone: 'warning',
-        title: 'Não achei uma categoria para isso.',
-        detail: `${heard}Quer criar “${response.category?.name}” (${kind}) e registrar?`,
-      }
-    }
-    case 'CATEGORY_TYPE_MISMATCH': {
-      const kind = response.category?.type === 'INCOME' ? 'entrada' : 'gasto'
-      return {
-        tone: 'warning',
-        title: `“${response.category?.name}” é uma categoria de ${kind}.`,
-        detail: `${heard}Diga de novo com outra categoria.`,
-      }
-    }
+    case 'CATEGORY_NOT_FOUND':
+      return { tone: 'warning', title: t.notFoundTitle, detail: `${heard}${t.notFoundDetail(response.category?.name ?? '', kind)}` }
+    case 'CATEGORY_TYPE_MISMATCH':
+      return { tone: 'warning', title: t.mismatchTitle(response.category?.name ?? '', kind), detail: `${heard}${t.mismatchDetail}` }
     case 'NO_ACCOUNT':
-      return { tone: 'warning', title: 'Você ainda não tem conta.', detail: 'Crie uma conta e tente de novo.' }
+      return { tone: 'warning', title: t.noAccountTitle, detail: t.noAccountDetail }
     case 'LIMIT_REACHED':
-      return { tone: 'warning', title: 'Limite de hoje atingido.', detail: 'Amanhã libera de novo.' }
+      return { tone: 'warning', title: t.limitTitle, detail: t.limitDetail }
     case 'NOT_UNDERSTOOD':
     default:
-      return { tone: 'error', title: 'Não entendi.', detail: `${heard}${EXAMPLE}` }
+      return { tone: 'error', title: t.notUnderstood, detail: `${heard}${t.example}` }
   }
 }
 
