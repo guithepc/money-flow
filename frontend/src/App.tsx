@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { Dashboard } from '@/pages/Dashboard'
 import { Capture } from '@/pages/Capture'
+import { Onboarding } from '@/pages/Onboarding'
 import { Accounts } from '@/pages/Accounts'
 import { Settings } from '@/pages/Settings'
 import { Admin } from '@/pages/Admin'
@@ -17,7 +18,7 @@ import { onboardingApi, ownerApi } from '@/lib/api'
 import { LanguageProvider } from '@/components/LanguageProvider'
 import { browserLang, toLang, type Lang } from '@/lib/i18n'
 import { LEGAL_PATHS } from '@/lib/legal'
-import type { View } from '@/lib/types'
+import type { OnboardingStatus, View } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 function Placeholder({ title }: { title: string }) {
@@ -48,6 +49,8 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
   const [termsAccepted, setTermsAccepted] = useState<boolean | null>(null)
   const [admin, setAdmin] = useState(false)
   const [language, setLanguage] = useState<Lang>(browserLang)
+  // null = verificando. Falha na consulta não prende ninguém no onboarding.
+  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null)
 
   useEffect(() => {
     let active = true
@@ -55,9 +58,13 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
     onboardingApi
       .status()
       .then((status) => {
-        if (active) setLanguage(toLang(status.language) ?? browserLang())
+        if (!active) return
+        setLanguage(toLang(status.language) ?? browserLang())
+        setOnboarding(status)
       })
-      .catch(() => {})
+      .catch(() => {
+        if (active) setOnboarding({ step: 'DONE', language: null, accounts: 0, categories: [] })
+      })
     ownerApi
       .me()
       .then((profile) => {
@@ -73,7 +80,7 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
     }
   }, [])
 
-  if (termsAccepted === null) return <div className="flex h-screen bg-background" />
+  if (termsAccepted === null || (termsAccepted && onboarding === null)) return <div className="flex h-screen bg-background" />
 
   if (!termsAccepted) {
     return (
@@ -83,22 +90,37 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
     )
   }
 
+  const onboardingPending = onboarding !== null && onboarding.step !== 'DONE'
+
+  // Um provider só para o onboarding e o app: o idioma escolhido no onboarding segue valendo depois.
   return (
     <LanguageProvider initial={language}>
-    <CurrencyProvider>
-      <div className="flex h-dvh bg-background text-fg">
-        {/* No celular a tela de gravar ocupa tudo; o botão "Painel" dela leva ao resto. */}
-        <div className={cn('shrink-0', view === 'capture' ? 'hidden md:flex' : 'flex')}>
-          <Sidebar active={view} onNavigate={setView} onLogout={onLogout} admin={admin} />
+      {onboardingPending ? (
+        <div className="flex h-dvh bg-background text-fg">
+          <Onboarding
+            initial={onboarding}
+            onDone={() => {
+              setOnboarding({ ...onboarding, step: 'DONE' })
+              setView('capture')
+            }}
+          />
         </div>
-        {view === 'capture' && <Capture onOpenDashboard={() => setView('dashboard')} />}
-        {view === 'dashboard' && <Dashboard />}
-        {view === 'accounts' && <Accounts />}
-        {view === 'reports' && <Placeholder title="Relatórios" />}
-        {view === 'settings' && <Settings />}
-        {view === 'admin' && admin && <Admin />}
-      </div>
-    </CurrencyProvider>
+      ) : (
+        <CurrencyProvider>
+          <div className="flex h-dvh bg-background text-fg">
+            {/* No celular a tela de gravar ocupa tudo; o botão "Painel" dela leva ao resto. */}
+            <div className={cn('shrink-0', view === 'capture' ? 'hidden md:flex' : 'flex')}>
+              <Sidebar active={view} onNavigate={setView} onLogout={onLogout} admin={admin} />
+            </div>
+            {view === 'capture' && <Capture onOpenDashboard={() => setView('dashboard')} />}
+            {view === 'dashboard' && <Dashboard />}
+            {view === 'accounts' && <Accounts />}
+            {view === 'reports' && <Placeholder title="Relatórios" />}
+            {view === 'settings' && <Settings />}
+            {view === 'admin' && admin && <Admin />}
+          </div>
+        </CurrencyProvider>
+      )}
     </LanguageProvider>
   )
 }

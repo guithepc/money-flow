@@ -164,8 +164,9 @@ Web interface for financial analytics (pt-BR):
   - Monthly income vs expense comparison
   - Recent transactions grouped by day
   - Period picker (week, 30 days, month, year or custom range), currency display selector (BRL / EUR / USD) and a toggle to hide values
+- **Onboarding** (first access, also right after sign-up): language (🇧🇷/🇬🇧, preselected from the browser) → accounts with current balance → the base categories in that language → first expense on the capture screen. Same `onboarding_step` as the bot, so it resumes where the person stopped in either channel
 - **Registrar** (`/registrar`, the PWA `start_url`): tap the microphone, say the expense, see it registered with **Desfazer** and **Editar**; or type the sentence. Full screen on the phone
-- **Contas**: total balance and list of accounts (rename, delete)
+- **Contas**: total balance and list of accounts (new account, rename, delete)
 - **Configurações**: Telegram invite link, data export, account deletion
 - **Admin** (only for `app.admin-owner-ids`): users, transactions and accounts volumetry
 - Installable PWA: `manifest.webmanifest`, `apple-touch-icon`, standalone display
@@ -202,6 +203,15 @@ Sessions use a short-lived access JWT (`JWT_EXPIRATION`, 15 min by default) kept
 | POST | `/api/accounts` | Create an account (`description`, `balance`, `currency`) |
 | PUT | `/api/accounts/{id}` | Rename (`409` if the name is taken) |
 | DELETE | `/api/accounts/{id}` | Delete the account with its transactions and recurring payments |
+
+### Onboarding (PWA)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/onboarding` | `step` (`LANGUAGE`, `ACCOUNTS`, `FIRST_TRANSACTION`, `DONE`), language, account count, categories |
+| POST | `/api/onboarding/language` | Choose `pt`/`en`: seeds the base categories in it (if none yet) and moves to accounts |
+| POST | `/api/onboarding/accounts-done` | Moves to the first transaction (`409` without an account) |
+| POST | `/api/onboarding/finish` | Skips the first transaction (`409` without an account) |
+| PUT | `/api/onboarding/language` | Settings: change the language only |
 
 ### Categories
 | Method | Endpoint | Description |

@@ -49,6 +49,13 @@ Gotchas that cost time:
 - ngrok's free domain shows a warning page to browsers. The script skips it with the `ngrok-skip-browser-warning`
   header; on the iPhone, tap "Visit Site" once.
 
+### Onboarding (new user)
+
+The demo user has finished onboarding. To see the PWA onboarding, create a new account on the sign-up screen
+(any email): it lands on language → accounts → categories → first expense. Headless Chrome ignores `--lang`;
+override `navigator.language` with `Page.addScriptToEvaluateOnNewDocument` to test the browser-language default.
+Eyebrows and primary buttons render uppercase, so compare `innerText` case-insensitively.
+
 ## 3. Parser quality
 
 Prompt changes need numbers, not vibes:

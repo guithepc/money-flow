@@ -283,6 +283,10 @@ export interface AccountDeletionSummary {
 export const accountsApi = {
   getAll: () => get<Account[]>('/accounts'),
 
+  /** Cria a conta com o saldo atual (pode ser negativo). ApiError 409 se o nome já existe. */
+  create: (description: string, balance: number, currency: Currency) =>
+    post<Account>('/accounts', { description, balance, currency }),
+
   /** Renomeia a conta. Lança ApiError 409 se já existir outra conta com esse nome. */
   rename: (id: number, description: string) => put<Account>(`/accounts/${id}`, { description }),
 

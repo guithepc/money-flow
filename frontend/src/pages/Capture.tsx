@@ -37,6 +37,9 @@ const LIMIT_REACHED: CaptureResponse = {
 const UI = {
   pt: {
     dashboard: 'Painel',
+    skip: 'Pular',
+    lastStep: 'Último passo',
+    finish: 'Pronto! Ir para o app',
     eyebrow: 'Registrar',
     title: 'Fale o gasto',
     subtitle: '“gastei 25 no supermercado”. A categoria e a conta eu descubro.',
@@ -70,6 +73,9 @@ const UI = {
   },
   en: {
     dashboard: 'Dashboard',
+    skip: 'Skip',
+    lastStep: 'Last step',
+    finish: 'Done! Go to the app',
     eyebrow: 'Register',
     title: 'Say the expense',
     subtitle: '“spent 25 at the supermarket”. I figure out the category and the account.',
@@ -112,7 +118,13 @@ function failure(title: string, detail?: string): CaptureMessage {
  * Tela principal do PWA: toca no microfone, fala o gasto e ele é registrado na hora,
  * com Desfazer e Editar à mão. Também aceita a frase digitada.
  */
-export function Capture({ onOpenDashboard }: { onOpenDashboard: () => void }) {
+interface OnboardingMode {
+  /** Primeiro gasto registrado: segue para o app (o backend já concluiu o onboarding). */
+  onFinished: () => void
+  onSkip: () => void
+}
+
+export function Capture({ onOpenDashboard, onboarding }: { onOpenDashboard: () => void; onboarding?: OnboardingMode }) {
   const { lang } = useLanguage()
   const ui = UI[lang]
   const [phase, setPhase] = useState<Phase>('idle')
@@ -259,19 +271,29 @@ export function Capture({ onOpenDashboard }: { onOpenDashboard: () => void }) {
           <LogoMark className="text-fg" />
           <span className="font-display text-lg font-semibold tracking-[-0.02em]">money flow</span>
         </span>
-        <button
-          type="button"
-          onClick={onOpenDashboard}
-          className="flex items-center gap-2 border border-edge px-3 py-2 text-xs text-fg-muted transition-colors hover:text-fg md:hidden"
-        >
-          <LayoutGrid className="size-4" strokeWidth={1.8} />
-          {ui.dashboard}
-        </button>
+        {onboarding ? (
+          <button
+            type="button"
+            onClick={onboarding.onSkip}
+            className="border border-edge px-3 py-2 text-xs text-fg-muted transition-colors hover:text-fg"
+          >
+            {ui.skip}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onOpenDashboard}
+            className="flex items-center gap-2 border border-edge px-3 py-2 text-xs text-fg-muted transition-colors hover:text-fg md:hidden"
+          >
+            <LayoutGrid className="size-4" strokeWidth={1.8} />
+            {ui.dashboard}
+          </button>
+        )}
       </header>
 
       <section className="flex flex-1 flex-col items-center justify-center gap-7 px-5 py-8 text-center">
         <div className="flex flex-col items-center gap-2">
-          <span className="eyebrow">{ui.eyebrow}</span>
+          <span className="eyebrow">{onboarding ? ui.lastStep : ui.eyebrow}</span>
           <h1 className="font-display text-4xl font-normal tracking-[-0.02em] text-fg">{ui.title}</h1>
           <p className="max-w-xs text-[15px] text-fg-muted">
             {ui.subtitle}
@@ -329,6 +351,16 @@ export function Capture({ onOpenDashboard }: { onOpenDashboard: () => void }) {
                   <p className="mt-2 font-mono text-xs text-fg-subtle">{ui.heard(result.response.transcription)}</p>
                 )}
               </>
+            )}
+
+            {registered && onboarding && (
+              <button
+                type="button"
+                onClick={onboarding.onFinished}
+                className="mt-4 w-full bg-brand px-3 py-2.5 text-sm font-medium text-background"
+              >
+                {ui.finish}
+              </button>
             )}
 
             {registered && !result?.undone && (

@@ -3,11 +3,6 @@ import { ApiError, authApi, refreshSession, UNAUTHORIZED_EVENT } from '@/lib/api
 import { clearToken, setToken } from '@/lib/auth'
 import { PASSWORD_RULE_MESSAGE, validatePassword } from '@/lib/password'
 
-// Depois do cadastro mandamos a pessoa pro tutorial (não pro painel), pra ela entender o fluxo
-// do bot antes de usar. O cookie de refresh já foi setado pelo register, então ao voltar pro app
-// (pelo CTA do tutorial) ela continua logada.
-const SIGNUP_REDIRECT_URL = 'https://landing-page-money-flow.vercel.app/tutorial'
-
 interface AuthState {
   isAuthenticated: boolean
   /** true enquanto o app tenta restaurar a sessão pelo cookie de refresh. */
@@ -97,9 +92,8 @@ export function useAuth(): UseAuth {
     try {
       const { token } = await authApi.register(name, email, password, acceptedTermsVersion)
       setToken(token)
-      // Navega pro tutorial em vez de cair no painel. A página do app é descarregada aqui;
-      // mantemos loading=true para o botão ficar desabilitado até a navegação acontecer.
-      window.location.assign(SIGNUP_REDIRECT_URL)
+      // Fica no app: o onboarding do PWA (idioma, contas, primeiro gasto) começa em seguida.
+      setState({ isAuthenticated: true, restoring: false, loading: false, error: null })
     } catch (e) {
       const error =
         e instanceof ApiError && e.code === 'WEAK_PASSWORD'
