@@ -93,24 +93,22 @@ grep -q "Started MoneyFlowApplication" "$LOGS/backend.log" || fail "Backend demo
 echo "ok em http://localhost:8080"
 
 step "3/5 Usuário de demonstração"
-# Cadastro pelo site ainda não cria contas nem categorias (isso é do onboarding do bot, PCT-82): o seed faz.
+# Configurado pela mesma API do onboarding do PWA: idioma (cria as categorias base), duas contas, concluir.
+# Para testar o onboarding em si, crie outra conta pela tela de cadastro.
 OWNER="$(psql -d "$DB" -tAc "SELECT owner_id FROM owner WHERE email = '$DEMO_EMAIL'")"
 if [[ -z "$OWNER" ]]; then
   DEMO_PASSWORD="demo-$(openssl rand -hex 4)"
-  curl -sf -o /dev/null localhost:8080/api/auth/register -H "Content-Type: application/json" \
+  TOKEN="$(curl -sf localhost:8080/api/auth/register -H "Content-Type: application/json" \
     -d "{\"name\":\"Demo\",\"email\":\"$DEMO_EMAIL\",\"password\":\"$DEMO_PASSWORD\",\"acceptedTermsVersion\":\"1.0\"}" \
-    || fail "Não consegui cadastrar o usuário de demonstração."
-  psql -d "$DB" -v ON_ERROR_STOP=1 -q <<SQL
-UPDATE owner SET onboarding_step = 'DONE', language = 'pt' WHERE email = '$DEMO_EMAIL';
-INSERT INTO category (owner_id, description, type)
-SELECT owner_id, d, t::category_type FROM owner,
-  (VALUES ('Mercado','EXPENSE'), ('Restaurantes','EXPENSE'), ('Transporte','EXPENSE'), ('Casa','EXPENSE'),
-          ('Salário','INCOME'), ('Renda extra','INCOME')) v(d, t)
-WHERE email = '$DEMO_EMAIL';
-INSERT INTO account (owner_id, description, balance, currency)
-SELECT owner_id, d, b, 'BRL' FROM owner, (VALUES ('Nubank', 500), ('Inter', 1000)) v(d, b)
-WHERE email = '$DEMO_EMAIL';
-SQL
+    | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')" || fail "Não consegui cadastrar o usuário de demonstração."
+  api() {
+    local body="${2:-}"; [[ -n "$body" ]] || body='{}'
+    curl -sf -o /dev/null -X POST "localhost:8080/api$1" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d "$body" || fail "Falhou: POST $1"
+  }
+  api /onboarding/language '{"language":"pt"}'
+  api /accounts '{"description":"Nubank","balance":500,"currency":"BRL"}'
+  api /accounts '{"description":"Inter","balance":1000,"currency":"BRL"}'
+  api /onboarding/finish
   echo "$DEMO_PASSWORD" > "$LOGS/demo-password.txt"
   echo "criado com Nubank (R\$ 500), Inter (R\$ 1.000) e as categorias base"
 else

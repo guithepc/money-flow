@@ -70,6 +70,7 @@ public class AuthSessionControllerTest {
 
     @AfterEach
     void cleanUp() {
+        jdbcTemplate.update("DELETE FROM category WHERE owner_id = ?", ownerId);
         jdbcTemplate.update("DELETE FROM owner WHERE owner_id = ?", ownerId);
     }
 

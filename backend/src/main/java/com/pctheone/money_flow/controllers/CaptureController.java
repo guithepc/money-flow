@@ -3,6 +3,7 @@ package com.pctheone.money_flow.controllers;
 import com.pctheone.money_flow.dto.CaptureResponseDTO;
 import com.pctheone.money_flow.dto.TransactionRegistrationResultDTO;
 import com.pctheone.money_flow.services.TransactionCaptureService;
+import com.pctheone.money_flow.services.WebOnboardingService;
 import com.pctheone.money_flow.services.TransactionCaptureService.CategoryNotFound;
 import com.pctheone.money_flow.services.TransactionCaptureService.CategoryTypeMismatch;
 import com.pctheone.money_flow.services.TransactionCaptureService.NoAccount;
@@ -55,6 +56,9 @@ public class CaptureController {
     @Autowired
     VoiceUsageService voiceUsageService;
 
+    @Autowired
+    WebOnboardingService webOnboardingService;
+
     @PostMapping("/text")
     public ResponseEntity<CaptureResponseDTO> captureText(@RequestBody TextCaptureRequest request) {
         Integer ownerId = ownerId();
@@ -67,7 +71,7 @@ public class CaptureController {
         if (!quota.allowed())
             return limitReached();
         try {
-            return ResponseEntity.ok(toResponse(transactionCaptureService.capture(text, ownerId), null, quota.remaining()));
+            return ResponseEntity.ok(toResponse(registered(transactionCaptureService.capture(text, ownerId), ownerId), null, quota.remaining()));
         } catch (IOException e) {
             throw parserUnavailable(e);
         }
@@ -90,10 +94,17 @@ public class CaptureController {
             String transcription = voiceTranscriptionService.transcribe(audio.getBytes(), extension);
             if (transcription == null || transcription.isBlank())
                 return ResponseEntity.ok(new CaptureResponseDTO("NOT_UNDERSTOOD", "", null, null, quota.remaining()));
-            return ResponseEntity.ok(toResponse(transactionCaptureService.capture(transcription, ownerId), transcription, quota.remaining()));
+            return ResponseEntity.ok(toResponse(registered(transactionCaptureService.capture(transcription, ownerId), ownerId), transcription, quota.remaining()));
         } catch (IOException e) {
             throw parserUnavailable(e);
         }
+    }
+
+    //---- The first transaction registered during onboarding finishes it.
+    private Outcome registered(Outcome outcome, Integer ownerId) {
+        if (outcome instanceof Registered)
+            webOnboardingService.transactionRegistered(ownerId);
+        return outcome;
     }
 
     //---- "audio/webm;codecs=opus" -> ".webm"

@@ -263,7 +263,7 @@ public class OnboardingStateMachine {
 
     private void chooseLanguage(OwnerEntity owner, Long chatId, LanguageEnum chosen) {
         owner.setLanguage(chosen.code());
-        categoryService.seedBaseCategories(owner.getOwnerId(), chosen);
+        categoryService.seedBaseCategoriesIfNone(owner.getOwnerId(), chosen);
         owner.setOnboardingStep(OnboardingStepEnum.ACCOUNT);
         owner.setOnboardingDraft(null);
         log.info("Owner {} chose language {}", owner.getOwnerId(), chosen.code());
@@ -401,7 +401,7 @@ public class OnboardingStateMachine {
     private void cancel(OwnerEntity owner, Long chatId, LanguageEnum language) {
         if (owner.getLanguage() == null) {
             owner.setLanguage(language.code());
-            categoryService.seedBaseCategories(owner.getOwnerId(), language);
+            categoryService.seedBaseCategoriesIfNone(owner.getOwnerId(), language);
         }
         owner.setOnboardingDraft(null);
         owner.setOnboardingStep(OnboardingStepEnum.DONE);

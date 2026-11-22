@@ -36,6 +36,10 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/api/categories/**")
                 .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "POST");
+        //---- PWA onboarding: status, language (POST first time, PUT from settings), accounts done, finish.
+        registry.addMapping("/api/onboarding/**")
+                .allowedOrigins(allowedOrigins)
+                .allowedMethods("GET", "POST", "PUT");
         //---- PWA capture: a typed sentence (JSON) or a voice note (multipart) becomes a transaction.
         registry.addMapping("/api/capture/**")
                 .allowedOrigins(allowedOrigins)

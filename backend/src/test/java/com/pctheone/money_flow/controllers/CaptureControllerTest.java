@@ -5,6 +5,7 @@ import com.pctheone.money_flow.enums.CategoryTypeEnum;
 import com.pctheone.money_flow.enums.CurrencyEnum;
 import com.pctheone.money_flow.enums.OperationTypeEnum;
 import com.pctheone.money_flow.services.TransactionCaptureService;
+import com.pctheone.money_flow.services.WebOnboardingService;
 import com.pctheone.money_flow.services.telegram.VoiceTranscriptionService;
 import com.pctheone.money_flow.services.telegram.VoiceUsageService;
 import org.junit.jupiter.api.AfterEach;
@@ -37,6 +38,7 @@ public class CaptureControllerTest {
     TransactionCaptureService captureService;
     VoiceTranscriptionService transcriptionService;
     VoiceUsageService usageService;
+    WebOnboardingService onboardingService;
     MockMvc mockMvc;
 
     @BeforeEach
@@ -44,6 +46,7 @@ public class CaptureControllerTest {
         captureService = Mockito.mock(TransactionCaptureService.class);
         transcriptionService = Mockito.mock(VoiceTranscriptionService.class);
         usageService = Mockito.mock(VoiceUsageService.class);
+        onboardingService = Mockito.mock(WebOnboardingService.class);
         Mockito.when(usageService.consumeText(OWNER_ID)).thenReturn(new VoiceUsageService.Quota(1, 100));
         Mockito.when(usageService.consume(OWNER_ID)).thenReturn(new VoiceUsageService.Quota(3, 20));
 
@@ -51,6 +54,7 @@ public class CaptureControllerTest {
         controller.transactionCaptureService = captureService;
         controller.voiceTranscriptionService = transcriptionService;
         controller.voiceUsageService = usageService;
+        controller.webOnboardingService = onboardingService;
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(OWNER_ID, null, List.of()));
     }
@@ -74,6 +78,8 @@ public class CaptureControllerTest {
                 .andExpect(jsonPath("$.transaction.category").value("Mercado"))
                 .andExpect(jsonPath("$.transaction.newBalance").value(975))
                 .andExpect(jsonPath("$.remainingToday").value(99));
+        //---- The first registration during onboarding finishes it.
+        Mockito.verify(onboardingService).transactionRegistered(OWNER_ID);
     }
 
     @Test
@@ -107,6 +113,7 @@ public class CaptureControllerTest {
                 .andExpect(jsonPath("$.status").value("CATEGORY_NOT_FOUND"))
                 .andExpect(jsonPath("$.category.name").value("Saúde"))
                 .andExpect(jsonPath("$.category.type").value("EXPENSE"));
+        Mockito.verifyNoInteractions(onboardingService);
     }
 
     @Test
