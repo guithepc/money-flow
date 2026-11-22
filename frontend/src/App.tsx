@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { Dashboard } from '@/pages/Dashboard'
+import { Capture } from '@/pages/Capture'
 import { Accounts } from '@/pages/Accounts'
 import { Settings } from '@/pages/Settings'
 import { Admin } from '@/pages/Admin'
@@ -15,6 +16,7 @@ import { CurrencyProvider } from '@/contexts/CurrencyContext'
 import { ownerApi } from '@/lib/api'
 import { LEGAL_PATHS } from '@/lib/legal'
 import type { View } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -25,9 +27,21 @@ function Placeholder({ title }: { title: string }) {
   )
 }
 
+/** Tela de gravar: é o `start_url` do PWA salvo na tela de início do iPhone. */
+const CAPTURE_PATH = '/registrar'
+
 /** Painel do usuário logado. Antes dele, pede o aceite dos termos se a versão atual ainda não foi aceita. */
 function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
-  const [view, setView] = useState<View>('dashboard')
+  const [view, setViewState] = useState<View>(() =>
+    window.location.pathname.replace(/\/+$/, '') === CAPTURE_PATH ? 'capture' : 'dashboard',
+  )
+
+  // Só a tela de gravar tem endereço próprio: recarregar (ou abrir o ícone do PWA) volta pra ela.
+  function setView(next: View) {
+    const path = next === 'capture' ? CAPTURE_PATH : '/'
+    if (window.location.pathname !== path) window.history.replaceState(null, '', path)
+    setViewState(next)
+  }
   // null = verificando. Se a consulta falhar, não bloqueia o painel (o backend não depende do aceite).
   const [termsAccepted, setTermsAccepted] = useState<boolean | null>(null)
   const [admin, setAdmin] = useState(false)
@@ -61,8 +75,12 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
 
   return (
     <CurrencyProvider>
-      <div className="flex h-screen bg-background text-fg">
-        <Sidebar active={view} onNavigate={setView} onLogout={onLogout} admin={admin} />
+      <div className="flex h-dvh bg-background text-fg">
+        {/* No celular a tela de gravar ocupa tudo; o botão "Painel" dela leva ao resto. */}
+        <div className={cn('shrink-0', view === 'capture' ? 'hidden md:flex' : 'flex')}>
+          <Sidebar active={view} onNavigate={setView} onLogout={onLogout} admin={admin} />
+        </div>
+        {view === 'capture' && <Capture onOpenDashboard={() => setView('dashboard')} />}
         {view === 'dashboard' && <Dashboard />}
         {view === 'accounts' && <Accounts />}
         {view === 'reports' && <Placeholder title="Relatórios" />}

@@ -66,7 +66,7 @@ export interface MonthlyIncomeExpense {
 }
 
 /** Seções navegáveis da sidebar. */
-export type View = 'dashboard' | 'accounts' | 'reports' | 'settings' | 'admin'
+export type View = 'capture' | 'dashboard' | 'accounts' | 'reports' | 'settings' | 'admin'
 
 /** category_type ENUM do backend. */
 export type CategoryType = 'EXPENSE' | 'INCOME'
@@ -126,4 +126,34 @@ export interface TelegramInvite {
 export type DateRange = {
   startDate: string
   endDate: string
+}
+
+/** Resultado de `POST /api/capture/text|voice`: só fatos, o texto mostrado é do PWA. */
+export type CaptureStatus =
+  | 'REGISTERED'
+  | 'NOT_UNDERSTOOD'
+  | 'CATEGORY_NOT_FOUND'
+  | 'CATEGORY_TYPE_MISMATCH'
+  | 'NO_ACCOUNT'
+  | 'LIMIT_REACHED'
+
+export interface CapturedTransaction {
+  /** Para desfazer: `DELETE /api/transactions/{id}`. */
+  id: number
+  operationType: OperationType
+  amount: number
+  currency: Currency
+  account: string
+  category: string
+  newBalance: number
+}
+
+export interface CaptureResponse {
+  status: CaptureStatus
+  /** O que o Whisper ouviu (só no áudio). */
+  transcription: string | null
+  transaction: CapturedTransaction | null
+  /** CATEGORY_NOT_FOUND: categoria a oferecer criar. CATEGORY_TYPE_MISMATCH: a categoria do outro tipo. */
+  category: { name: string; type: CategoryType } | null
+  remainingToday: number | null
 }

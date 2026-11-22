@@ -1,4 +1,5 @@
 import {
+  Mic,
   LayoutGrid,
   Wallet,
   BarChart3,
@@ -11,6 +12,7 @@ import { cn } from '@/lib/utils'
 import type { View } from '@/lib/types'
 
 const NAV: { icon: typeof LayoutGrid; label: string; view: View }[] = [
+  { icon: Mic, label: 'Registrar', view: 'capture' },
   { icon: LayoutGrid, label: 'Dashboard', view: 'dashboard' },
   { icon: Wallet, label: 'Contas', view: 'accounts' },
   { icon: BarChart3, label: 'Relatórios', view: 'reports' },

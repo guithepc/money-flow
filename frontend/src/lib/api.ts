@@ -3,7 +3,9 @@ import type {
   Account,
   Currency,
   AmountAndCategory,
+  CaptureResponse,
   Category,
+  CategoryType,
   DateRange,
   MonthlyIncomeExpense,
   OwnerProfile,
@@ -105,6 +107,8 @@ export function refreshSession(): Promise<boolean> {
 interface RequestOptions {
   params?: Record<string, string>
   body?: unknown
+  /** Multipart (áudio): o navegador define o Content-Type com o boundary. */
+  form?: FormData
 }
 
 async function request<T>(
@@ -126,7 +130,7 @@ async function request<T>(
           ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
           ...authHeaders(token),
         },
-        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        body: options.form ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
       })
     } catch {
       // Sem resposta do servidor não dá pra saber se a sessão acabou: mantém o usuário logado.
@@ -227,6 +231,29 @@ export const transactionsApi = {
 
 export const categoriesApi = {
   list: () => get<Category[]>('/categories'),
+
+  /** 201 criada, 200 já existia com o mesmo tipo; ApiError 409 se o nome é de uma categoria do outro tipo. */
+  create: (description: string, type: CategoryType) => post<Category>('/categories', { description, type }),
+}
+
+/**
+ * Frase ou áudio → transação, com o mesmo leitor e os mesmos limites diários do bot.
+ * Acima do limite o backend responde 429: vira `ApiError` com status 429.
+ */
+export const captureApi = {
+  text: (text: string) => post<CaptureResponse>('/capture/text', { text }),
+
+  voice: (audio: Blob) => {
+    const form = new FormData()
+    form.append('audio', audio, audioFileName(audio.type))
+    return request<CaptureResponse>('POST', '/capture/voice', { form })
+  },
+}
+
+/** "audio/mp4;codecs=…" → "voz.mp4": o nome só ajuda nos logs, o formato vai no tipo da parte. */
+export function audioFileName(mimeType: string): string {
+  const subtype = mimeType.split(';')[0].split('/')[1] || 'webm'
+  return `voz.${subtype}`
 }
 
 export interface AccountDeletionSummary {

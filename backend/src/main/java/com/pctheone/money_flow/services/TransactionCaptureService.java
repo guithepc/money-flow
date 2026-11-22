@@ -16,11 +16,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 //---- A sentence ("gastei 25 no supermercado") -> registered transaction, or why not. Shared by the Telegram bot
 //---- and the PWA: each channel turns the outcome into its own reply.
@@ -28,6 +30,9 @@ import java.util.Optional;
 public class TransactionCaptureService {
 
     private static final Logger log = LoggerFactory.getLogger(TransactionCaptureService.class);
+
+    //---- "```json {...} ```": the prompt forbids it, the model does it now and then.
+    private static final Pattern MARKDOWN_FENCE = Pattern.compile("^```(json)?|```$");
 
     public sealed interface Outcome {}
 
@@ -71,7 +76,10 @@ public class TransactionCaptureService {
         //---- Never log the response itself: it carries descriptions and amounts.
         log.info("GPT parser response received ({} chars) for owner {}.", response == null ? 0 : response.length(), ownerId);
 
-        JsonNode node = Json.MAPPER.readTree(response);
+        Optional<JsonNode> parsed = singleObject(response);
+        if (parsed.isEmpty())
+            return new NotUnderstood();
+        JsonNode node = parsed.get();
         if (node.hasNonNull("error")) {
             String category = node.hasNonNull("category") ? node.get("category").asString().trim() : "";
             if ("CATEGORY_NOT_FOUND".equals(node.get("error").asString()) && !category.isEmpty())
@@ -80,7 +88,13 @@ public class TransactionCaptureService {
             return new NotUnderstood();
         }
 
-        OpenAITransactionDTO transactionDTO = Json.MAPPER.treeToValue(node, OpenAITransactionDTO.class);
+        OpenAITransactionDTO transactionDTO;
+        try {
+            transactionDTO = Json.MAPPER.treeToValue(node, OpenAITransactionDTO.class);
+        } catch (JacksonException e) {
+            log.info("GPT answer has unexpected field types.");
+            return new NotUnderstood();
+        }
         log.info("Parsed transaction - operation: {}, accountId: {}, owner: {}",
                 transactionDTO.getOperationType(), transactionDTO.getAccountId(), ownerId);
 
@@ -113,6 +127,20 @@ public class TransactionCaptureService {
                 : transactionsService.registerIncome(ownerId, category.get().getDescription(), accountId.get(), transactionDTO.getAmount(), transactionDTO.getDescription());
         log.info("Parsed {} registered successfully", operationType);
         return new Registered(operationType, result);
+    }
+
+    //---- One transaction per message. GPT sometimes wraps it in an array (or returns two when the sentence was said
+    //---- twice): a single-item array is unwrapped, anything else is "not understood" instead of a 500.
+    private static Optional<JsonNode> singleObject(String response) {
+        try {
+            JsonNode node = Json.MAPPER.readTree(MARKDOWN_FENCE.matcher(response == null ? "" : response.trim()).replaceAll(""));
+            if (node != null && node.isArray() && node.size() == 1)
+                node = node.get(0);
+            return node != null && node.isObject() ? Optional.of(node) : Optional.empty();
+        } catch (JacksonException e) {
+            log.info("GPT answer is not valid JSON.");
+            return Optional.empty();
+        }
     }
 
     private static CategoryTypeEnum operationTypeOf(JsonNode node) {

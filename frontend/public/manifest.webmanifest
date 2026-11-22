@@ -3,7 +3,7 @@
   "short_name": "Money Flow",
   "description": "Registre gastos falando ou escrevendo.",
   "lang": "pt-BR",
-  "start_url": "/",
+  "start_url": "/registrar",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0b0d12",

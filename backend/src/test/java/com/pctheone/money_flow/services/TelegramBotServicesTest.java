@@ -986,6 +986,41 @@ public class TelegramBotServicesTest {
         assertSingleReply(pt("voice.notRecognized"));
     }
 
+    //---- GPT answers that used to throw (500 on the PWA, generic error on the bot).
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "[{\"operationType\": \"EXPENSE\", \"category\": \"Mercado\", \"description\": \"a\", \"amount\": \"25,00\", \"accountId\": 1}, {\"operationType\": \"EXPENSE\", \"category\": \"Mercado\", \"description\": \"b\", \"amount\": \"25,00\", \"accountId\": 1}]",
+            "{\"error\": ",
+            "",
+            "\"texto solto\"",
+            "{\"operationType\": \"EXPENSE\", \"category\": \"Mercado\", \"amount\": \"25,00\", \"accountId\": \"Nubank\"}"})
+    void malformedOrMultipleAnswersAreNotUnderstood(String answer) {
+        Mockito.when(categoryService.findByDescription("Mercado", OWNER_ID)).thenReturn(Optional.of(expenseCategory("Mercado")));
+
+        Assertions.assertFalse(service.proccessTranscriptedMessage(answer, CHAT_ID, OWNER_ID, LanguageEnum.PT));
+
+        assertSingleReply(pt("voice.notRecognized"));
+        Mockito.verifyNoInteractions(transactionsService);
+    }
+
+    @Test
+    void answerInsideAMarkdownFenceIsStillRead() {
+        Assertions.assertFalse(service.proccessTranscriptedMessage("```json\n{\"error\": \"CATEGORY_NOT_FOUND\", \"category\": \"Saúde\", \"operationType\": \"EXPENSE\"}\n```", CHAT_ID, OWNER_ID, LanguageEnum.PT));
+
+        lastKeyboard(pt("voice.categoryNotFound", "Saúde", "gasto"));
+    }
+
+    @Test
+    void singleTransactionWrappedInAnArrayIsRegistered() {
+        Mockito.when(categoryService.findByDescription("Mercado", OWNER_ID)).thenReturn(Optional.of(expenseCategory("Mercado")));
+        Mockito.when(transactionsService.registerExpense(OWNER_ID, "Mercado", 1, "25,00", "feira"))
+                .thenReturn(new TransactionRegistrationResultDTO(new BigDecimal("25"), new BigDecimal("475"), CurrencyEnum.BRL, "Nubank", "Mercado"));
+
+        Assertions.assertTrue(service.proccessTranscriptedMessage(
+                "[{\"operationType\": \"EXPENSE\", \"category\": \"Mercado\", \"description\": \"feira\", \"amount\": \"25,00\", \"accountId\": 1}]", CHAT_ID, OWNER_ID, LanguageEnum.PT));
+    }
+
     //---- Implicit account and category (PCT-77)
 
     @Test
