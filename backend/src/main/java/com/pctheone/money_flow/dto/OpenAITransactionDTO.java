@@ -4,8 +4,6 @@ import com.pctheone.money_flow.enums.OperationTypeEnum;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-
 @NoArgsConstructor
 @Getter
 public class OpenAITransactionDTO {
@@ -13,5 +11,6 @@ public class OpenAITransactionDTO {
     private String category;
     private String description;
     private String amount;
-    private int accountId;
+    //---- Null when the user didn't say the account: the default account is used.
+    private Integer accountId;
 }

@@ -439,7 +439,7 @@ public class TelegramBotServices {
 
     private boolean parseAndRegister(String userMessage, Long chatId, Integer ownerId, LanguageEnum language, String notRecognizedKey) throws IOException {
         String template = new String(voiceParserPrompt.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        String prompt = String.format(template, this.listCategories(ownerId), this.listAccounts(ownerId));
+        String prompt = String.format(template, this.listCategories(ownerId, CategoryTypeEnum.EXPENSE), this.listCategories(ownerId, CategoryTypeEnum.INCOME), this.listAccounts(ownerId));
         String response = openAITextClient.complete(prompt, userMessage).orElse("{\"error\": \"NOT_UNDERSTOOD\"}");
         return proccessTranscriptedMessage(response, chatId, ownerId, language, notRecognizedKey);
     }
@@ -448,7 +448,8 @@ public class TelegramBotServices {
         return proccessTranscriptedMessage(response, chatId, ownerId, language, VOICE_NOT_RECOGNIZED_MESSAGE);
     }
 
-    //---- GPT returns the transaction, {"error": "CATEGORY_NOT_FOUND", "category": ..., "operationType": ...} or {"error": "NOT_UNDERSTOOD"}.
+    //---- GPT returns the transaction (accountId null when unsaid), {"error": "CATEGORY_NOT_FOUND", ...} or {"error": "NOT_UNDERSTOOD"}.
+    //---- A category outside the owner's list is offered for creation, whichever way GPT phrased it.
     boolean proccessTranscriptedMessage(String response, Long chatId, Integer ownerId, LanguageEnum language, String notRecognizedKey){
         //---- Never log the response itself: it carries descriptions and amounts.
         log.info("GPT parser response received ({} chars) for owner {}.", response == null ? 0 : response.length(), ownerId);
@@ -476,6 +477,12 @@ public class TelegramBotServices {
         }
         CategoryTypeEnum expectedType = operationType == OperationTypeEnum.INCOME ? CategoryTypeEnum.INCOME : CategoryTypeEnum.EXPENSE;
 
+        //---- Refuse instead of guessing: a missing, zero or "25.90" amount would register the wrong value.
+        if (MoneyFormat.parseBrazilian(transactionDTO.getAmount()).filter(amount -> amount.signum() > 0).isEmpty()) {
+            sendReply(chatId, messages.get(language, notRecognizedKey));
+            return false;
+        }
+
         Optional<CategoryEntity> category = transactionDTO.getCategory() == null || transactionDTO.getCategory().isBlank()
                 ? Optional.empty()
                 : categoryService.findByDescription(transactionDTO.getCategory(), ownerId);
@@ -493,9 +500,17 @@ public class TelegramBotServices {
             return false;
         }
 
+        Optional<Integer> accountId = transactionDTO.getAccountId() != null
+                ? Optional.of(transactionDTO.getAccountId())
+                : accountService.defaultAccountId(ownerId);
+        if (accountId.isEmpty()) {
+            sendReply(chatId, messages.get(language, "voice.noAccount"));
+            return false;
+        }
+
         TransactionRegistrationResultDTO result = operationType == OperationTypeEnum.EXPENSE
-                ? transactionsService.registerExpense(ownerId, transactionDTO.getCategory(), transactionDTO.getAccountId(), transactionDTO.getAmount(), transactionDTO.getDescription())
-                : transactionsService.registerIncome(ownerId, transactionDTO.getCategory(), transactionDTO.getAccountId(), transactionDTO.getAmount(), transactionDTO.getDescription());
+                ? transactionsService.registerExpense(ownerId, category.get().getDescription(), accountId.get(), transactionDTO.getAmount(), transactionDTO.getDescription())
+                : transactionsService.registerIncome(ownerId, category.get().getDescription(), accountId.get(), transactionDTO.getAmount(), transactionDTO.getDescription());
         log.info("Voice {} registered successfully", operationType);
         sendReply(chatId, BotMessageFormat.transactionConfirmation(messages, language, operationType, result));
         return true;
@@ -517,7 +532,8 @@ public class TelegramBotServices {
     }
 
     //---- "Couldn't find 'Pharmacy'. Create it as expense? [Yes] [No]"
-    private void offerCategoryCreation(Long chatId, LanguageEnum language, String category, CategoryTypeEnum type){
+    private void offerCategoryCreation(Long chatId, LanguageEnum language, String suggestedName, CategoryTypeEnum type){
+        String category = suggestedName.substring(0, 1).toUpperCase() + suggestedName.substring(1);
         log.info("Voice category not found, offering to create it ({}).", type);
         String typeLabel = messages.get(language, "category.type." + type.name());
         Optional<List<List<TelegramInlineButtonDTO>>> buttons = CategoryCallbackHandler.createButtons(category, type,
@@ -680,19 +696,12 @@ public class TelegramBotServices {
         return accountListText;
     }
 
-    //---- "ID: 1 - Mercado (EXPENSE)": the type lets the parser match "gastei" only with expense categories.
-    private StringBuilder listCategories(Integer ownerId){
-        List<CategoryDTO> categoryDTOList = categoryService.listAllCategories(ownerId);
+    //---- One list per type: a single tagged list let "Outras entradas" (income) catch expenses with no category.
+    private String listCategories(Integer ownerId, CategoryTypeEnum type){
         StringBuilder categoryListText = new StringBuilder();
-        for (CategoryDTO categoryDTO : categoryDTOList){
-            categoryListText.append("ID: ")
-                    .append(categoryDTO.getCategoryId())
-                    .append(" - ")
-                    .append(categoryDTO.getCategoryDescription())
-                    .append(" (")
-                    .append(categoryDTO.getType())
-                    .append(")\n");
-        }
-        return categoryListText;
+        for (CategoryDTO categoryDTO : categoryService.listAllCategories(ownerId))
+            if (categoryDTO.getType() == type)
+                categoryListText.append("- ").append(categoryDTO.getCategoryDescription()).append("\n");
+        return categoryListText.isEmpty() ? "(nenhuma)\n" : categoryListText.toString();
     }
 }

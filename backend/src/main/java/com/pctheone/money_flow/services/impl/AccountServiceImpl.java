@@ -19,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class AccountServiceImpl implements AccountService {
@@ -125,6 +126,11 @@ public class AccountServiceImpl implements AccountService {
         return accountRepository.findByOwnerOwnerIdAndDisplayNumber(ownerId, displayNumber)
                 .map(AccountEntity::getAccountId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+    }
+
+    @Override
+    public Optional<Integer> defaultAccountId(Integer ownerId) {
+        return accountRepository.findMostUsedAccountId(ownerId);
     }
 
     //---- Case-insensitive: "nubank" and "Nubank" are the same account for the user.

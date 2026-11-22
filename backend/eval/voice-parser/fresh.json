@@ -1,0 +1,40 @@
+{
+  "categories": [
+    ["Alimentação", "EXPENSE"], ["Contas", "EXPENSE"], ["Farmácia", "EXPENSE"], ["Viagens", "EXPENSE"],
+    ["Educação", "EXPENSE"], ["Locomoção", "EXPENSE"],
+    ["Salário", "INCOME"], ["Dividendos", "INCOME"], ["Outras entradas", "INCOME"]
+  ],
+  "accounts": [[301, "C6", "900.00"], [302, "Caixa", "400.00"], [303, "Nubank", "250.00"]],
+  "cases": [
+    {"text": "padoca 14 reais", "op": "EXPENSE", "category": ["Alimentação"], "account": null, "amount": 14},
+    {"text": "churrasco no domingo, 95 no c6", "op": "EXPENSE", "category": ["Alimentação"], "account": 301, "amount": 95},
+    {"text": "carrefour 230,40", "op": "EXPENSE", "category": ["Alimentação"], "account": null, "amount": 230.4},
+    {"text": "mc donalds 32 na caixa", "op": "EXPENSE", "category": ["Alimentação"], "account": 302, "amount": 32},
+    {"text": "conta de celular 59,99", "op": "EXPENSE", "category": ["Contas"], "account": null, "amount": 59.99},
+    {"text": "paguei a energia, 210 no nubank", "op": "EXPENSE", "category": ["Contas"], "account": 303, "amount": 210},
+    {"text": "boleto da internet 120", "op": "EXPENSE", "category": ["Contas"], "account": null, "amount": 120},
+    {"text": "drogasil 47,80", "op": "EXPENSE", "category": ["Farmácia"], "account": null, "amount": 47.8},
+    {"text": "comprei protetor solar e vitamina, 88", "op": "EXPENSE", "category": ["Farmácia"], "account": null, "amount": 88},
+    {"text": "passagem aérea pra recife 1350 no c6", "op": "EXPENSE", "category": ["Viagens"], "account": 301, "amount": 1350},
+    {"text": "hotel em gramado 780", "op": "EXPENSE", "category": ["Viagens"], "account": null, "amount": 780},
+    {"text": "airbnb 640 caixa", "op": "EXPENSE", "category": ["Viagens"], "account": 302, "amount": 640},
+    {"text": "mensalidade da faculdade 1100", "op": "EXPENSE", "category": ["Educação"], "account": null, "amount": 1100},
+    {"text": "comprei um livro de python, 75", "op": "EXPENSE", "category": ["Educação"], "account": null, "amount": 75},
+    {"text": "corrida de táxi 27 no nubank", "op": "EXPENSE", "category": ["Locomoção"], "account": 303, "amount": 27},
+    {"text": "recarga do bilhete único 50", "op": "EXPENSE", "category": ["Locomoção"], "account": null, "amount": 50},
+    {"text": "pedágio 12,40", "op": "EXPENSE", "category": ["Locomoção"], "account": null, "amount": 12.4},
+    {"text": "corte de cabelo 45", "op": "EXPENSE", "category": ["NEW"], "account": null, "amount": 45},
+    {"text": "tênis de corrida 420 no c6", "op": "EXPENSE", "category": ["NEW"], "account": 301, "amount": 420},
+    {"text": "doação pra ong 100", "op": "EXPENSE", "category": ["NEW"], "account": null, "amount": 100},
+    {"text": "pacote de figurinhas 30", "op": "EXPENSE", "category": ["NEW"], "account": null, "amount": 30},
+    {"text": "salário de novembro 7300 no c6", "op": "INCOME", "category": ["Salário"], "account": 301, "amount": 7300},
+    {"text": "caiu dividendo da petrobras 87,30", "op": "INCOME", "category": ["Dividendos"], "account": null, "amount": 87.3},
+    {"text": "rendimento de fii 41", "op": "INCOME", "category": ["Dividendos"], "account": null, "amount": 41},
+    {"text": "minha tia me deu 200 de presente", "op": "INCOME", "category": ["Outras entradas"], "account": null, "amount": 200},
+    {"text": "vendi meu celular velho por 600 na caixa", "op": "INCOME", "category": ["Outras entradas"], "account": 302, "amount": 600},
+    {"text": "took a cab for 22", "op": "EXPENSE", "category": ["Locomoção"], "account": null, "amount": 22},
+    {"text": "bought groceries for 140 on nubank", "op": "EXPENSE", "category": ["Alimentação"], "account": 303, "amount": 140},
+    {"text": "gastei uns trocados no mercado", "error": "NOT_UNDERSTOOD"},
+    {"text": "me lembra de pagar o aluguel amanhã", "error": "NOT_UNDERSTOOD"}
+  ]
+}

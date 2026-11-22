@@ -35,6 +35,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
@@ -981,7 +983,68 @@ public class TelegramBotServicesTest {
         assertSingleReply(pt("voice.notRecognized"));
     }
 
+    //---- Implicit account and category (PCT-77)
+
+    @Test
+    void unsaidAccountUsesTheDefaultAccount() {
+        CategoryEntity mercado = expenseCategory("Mercado");
+        Mockito.when(categoryService.findByDescription("Mercado", OWNER_ID)).thenReturn(Optional.of(mercado));
+        Mockito.when(accountService.defaultAccountId(OWNER_ID)).thenReturn(Optional.of(7));
+        Mockito.when(transactionsService.registerExpense(OWNER_ID, "Mercado", 7, "25,00", "supermercado"))
+                .thenReturn(new TransactionRegistrationResultDTO(new BigDecimal("25"), new BigDecimal("475"), CurrencyEnum.BRL, "Inter", "Mercado"));
+
+        boolean registered = service.proccessTranscriptedMessage(
+                "{\"operationType\": \"EXPENSE\", \"category\": \"Mercado\", \"description\": \"supermercado\", \"amount\": \"25,00\", \"accountId\": null}", CHAT_ID, OWNER_ID, LanguageEnum.PT);
+
+        Assertions.assertTrue(registered);
+        assertSingleReply("📉 R$ 25,00 · Mercado · Inter — saldo R$ 475,00");
+    }
+
+    @Test
+    void unsaidAccountWithoutAnyAccountAsksToCreateOne() {
+        Mockito.when(categoryService.findByDescription("Mercado", OWNER_ID)).thenReturn(Optional.of(expenseCategory("Mercado")));
+        Mockito.when(accountService.defaultAccountId(OWNER_ID)).thenReturn(Optional.empty());
+
+        boolean registered = service.proccessTranscriptedMessage(
+                "{\"operationType\": \"EXPENSE\", \"category\": \"Mercado\", \"description\": \"feira\", \"amount\": \"25,00\", \"accountId\": null}", CHAT_ID, OWNER_ID, LanguageEnum.PT);
+
+        Assertions.assertFalse(registered);
+        assertSingleReply(pt("voice.noAccount"));
+        Mockito.verifyNoInteractions(transactionsService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"\"0\"", "\"0,00\"", "\"\"", "null", "\"25.90\"", "\"-30\"", "\"vinte\""})
+    void missingZeroOrAmbiguousAmountIsNeverRegistered(String amount) {
+        Mockito.when(categoryService.findByDescription("Mercado", OWNER_ID)).thenReturn(Optional.of(expenseCategory("Mercado")));
+
+        boolean registered = service.proccessTranscriptedMessage(
+                "{\"operationType\": \"EXPENSE\", \"category\": \"Mercado\", \"description\": \"feira\", \"amount\": " + amount + ", \"accountId\": 1}", CHAT_ID, OWNER_ID, LanguageEnum.PT);
+
+        Assertions.assertFalse(registered);
+        assertSingleReply(pt("voice.notRecognized"));
+        Mockito.verifyNoInteractions(transactionsService);
+    }
+
+    @Test
+    void categoryOutsideTheListIsOfferedCapitalized() {
+        boolean registered = service.proccessTranscriptedMessage(
+                "{\"operationType\": \"EXPENSE\", \"category\": \"atividade física\", \"description\": \"academia\", \"amount\": \"120,00\", \"accountId\": null}", CHAT_ID, OWNER_ID, LanguageEnum.PT);
+
+        Assertions.assertFalse(registered);
+        List<List<TelegramInlineButtonDTO>> keyboard = lastKeyboard(pt("voice.categoryNotFound", "Atividade física", "gasto"));
+        Assertions.assertEquals("cat:new:E:Atividade física", keyboard.getFirst().get(0).getCallbackData());
+        Mockito.verifyNoInteractions(transactionsService);
+    }
+
     //---- Helpers
+
+    private static CategoryEntity expenseCategory(String description) {
+        CategoryEntity category = new CategoryEntity();
+        category.setDescription(description);
+        category.setType(CategoryTypeEnum.EXPENSE);
+        return category;
+    }
 
     private static CategoryCreationResultDTO categoryResult(String description, CategoryTypeEnum type, boolean created) {
         CategoryEntity category = new CategoryEntity();
