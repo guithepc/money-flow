@@ -1,6 +1,6 @@
 # Money Flow
 
-Personal finance tracker with two interfaces: a Telegram Bot for quick daily expense/income logging (text commands or voice messages) and a React Dashboard for visualization and analytics.
+Personal finance tracker where you **say** what you spent: "gastei 25 no supermercado" becomes an expense in Mercado on the account you use most. The main interface is a PWA (the web app saved to the iPhone home screen from Safari) with a record button; the React dashboard shows balances and analytics, and a Telegram bot offers the same voice/text logging plus positional commands.
 
 Built as a real tool I use daily to manage finances across currencies (EUR/BRL), now multi-user: anyone can register on the dashboard and link their own Telegram chat.
 
@@ -58,7 +58,7 @@ Built as a real tool I use daily to manage finances across currencies (EUR/BRL),
 
 ## Database Schema
 
-5 tables with PostgreSQL ENUMs for fixed domains and foreign keys for user-created entities:
+Five domain tables with PostgreSQL ENUMs for fixed domains and foreign keys for user-created entities:
 
 | Table | Purpose |
 |-------|---------|
@@ -67,6 +67,10 @@ Built as a real tool I use daily to manage finances across currencies (EUR/BRL),
 | `category` | Transaction categories, per user, typed `EXPENSE`/`INCOME`, unique per `(owner_id, description)` |
 | `recurring_payment` | Templates for recurring charges, amount can change over time |
 | `transactions` | Immutable financial event records |
+
+Support tables: `refresh_token` (hashed, rotated browser sessions), `password_reset_token`, `telegram_processed_update`
+(webhook idempotency), `voice_usage` (daily voice and text caps per owner) and `owner_sequence` (per-owner numbering).
+`account` and `transactions` carry a `display_number` (1, 2, 3... per owner) filled by a trigger; the primary key stays internal.
 
 Key design decisions:
 - `NUMERIC` for all monetary values, `BigDecimal` in Java. Never floating point for money
@@ -80,6 +84,16 @@ Key design decisions:
 | `V1__baseline.sql` | Original schema (owner, account, category, recurring_payment, transactions) |
 | `V2__category_per_owner.sql` | `category.owner_id` + `category.type`, merges duplicated descriptions |
 | `V3__account_currency.sql` | `currency` enum and `account.currency` (default `EUR`) |
+| `V4__owner_invite_columns.sql` | One-time Telegram invite (`invite_uuid`, `invite_expiration`) |
+| `V5__telegram_processed_update.sql` | Processed `update_id`s for webhook idempotency |
+| `V6__owner_onboarding.sql` | Bot language and onboarding state (`onboarding_step`, `onboarding_draft`) |
+| `V7__password_reset.sql` | Password reset tokens and `password_changed_at` |
+| `V8__refresh_token.sql` | Persistent browser sessions (hashed, rotated refresh tokens) |
+| `V9__voice_usage.sql` | Daily voice-message counter per owner |
+| `V10__terms_acceptance.sql` | Accepted terms version and date |
+| `V11__owner_created_at.sql` | `owner.created_at` for the admin metrics |
+| `V12__text_usage.sql` | Daily typed-message counter (`voice_usage.text_count`) |
+| `V13__owner_display_number.sql` | Per-owner `display_number` on accounts and transactions (trigger + `owner_sequence`) |
 
 ## Telegram Bot
 
@@ -102,9 +116,14 @@ Sending anything unexpected repeats the current question (also `/start`). `/ajud
 All bot replies are in the owner's language (`messages/bot_pt.properties` / `bot_en.properties`; falls back to the Telegram client language when none was chosen).
 
 ### Voice messages
-Send a voice note like *"gastei 25 reais no mercado com carne no Nubank"*. The audio is transcribed by Whisper and parsed by GPT using **your** categories and accounts, then registered as an expense or income. Expenses only match expense categories and income only income categories. When the category doesn't exist the bot offers to create it (*"Não encontrei a categoria "Farmácia". Quer criar como gasto?"* with Yes/No buttons).
+Send a voice note like *"gastei 25 no supermercado"*. The audio is transcribed by Whisper and parsed by GPT (`prompts/voice-parser.txt`) against **your** categories and accounts, then registered as an expense or income. The same parser (`TransactionCaptureService`) serves the bot and the PWA.
 
-Typing the same sentence works too (*"gastei 25 no mercado na Nubank"*): any message without a leading `/` goes through the same GPT parser, skipping Whisper. Text has its own daily cap (`text.daily-limit`, 100 by default), separate from the voice one, so typing stays available after the voice limit. An unknown `/command` gets a pointer to `/ajuda` instead of silence.
+- **Category by meaning:** "supermercado" lands in Mercado, "estacionamento" in Transporte, "farmácia" in Saúde when you have it. Only when nothing in your list covers the subject does it offer to create one (*"Não encontrei a categoria "Saúde". Quer criar como gasto?"* with Yes/No buttons).
+- **Account optional:** without an account in the sentence, the one with the most transactions in the last 90 days is used.
+- **Amounts are never guessed:** a missing, zero or ambiguous amount gets "não entendi" instead of a wrong value.
+- Parser quality is measured with `backend/eval/voice-parser` (100 sentences against the real API; see its README).
+
+Typing the same sentence works too (*"gastei 25 no supermercado"*): any message without a leading `/` goes through the same GPT parser, skipping Whisper. Text has its own daily cap (`text.daily-limit`, 100 by default), separate from the voice one, so typing stays available after the voice limit. An unknown `/command` gets a pointer to `/ajuda` instead of silence.
 
 ### Commands
 Positional interface for quick logging on the go. The command menu is registered on startup via `setMyCommands` (Portuguese by default, English for `en` clients).
@@ -145,8 +164,11 @@ Web interface for financial analytics (pt-BR):
   - Monthly income vs expense comparison
   - Recent transactions grouped by day
   - Period picker (week, 30 days, month, year or custom range), currency display selector (BRL / EUR / USD) and a toggle to hide values
-- **Contas**: total balance and list of accounts
-- **Configurações**: generate the Telegram invite link
+- **Registrar** (`/registrar`, the PWA `start_url`): tap the microphone, say the expense, see it registered with **Desfazer** and **Editar**; or type the sentence. Full screen on the phone
+- **Contas**: total balance and list of accounts (rename, delete)
+- **Configurações**: Telegram invite link, data export, account deletion
+- **Admin** (only for `app.admin-owner-ids`): users, transactions and accounts volumetry
+- Installable PWA: `manifest.webmanifest`, `apple-touch-icon`, standalone display
 
 ## API Endpoints
 
@@ -161,17 +183,31 @@ Sessions use a short-lived access JWT (`JWT_EXPIRATION`, 15 min by default) kept
 | POST | `/api/auth/login` | Authenticate, receive an access JWT and the refresh cookie |
 | POST | `/api/auth/refresh` | Exchange the refresh cookie for a new access JWT and rotate the cookie (`401` when missing, expired or revoked) |
 | POST | `/api/auth/logout` | Revoke the session server-side and clear the cookie |
+| POST | `/api/auth/password-reset/request` | Send a reset link through the linked Telegram chat (always `202`, no account enumeration) |
+| POST | `/api/auth/password-reset/confirm` | Set a new password with the token from the link |
 
 ### Owner
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| GET | `/api/owner/me` | Profile: terms status, Telegram link, admin flag |
 | POST | `/api/owner/telegram-invite` | Generate a one-time Telegram deep link |
+| POST | `/api/owner/terms-acceptance` | Accept the current terms version |
+| GET | `/api/owner/export` | Download all your data as JSON |
+| DELETE | `/api/owner` | Delete the account and all its data (password required) |
 
 ### Accounts
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/accounts` | List your accounts (with currency) |
 | POST | `/api/accounts` | Create an account (`description`, `balance`, `currency`) |
+| PUT | `/api/accounts/{id}` | Rename (`409` if the name is taken) |
+| DELETE | `/api/accounts/{id}` | Delete the account with its transactions and recurring payments |
+
+### Categories
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/categories` | List your categories |
+| POST | `/api/categories` | Create one (`description`, `type`): `201` created, `200` already exists, `409` name taken by the other type |
 
 ### Transactions
 Every query takes `startDate` / `endDate` and an optional `accountId`.
@@ -186,6 +222,8 @@ Every query takes `startDate` / `endDate` and an optional `accountId`.
 | GET | `/api/transactions/total-spent-ranked-by-category` | Spending ranked by category |
 | GET | `/api/transactions/income-expense-monthly` | Monthly income vs expense |
 | GET | `/api/transactions/history-balance` | Daily balance history |
+| PUT | `/api/transactions/{id}` | Edit description, category and amount (balance adjusted by the difference) |
+| DELETE | `/api/transactions/{id}` | Delete (balance reverted); also the PWA's undo |
 
 ### Capture (PWA)
 A typed sentence or a recorded voice note becomes a transaction, with the same parser and daily limits as the bot
@@ -199,6 +237,11 @@ A typed sentence or a recorded voice note becomes a transaction, with the same p
 
 `status` is `REGISTERED`, `NOT_UNDERSTOOD`, `CATEGORY_NOT_FOUND`, `CATEGORY_TYPE_MISMATCH`, `NO_ACCOUNT` or `LIMIT_REACHED` (HTTP 429).
 Undo is `DELETE /api/transactions/{id}`.
+
+### Admin
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/admin/metrics` | Users, transactions and accounts volumetry (`403` unless the owner is in `app.admin-owner-ids`) |
 
 ### Integration
 | Method | Endpoint | Description |
@@ -231,14 +274,5 @@ Backups are **encrypted** with [age](https://age-encryption.org): `ops/backup-db
 
 ## Roadmap
 
-- [x] Multi-user Telegram bot with deep link onboarding
-- [x] Webhook security (`X-Telegram-Bot-Api-Secret-Token` validation)
-- [x] Owner isolation on every read
-- [x] Voice messages via Whisper transcription + GPT parsing
-- [x] Dashboard visual refactor (Tinta palette)
-- [x] Flyway migrations, per-user categories and per-account currency (#5)
-- [x] Bot robustness: error handling, idempotency, inline buttons, `_` command names (#6)
-- [x] Guided Telegram onboarding: language, accounts with balance, base categories (#7)
-- [ ] Per-account currency in bot replies and dashboard currency filter (#8)
-- [ ] Transfer between accounts (origin/destination)
-- [ ] Exchange rates / consolidated net worth
+Planned and tracked in Linear (project "Money Flow", team PCT). Current focus: the PWA voice capture on the iPhone,
+onboarding without Telegram, and transfers between accounts.
