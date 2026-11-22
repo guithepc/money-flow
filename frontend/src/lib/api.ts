@@ -116,7 +116,8 @@ async function request<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const url = new URL(`${BASE_URL}${path}`)
+  // Base relativa (`/api`, atrás do proxy do Vite no túnel) precisa da origem da página.
+  const url = new URL(`${BASE_URL}${path}`, globalThis.location?.origin)
   for (const [key, value] of Object.entries(options.params ?? {})) {
     url.searchParams.set(key, value)
   }

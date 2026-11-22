@@ -205,6 +205,22 @@ Undo is `DELETE /api/transactions/{id}`.
 |--------|----------|-------------|
 | POST | `/api/integration/telegram-webhook` | Telegram updates, validated by `X-Telegram-Bot-Api-Secret-Token` |
 
+## Testar o PWA no iPhone (local)
+
+Antes de qualquer deploy, a mudança é validada no Mac:
+
+```bash
+scripts/dev-pwa.sh
+```
+
+O script cria um banco separado (`money_flow_pwa`), sobe backend e frontend, cria um usuário de demonstração com
+contas e categorias e abre um túnel HTTPS (ngrok), porque o iPhone só libera o microfone em HTTPS. Ele imprime o link e
+o login. No iPhone: Safari → link → "Visit Site" → entrar → tocar no microfone. Para o ícone: Compartilhar → Adicionar
+à Tela de Início. Ctrl+C derruba tudo.
+
+Precisa de Postgres local rodando, `npm ci` em `frontend/`, ngrok autenticado e `OPENAI_API_KEY` no `.env`.
+`scripts/verify/capture-e2e.sh` repete o fluxo inteiro num Chrome sem janela com microfone simulado.
+
 ## Backups
 
 Backups are **encrypted** with [age](https://age-encryption.org): `ops/backup-db.sh` pipes `pg_dump` straight into `age`, and only the public key lives on the VPS, so whoever has the server can create backups but not read them.

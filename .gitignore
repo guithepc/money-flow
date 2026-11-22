@@ -48,3 +48,4 @@ application-local.properties
 application-local.yml
 *.log
 .env
+.dev-logs/
