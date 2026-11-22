@@ -7,7 +7,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface OwnerService {
+    //---- Also seeds the base categories (Portuguese, the dashboard's language), like the bot onboarding does.
     Optional<Integer> registerOwner(String name, String email, String pass, String acceptedTermsVersion);
+
+    //---- On login: an owner with no categories yet (web sign-up before they were seeded) gets the base ones,
+    //---- in the bot language they chose or Portuguese.
+    void ensureBaseCategories(Integer ownerId);
 
     OwnerProfileDTO getProfile(Integer ownerId);
 

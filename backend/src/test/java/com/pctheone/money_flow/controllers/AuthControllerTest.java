@@ -64,6 +64,33 @@ public class AuthControllerTest {
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
+    //---- Login: an older web account with no categories gets the base ones (PWA without Telegram).
+
+    @Test
+    void loginEnsuresTheBaseCategories() throws Exception {
+        Mockito.when(authService.authenticate("web@example.com", "Senha-forte-123")).thenReturn(Optional.of(8));
+
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\": \"web@example.com\", \"password\": \"Senha-forte-123\"}"))
+                .andExpect(status().isOk());
+
+        Mockito.verify(ownerService).ensureBaseCategories(8);
+    }
+
+    @Test
+    void wrongPasswordSeedsNothing() throws Exception {
+        Mockito.when(authService.authenticate(ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(Optional.empty());
+
+        try {
+            mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"email\": \"web@example.com\", \"password\": \"errada\"}"));
+        } catch (Exception ignored) {
+            //---- standalone MockMvc has no exception handler for InvalidCredentialsException
+        }
+
+        Mockito.verify(ownerService, Mockito.never()).ensureBaseCategories(ArgumentMatchers.any());
+    }
+
     //---- Request
 
     @Test

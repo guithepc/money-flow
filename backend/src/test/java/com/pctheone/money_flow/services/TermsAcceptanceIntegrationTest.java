@@ -40,6 +40,7 @@ public class TermsAcceptanceIntegrationTest {
 
     @AfterEach
     void cleanUp() {
+        jdbcTemplate.update("DELETE FROM category WHERE owner_id IN (SELECT owner_id FROM owner WHERE email = ?)", email);
         jdbcTemplate.update("DELETE FROM owner WHERE email = ?", email);
     }
 

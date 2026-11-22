@@ -93,7 +93,7 @@ grep -q "Started MoneyFlowApplication" "$LOGS/backend.log" || fail "Backend demo
 echo "ok em http://localhost:8080"
 
 step "3/5 Usuário de demonstração"
-# Cadastro pelo site ainda não cria contas nem categorias (isso é do onboarding do bot, PCT-82): o seed faz.
+# O cadastro pelo site já cria as categorias base; contas ainda não (PCT-82): o seed cria duas.
 OWNER="$(psql -d "$DB" -tAc "SELECT owner_id FROM owner WHERE email = '$DEMO_EMAIL'")"
 if [[ -z "$OWNER" ]]; then
   DEMO_PASSWORD="demo-$(openssl rand -hex 4)"
@@ -102,11 +102,6 @@ if [[ -z "$OWNER" ]]; then
     || fail "Não consegui cadastrar o usuário de demonstração."
   psql -d "$DB" -v ON_ERROR_STOP=1 -q <<SQL
 UPDATE owner SET onboarding_step = 'DONE', language = 'pt' WHERE email = '$DEMO_EMAIL';
-INSERT INTO category (owner_id, description, type)
-SELECT owner_id, d, t::category_type FROM owner,
-  (VALUES ('Mercado','EXPENSE'), ('Restaurantes','EXPENSE'), ('Transporte','EXPENSE'), ('Casa','EXPENSE'),
-          ('Salário','INCOME'), ('Renda extra','INCOME')) v(d, t)
-WHERE email = '$DEMO_EMAIL';
 INSERT INTO account (owner_id, description, balance, currency)
 SELECT owner_id, d, b, 'BRL' FROM owner, (VALUES ('Nubank', 500), ('Inter', 1000)) v(d, b)
 WHERE email = '$DEMO_EMAIL';

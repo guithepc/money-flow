@@ -14,6 +14,7 @@ import com.pctheone.money_flow.repositories.OwnerRepository;
 import com.pctheone.money_flow.repositories.RecurringPaymentRepository;
 import com.pctheone.money_flow.repositories.TransactionsRepository;
 import com.pctheone.money_flow.services.AuthService;
+import com.pctheone.money_flow.services.CategoryService;
 import com.pctheone.money_flow.services.OwnerService;
 import com.pctheone.money_flow.services.telegram.BotMessages;
 import com.pctheone.money_flow.services.telegram.TelegramReplySender;
@@ -49,6 +50,9 @@ public class OwnerServiceImpl implements OwnerService {
     AuthService authService;
 
     @Autowired
+    CategoryService categoryService;
+
+    @Autowired
     com.pctheone.money_flow.config.AdminAccess adminAccess;
 
     @Autowired
@@ -70,6 +74,7 @@ public class OwnerServiceImpl implements OwnerService {
     BotMessages messages;
 
     @Override
+    @Transactional
     public Optional<Integer> registerOwner(String name, String email, String pass, String acceptedTermsVersion) {
         requireCurrentTerms(acceptedTermsVersion);
         PasswordPolicy.check(pass);
@@ -78,7 +83,18 @@ public class OwnerServiceImpl implements OwnerService {
             throw new InvalidCredentialsException("Email already registered");
         }
 
-        return authService.register(name, email, pass, acceptedTermsVersion);
+        Optional<Integer> ownerId = authService.register(name, email, pass, acceptedTermsVersion);
+        ownerId.ifPresent(id -> categoryService.seedBaseCategories(id, LanguageEnum.PT));
+        return ownerId;
+    }
+
+    @Override
+    public void ensureBaseCategories(Integer ownerId) {
+        LanguageEnum language = ownerRepository.findById(ownerId)
+                .map(owner -> LanguageEnum.fromCode(owner.getLanguage()))
+                .orElse(null);
+        if (categoryService.seedBaseCategoriesIfNone(ownerId, language == null ? LanguageEnum.PT : language))
+            log.info("Base categories seeded on login for owner {}", ownerId);
     }
 
     @Override

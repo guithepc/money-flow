@@ -114,7 +114,7 @@ public class OnboardingServiceTest {
 
         Assertions.assertEquals("en", owner.getLanguage());
         Assertions.assertEquals(OnboardingStepEnum.ACCOUNT, owner.getOnboardingStep());
-        Mockito.verify(categoryService).seedBaseCategories(OWNER_ID, LanguageEnum.EN);
+        Mockito.verify(categoryService).seedBaseCategoriesIfNone(OWNER_ID, LanguageEnum.EN);
         Mockito.verify(telegramApiClient).sendMessage(CHAT_ID, en("onboarding.account.question"));
     }
 
@@ -123,7 +123,7 @@ public class OnboardingServiceTest {
         service.handleCallback(OWNER_ID, CHAT_ID, "lang:pt", "pt-br");
         service.handleCallback(OWNER_ID, CHAT_ID, "lang:pt", "pt-br");
 
-        Mockito.verify(categoryService, Mockito.times(1)).seedBaseCategories(OWNER_ID, LanguageEnum.PT);
+        Mockito.verify(categoryService, Mockito.times(1)).seedBaseCategoriesIfNone(OWNER_ID, LanguageEnum.PT);
         Mockito.verify(telegramApiClient, Mockito.times(1)).sendMessage(CHAT_ID, pt("onboarding.account.question"));
     }
 
@@ -629,7 +629,7 @@ public class OnboardingServiceTest {
 
         Assertions.assertEquals(OnboardingStepEnum.DONE, owner.getOnboardingStep());
         Assertions.assertEquals("en", owner.getLanguage());
-        Mockito.verify(categoryService).seedBaseCategories(OWNER_ID, LanguageEnum.EN);
+        Mockito.verify(categoryService).seedBaseCategoriesIfNone(OWNER_ID, LanguageEnum.EN);
         Mockito.verify(telegramApiClient).sendMessage(CHAT_ID, en("onboarding.cancelled"));
     }
 

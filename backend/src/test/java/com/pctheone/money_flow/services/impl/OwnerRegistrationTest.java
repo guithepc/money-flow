@@ -2,7 +2,9 @@ package com.pctheone.money_flow.services.impl;
 
 import com.pctheone.money_flow.exceptions.WeakPasswordException;
 import com.pctheone.money_flow.repositories.OwnerRepository;
+import com.pctheone.money_flow.enums.LanguageEnum;
 import com.pctheone.money_flow.services.AuthService;
+import com.pctheone.money_flow.services.CategoryService;
 import com.pctheone.money_flow.utils.LegalTerms;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -15,6 +17,7 @@ public class OwnerRegistrationTest {
 
     OwnerRepository ownerRepository = Mockito.mock(OwnerRepository.class);
     AuthService authService = Mockito.mock(AuthService.class);
+    CategoryService categoryService = Mockito.mock(CategoryService.class);
 
     @Test
     void weakPasswordIsRejectedBeforeAnythingIsSaved() {
@@ -32,12 +35,15 @@ public class OwnerRegistrationTest {
         Mockito.when(authService.register(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(Optional.of(1));
 
         Assertions.assertEquals(Optional.of(1), service().registerOwner("G", "g@example.com", "12345678", LegalTerms.CURRENT_VERSION));
+        //---- Web sign-up gets the same base categories as the bot onboarding (PWA without Telegram).
+        Mockito.verify(categoryService).seedBaseCategories(1, LanguageEnum.PT);
     }
 
     private OwnerServiceImpl service() {
         OwnerServiceImpl service = new OwnerServiceImpl();
         service.ownerRepository = ownerRepository;
         service.authService = authService;
+        service.categoryService = categoryService;
         return service;
     }
 }

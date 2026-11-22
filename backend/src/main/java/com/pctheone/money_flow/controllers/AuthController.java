@@ -72,6 +72,7 @@ public class AuthController {
     public ResponseEntity<LoginResponseDTO> login (@RequestBody LoginRequestDTO loginRequestDTO, HttpServletRequest request){
         log.info("Login requested.");
         Integer ownerId = authService.authenticate(loginRequestDTO.getEmail(), loginRequestDTO.getPassword()).orElseThrow(() -> new InvalidCredentialsException("Invalid credentials"));
+        ownerService.ensureBaseCategories(ownerId);
         return startSession(ownerId, request);
     }
 
